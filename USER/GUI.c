@@ -56,6 +56,8 @@
 #include "font.h" 
 #include "delay.h"
 #include "gui.h"
+#include "icons_24x24.h"
+#include "arial_digits_flash.h"
 
 /*******************************************************************
  * @name       :void GUI_DrawPoint(u16 x,u16 y,u16 color)
@@ -685,7 +687,7 @@ void GUI_DrawFont32(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode)
 								mode:0-no overlying,1-overlying
  * @retvalue   :None
 ******************************************************************************/	   		   
-void Show_Str(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 mode)
+void Show_Str(u16 x, u16 y, u16 fc, u16 bc, char *str,u8 size,u8 mode)
 {					
 	u16 x0=x;							  	  
   	u8 bHz=0;     //字符或者中文 
@@ -726,11 +728,11 @@ void Show_Str(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 mode)
 			return;  
             bHz=0;//有汉字库    
 			if(size==32)
-			GUI_DrawFont32(x,y,fc,bc,str,mode);	 	
+			GUI_DrawFont32(x,y,fc,bc,(u8*)str,mode);	 	
 			else if(size==24)
-			GUI_DrawFont24(x,y,fc,bc,str,mode);	
+			GUI_DrawFont24(x,y,fc,bc,(u8*)str,mode);	
 			else
-			GUI_DrawFont16(x,y,fc,bc,str,mode);
+			GUI_DrawFont16(x,y,fc,bc,(u8*)str,mode);
 				
 	        str+=2; 
 	        x+=size;//下一个汉字偏移	    
@@ -755,7 +757,7 @@ void Gui_StrCenter(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 mode)
 {
 	u16 len=strlen((const char *)str);
 	u16 x1=(lcddev.width-len*8)/2;
-	Show_Str(x1,y,fc,bc,str,size,mode);
+	Show_Str(x1,y,fc,bc,(char *)str,size,mode);
 } 
  
 /*****************************************************************************
@@ -779,4 +781,247 @@ void Gui_Drawbmp16(u16 x,u16 y,const unsigned char *p) //显示40*40 QQ图片
 		Lcd_WriteData_16Bit(picH<<8|picL);  						
 	}	
 	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//恢复显示窗口为全屏	
+}
+
+
+// Add by Benjamin@20260406 Begin
+
+/*****************************************************************************
+ * @name       :void GUI_DrawBigDigit(u16 x, u16 y, u16 fc, u16 bc, u8 digit, u8 font_size)
+ * @date       :2025-03-24
+ * @function   :Display a scaled digit using Arial-style font
+ * @parameters :x:the beginning x coordinate
+ *              y:the beginning y coordinate
+ *              fc:foreground color
+ *              bc:background color
+ *              digit:ASCII digit ('0'-'9' or '.' for decimal point)
+ *              font_size:0=32x64, 1=16x32, 2=12x24
+ * @retvalue   :None
+******************************************************************************/
+void GUI_DrawBigDigit(u16 x, u16 y, u16 fc, u16 bc, u8 digit, u8 font_size)
+{
+	const unsigned char* pattern;
+	u16 row, col;
+	u8 pixelW, pixelH;
+	u16 byteIndex;
+	u8 bitMask;
+	u16 width, height, bytes_per_row;
+
+	/* Select pattern and size based on font_size */
+	if(font_size == 0)  /* 32x64 */
+	{
+		width = ARIAL_32X64_WIDTH;
+		height = ARIAL_32X64_HEIGHT;
+		bytes_per_row = ARIAL_32X64_BYTES_PER_ROW;
+		if(digit >= '0' && digit <= '9')
+		{
+			pattern = arial_32x64_digits[digit - '0'];
+		}
+		else
+		{
+			return;
+		}
+	}
+	else if(font_size == 1)  /* 16x32 */
+	{
+		width = ARIAL_16X32_WIDTH;
+		height = ARIAL_16X32_HEIGHT;
+		bytes_per_row = ARIAL_16X32_BYTES_PER_ROW;
+		if(digit >= '0' && digit <= '9')
+		{
+			pattern = arial_16x32_digits[digit - '0'];
+		}
+		else
+		{
+			return;
+		}
+	}
+	else  /* 12x24 for decimal point */
+	{
+		width = ARIAL_12X24_WIDTH;
+		height = ARIAL_12X24_HEIGHT;
+		bytes_per_row = ARIAL_12X24_BYTES_PER_ROW;
+		if(digit == '.')
+		{
+			LCD_Fill(x + 3, y + 16, x + 9, y + 22, fc);
+			return;
+		}
+		else if(digit >= '0' && digit <= '9')
+		{
+			pattern = arial_12x24_digits[digit - '0'];
+		}
+		else
+		{
+			return;
+		}
+	}
+
+	pixelW = 1;
+	pixelH = 1;
+
+	for(row = 0; row < height; row++)
+	{
+		for(col = 0; col < width; col++)
+		{
+			byteIndex = row * bytes_per_row + (col / 8);
+			bitMask = 0x80 >> (col % 8);
+
+			if(pattern[byteIndex] & bitMask)
+			{
+				LCD_Fill(x + col*pixelW, y + row*pixelH,
+				         x + (col+1)*pixelW - 1, y + (row+1)*pixelH - 1, fc);
+			}
+			else
+			{
+				LCD_Fill(x + col*pixelW, y + row*pixelH,
+				         x + (col+1)*pixelW - 1, y + (row+1)*pixelH - 1, bc);
+			}
+		}
+	}
+}
+
+/*****************************************************************************
+ * @name       :void GUI_DrawMonoIcon32x32(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+ * @date       :2025-04-10
+ * @function   :Display a 32x32 1-bit monochrome icon at specified position
+ * @parameters :x:the beginning x coordinate
+ *              y:the beginning y coordinate
+ *              fc:foreground color (for '1' bits)
+ *              bc:background color (for '0' bits)
+ *				bitmap:the start address of 1-bit monochrome bitmap (128 bytes)
+ * @retvalue   :None
+ * @note       :Bitmap format: MSB first, 4 bytes per row (32 bits), 32 rows total
+******************************************************************************/
+void GUI_DrawMonoIcon32x32(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	u16 byteIndex;
+	u8 bitMask;
+
+	for(row = 0; row < 32; row++)
+	{
+		for(col = 0; col < 32; col++)
+		{
+			byteIndex = row * 4 + (col / 8);  // 3 bytes per row
+			bitMask = 0x80 >> (col % 8);       // MSB first
+
+			if(bitmap[byteIndex] & bitMask)
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, fc);  // Foreground pixel
+			}
+			else
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, bc);  // Background pixel
+			}
+		}
+	}
+}
+
+/*****************************************************************************
+ * @name       :void GUI_DrawMonoIcon24x24(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+ * @date       :2025-04-01
+ * @function   :Display a 24x24 1-bit monochrome icon at specified position
+ * @parameters :x:the beginning x coordinate
+ *              y:the beginning y coordinate
+ *              fc:foreground color (for '1' bits)
+ *              bc:background color (for '0' bits)
+ *				bitmap:the start address of 1-bit monochrome bitmap (72 bytes)
+ * @retvalue   :None
+ * @note       :Bitmap format: MSB first, 3 bytes per row (24 bits), 24 rows total
+******************************************************************************/
+void GUI_DrawMonoIcon24x24(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	u16 byteIndex;
+	u8 bitMask;
+
+	for(row = 0; row < 24; row++)
+	{
+		for(col = 0; col < 24; col++)
+		{
+			byteIndex = row * 3 + (col / 8);  // 3 bytes per row
+			bitMask = 0x80 >> (col % 8);       // MSB first
+
+			if(bitmap[byteIndex] & bitMask)
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, fc);  // Foreground pixel
+			}
+			else
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, bc);  // Background pixel
+			}
+		}
+	}
+}
+
+/*****************************************************************************
+ * @name       :void GUI_DrawMonoIcon16x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+ * @date       :2025-04-01
+ * @function   :Display a 16x16 1-bit monochrome icon at specified position
+ * @parameters :x:the beginning x coordinate
+ *              y:the beginning y coordinate
+ *              fc:foreground color (for '1' bits)
+ *              bc:background color (for '0' bits)
+ *				bitmap:the start address of 1-bit monochrome bitmap (32 bytes)
+ * @retvalue   :None
+ * @note       :Bitmap format: MSB first, 2 bytes per row (16 bits), 16 rows total
+******************************************************************************/
+void GUI_DrawMonoIcon16x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	u16 byteIndex;
+	u8 bitMask;
+
+	for(row = 0; row < 16; row++)
+	{
+		for(col = 0; col < 16; col++)
+		{
+			byteIndex = row * 2 + (col / 8);  // 2 bytes per row
+			bitMask = 0x80 >> (col % 8);       // MSB first
+
+			if(bitmap[byteIndex] & bitMask)
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, fc);  // Foreground pixel
+			}
+			else
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, bc);  // Background pixel
+			}
+		}
+	}
+}
+
+/*****************************************************************************
+ * @name       :void GUI_DrawMonoIcon8x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+ * @date       :2025-03-31
+ * @function   :Display a 8x16 1-bit monochrome icon at specified position
+ * @parameters :x:the beginning x coordinate
+ *              y:the beginning y coordinate
+ *              fc:foreground color (for '1' bits)
+ *              bc:background color (for '0' bits)
+ *				bitmap:the start address of 1-bit monochrome bitmap (16 bytes)
+ * @retvalue   :None
+ * @note       :Bitmap format: MSB first, 1 byte per row (8 bits), 16 rows total
+******************************************************************************/
+void GUI_DrawMonoIcon8x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	u8 bitMask;
+	
+	for(row = 0; row < 16; row++)
+	{
+		for(col = 0; col < 8; col++)
+		{
+			bitMask = 0x80 >> (col % 8);  // MSB first
+			
+			if(bitmap[row] & bitMask)
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, fc);  // Foreground pixel
+			}
+			else
+			{
+				LCD_Fill(x + col, y + row, x + col, y + row, bc);  // Background pixel
+			}
+		}
+	}
 }
