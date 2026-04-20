@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------------------------------
-//                                                                                                         
-// Copyright(c) 2026 E-Poly Technology Co., Ltd. All rights reserved.                                           
-//                                                                                                         
+//
+// Copyright(c) 2026 E-Poly Technology Co., Ltd. All rights reserved.
+//
 //---------------------------------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------------------------------------
@@ -15,8 +15,8 @@
 // File Function: Thermostat project base header file
 //---------------------------------------------------------------------------------------------------------
 
-#ifndef _THERMOSTAT_H 
-#define _THERMOSTAT_H 
+#ifndef _THERMOSTAT_H
+#define _THERMOSTAT_H
 
 // Key definitions
 #define UP_KEY_PIN    GPIO_Pin_0   // PA0
@@ -27,16 +27,16 @@
 #define ENTER_KEY_PORT   GPIOA
 
 // State definitions
-#define STATE_ACTIVE    0   // Active î‘B£ºLCM initialÍê³Éáá£¬±³¹â90%
-#define STATE_SLEEP     1   // Sleep î‘B£º10ÃëŸo°´æI£¬±³¹â30%
-#define STATE_SETTING   2   // Setting î‘B£ºActiveÏÂ°´æIÓ|°l£¬¿ÉÕ{Õû”µ×Ö
-#define STATE_FUNC_SETTING 3 // Function Setting î‘B£º¼tÉ«ManuÏÂ°´EnterßMÈë
-#define STATE_FUNC_SETTING_EDIT 4 // Function Settingßxí—¾ŽÝ‹Ä£Ê½£ºEdit¼tÉ«•r°´EnterßMÈë
-#define STATE_HEATING_SCHEDULE_MENU 5 // Heating Schedule Menuí“Ãæ£ºFunction SettingÖÐHeating Schedule EnterßMÈë
-#define STATE_HEATING_SCHEDULE_PROG_TYPE 6 // Heating Schedule Menu -> Program Type Enter : Program Typeí“Ãæ
-#define STATE_SCHEDULE_EDIT 7 // Schedule Edití“Ãæ£ºHeating Schedule MenuÖÐWeekly Schedule EnterßMÈë
-#define STATE_SCHEDULE_TIME_SETTING 8 // Schedule Time Settingí“Ãæ£ºP1~P6 EnterßMÈë
-#define STATE_CONTROL_ADJ_MENU 9     // Control Adj Menu Page£ºFunction SettingÖÐControl Adj Enter
+#define STATE_ACTIVE    0   // Activeï¿½ï¿½Bï¿½ï¿½LCM initialï¿½ï¿½ï¿½ï¿½á£¬ï¿½ï¿½ï¿½ï¿½90%
+#define STATE_SLEEP     1   // Sleepï¿½ï¿½Bï¿½ï¿½10ï¿½ï¿½oï¿½ï¿½ï¿½Iï¿½ï¿½ï¿½ï¿½ï¿½ï¿½30%
+#define STATE_SETTING   2   // Settingï¿½ï¿½Bï¿½ï¿½Activeï¿½Â°ï¿½ï¿½Iï¿½|ï¿½lï¿½ï¿½ï¿½ï¿½ï¿½{ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+#define STATE_FUNC_SETTING 3 // Function Settingï¿½ï¿½Bï¿½ï¿½ï¿½tÉ«Manuï¿½Â°ï¿½Enterï¿½Mï¿½ï¿½
+#define STATE_FUNC_SETTING_EDIT 4 // Function Settingï¿½xí—¾ï¿½Ý‹Ä£Ê½ï¿½ï¿½Editï¿½tÉ«ï¿½rï¿½ï¿½Enterï¿½Mï¿½ï¿½
+#define STATE_HEATING_SCHEDULE_MENU 5 // Heating Schedule Menuï¿½ï¿½æ£ºFunction Settingï¿½ï¿½Heating Schedule Enterï¿½Mï¿½ï¿½
+#define STATE_HEATING_SCHEDULE_PROG_TYPE 6 // Heating Schedule Menu -> Program Type Enter : Program Typeï¿½ï¿½ï¿½
+#define STATE_SCHEDULE_EDIT 7 // Schedule Editï¿½ï¿½æ£ºHeating Schedule Menuï¿½ï¿½Weekly Schedule Enterï¿½Mï¿½ï¿½
+#define STATE_SCHEDULE_TIME_SETTING 8 // Schedule Time Settingï¿½ï¿½æ£ºP1~P6 Enterï¿½Mï¿½ï¿½
+#define STATE_CONTROL_ADJ_MENU 9     // Control Adj Menu Pageï¿½ï¿½Function Settingï¿½ï¿½Control Adj Enter
 #define STATE_CONTROL_ADJ_SENSOR 10 // Control Adj Menu -> Sensor Enter : Sensor Setting Page
 #define STATE_CONTROL_ADJ_TEMP_CORRECT 11 // Control Adj Menu -> Temp. Correct Enter : Temp. Correct Setting Page
 #define STATE_CONTROL_ADJ_TEMP_LIMIT 12		// Control Adj Menu -> Temp. Limit Enter : Temp. Limit Setting Page
@@ -60,6 +60,7 @@
 
 
 #include "stm32f10x_gpio.h"
+#include "stm32f10x_usart.h"
 #include "pwm.h"
 #include "UI.h"
 #include "lcd.h"
@@ -68,29 +69,46 @@
 #include <stdio.h>
 #include <string.h>
 #include "delay.h"
+#include "Peripheral.h"
 #include "icons_32x32.h"
 #include "icons_24x24.h"
 #include "icons_16x16.h"
 #include "icons_8x16.h"
 #include "arial_digits_flash.h"
+#include "rtc_driver.h"
 
 #define			u8					uint8_t
 #define			u16					uint16_t
 #define			u32					uint32_t
 
-typedef struct
-{
-		uint8_t		Year;
-		uint8_t		Mon;												
-		uint8_t 	Date;
-		uint8_t 	Hour;
-		uint8_t		Min;
-		uint8_t		Sec;
-} rtc_time_t;
+#define			DEBUG_LOG_ON															(1)
+
+#if DEBUG_LOG_ON
+
+    #define LOGD(...) \
+    { \
+            printf("[Inf] "__VA_ARGS__); \
+    }
+
+    #define LOGE(...) \
+    { \
+            printf("[Err] "__VA_ARGS__); \
+    }
+#else
+#define LOGD(...)
+#define LOGE(...)
+#endif
+
+void my_RTC_Init(void);
+void Key_Init(void);
+void Backlight_Init(void);
+void Backlight_SetDuty(uint8_t duty_percent);
+uint8_t Key_Scan(void);
+void Log_USART_Init(void);
 
 extern float setting_number;
 extern rtc_time_t rtc_time;
-extern uint8_t key;													
+extern uint8_t key;
 
 #endif
 

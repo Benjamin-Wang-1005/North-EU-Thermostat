@@ -22,9 +22,8 @@
 
 
 // Function prototypes
-void Key_Init(void);
-void Backlight_Init(void);
-void Backlight_SetDuty(uint8_t duty_percent);
+
+
 uint8_t Key_Scan(void);
 void Display_Number(float number, uint16_t color, uint8_t show_decimal);
 void Clear_Number_Area(void);
@@ -51,14 +50,13 @@ rtc_time_t rtc_time;
 
 int main(void)
 {
+	
 
 	SystemInit();        // Initialize RCC, system clock to 72MHZ
 	delay_init(72);	     // Delay initialization
-	LCD_Init();	         // LCD initialization
-	Key_Init();          // Key initialization
 	Backlight_Init();    // Backlight PWM initialization
 	Backlight_SetDuty(0); 	//close LCM at initial
-
+	LCD_Init();	         // LCD initialization
 	// Set rotation to 90 degrees
 	LCD_direction(1);
 
@@ -67,8 +65,13 @@ int main(void)
 
 	// Display static elements (time, icons)
 	Draw_Active_Menu();
+	Log_USART_Init();
+	my_RTC_Init();			 //Read RTC Time
+	Key_Init();          // Key initialization
 	
-
+	
+	
+	LOGD("-----------------  Program Start --------------------------\n\r");
 	// Main loop
 	while(1)
 	{
@@ -82,94 +85,10 @@ int main(void)
 		
 }
 
-// Initialize GPIO for keys
-void Key_Init(void)
-{
-	GPIO_InitTypeDef GPIO_InitStructure;
-
-	// Enable clocks
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOC, ENABLE);
-
-	// PA0 - Up Key (Input with pull-down)
-	GPIO_InitStructure.GPIO_Pin = UP_KEY_PIN;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;  // Input pull-down
-	GPIO_Init(UP_KEY_PORT, &GPIO_InitStructure);
-
-	// PC13 - Down Key (Input with pull-down)
-	GPIO_InitStructure.GPIO_Pin = DOWN_KEY_PIN;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;  // Input pull-down
-	GPIO_Init(DOWN_KEY_PORT, &GPIO_InitStructure);
-
-	// PA4 - Enter Key (Input with pull-down)
-	GPIO_InitStructure.GPIO_Pin = ENTER_KEY_PIN;
-	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;  // Input pull-down
-	GPIO_Init(ENTER_KEY_PORT, &GPIO_InitStructure);
-}
 
 
 
-// Scan keys
-// Return: 0 = no key, 1 = Up key, 2 = Down key, 3 = Enter key
-uint8_t Key_Scan(void)
-{
-	static uint8_t key_up = 1;  // Key release flag
-	static uint8_t key_release_cnt = 0;  // Key release debounce counter
 
-	if(key_up)
-	{
-		if(GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 1)
-		{
-			delay_ms(5);  // Debounce (reduced from 10ms)
-			if(GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 1)
-			{
-				key_up = 0;
-				key_release_cnt = 0;
-				return 1;  // Up key pressed
-			}
-		}
-		else if(GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 1)
-		{
-			delay_ms(5);  // Debounce (reduced from 10ms)
-			if(GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 1)
-			{
-				key_up = 0;
-				key_release_cnt = 0;
-				return 2;  // Down key pressed
-			}
-		}
-		else if(GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 1)
-		{
-			delay_ms(5);  // Debounce (reduced from 10ms)
-			if(GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 1)
-			{
-				key_up = 0;
-				key_release_cnt = 0;
-				return 3;  // Enter key pressed
-			}
-		}
-	}
-	else
-	{
-		// Wait for key release with debounce
-		if(GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 0 &&
-		   GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 0 &&
-		   GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 0)
-		{
-			key_release_cnt++;
-			if(key_release_cnt >= 3)  // Require 3 consecutive scans to confirm release
-			{
-				key_up = 1;
-				key_release_cnt = 0;
-			}
-		}
-		else
-		{
-			key_release_cnt = 0;
-		}
-	}
-
-	return 0;  // No key
-}
 
 
 

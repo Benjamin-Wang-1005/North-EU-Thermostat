@@ -139,11 +139,11 @@ void Draw_Active_Menu(void)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		
-		rtc_time.Hour = 10;				//For test
-		rtc_time.Min = 32;				//For test
-		rtc_time.Year = 26;
-		rtc_time.Mon = 01;
-		rtc_time.Date = 01;
+		//rtc_time.Hour = 10;				//For test
+		//rtc_time.Min = 32;				//For test
+		//rtc_time.Year = 26;
+		//rtc_time.Mon = 01;
+		//rtc_time.Date = 01;
 		
 		GUI_DrawBigDigit(5, 5, BLACK, WHITE, (rtc_time.Hour/10)+0x30 , 1);
 		GUI_DrawBigDigit(21, 5, BLACK, WHITE, (rtc_time.Hour%10)+0x30, 1);
@@ -342,9 +342,9 @@ void Draw_TopBar(uint8_t leave_col, uint8_t edit_col)
 			}
 			
 			if(edit_col){
-					GUI_DrawMonoIcon16x16(144, 5, RED, WHITE, Icon16x16_Edit);  // Edit red
+					GUI_DrawMonoIcon16x16(140, 5, RED, WHITE, Icon16x16_Edit);  // Edit red
 			}else{
-					GUI_DrawMonoIcon16x16(144, 5, BLACK, WHITE, Icon16x16_Edit);  // Edit black
+					GUI_DrawMonoIcon16x16(140, 5, BLACK, WHITE, Icon16x16_Edit);  // Edit black
 			}
 	
 }
