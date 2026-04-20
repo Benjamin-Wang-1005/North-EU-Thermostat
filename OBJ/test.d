@@ -34,4 +34,7 @@
 ..\obj\test.o: ..\USER\gui.h
 ..\obj\test.o: ..\USER\test.h
 ..\obj\test.o: ..\USER\icons.h
+..\obj\test.o: ..\USER\icons_32x32.h
+..\obj\test.o: ..\USER\icons_8x16.h
+..\obj\test.o: ..\USER\icons_24x24.h
 ..\obj\test.o: ..\USER\arial_digits_flash.h

@@ -173,7 +173,7 @@ void RTC_GetDefaultTime(rtc_time_t *time)
 {
     if (time != NULL)
     {
-        time->Year = 2026; // 2026 (full year)
+        time->Year = 26;   // 2026
         time->Mon = 1;     // January
         time->Date = 1;    // 1st
         time->Hour = 0;    // 00:00:00
@@ -216,8 +216,8 @@ uint8_t RTC_ReadTime(rtc_time_t *time)
     time->Min = seconds / 60;
     time->Sec = seconds % 60;
     
-    // Calculate date (starting from 1970-01-01 - Unix epoch)
-    year = 1970;
+    // Calculate date (starting from 2000-01-01)
+    year = 2000;
     while (days >= 365)
     {
         // Check for leap year
@@ -240,7 +240,7 @@ uint8_t RTC_ReadTime(rtc_time_t *time)
         }
     }
     
-    time->Year = year; // Store full year (1970-2099)
+    time->Year = (uint8_t)(year - 2000); // Store as offset from 2000
     
     // Calculate month and day
     for (month = 0; month < 12; month++)
@@ -286,17 +286,17 @@ uint8_t RTC_SetTime(rtc_time_t *time)
         return RTC_ERROR;
     }
     
-    // Validate input (Year: 1970-2099)
-    if (time->Year < 1970 || time->Year > 2099 || time->Mon < 1 || time->Mon > 12 || 
+    // Validate input
+    if (time->Year > 99 || time->Mon < 1 || time->Mon > 12 || 
         time->Date < 1 || time->Date > 31 ||
         time->Hour > 23 || time->Min > 59 || time->Sec > 59)
     {
         return RTC_ERROR;
     }
     
-    // Calculate days from 1970 to target year (Unix epoch)
-    year = time->Year;
-    for (y = 1970; y < year; y++)
+    // Calculate days from 2000 to target year
+    year = 2000 + time->Year;
+    for (y = 2000; y < year; y++)
     {
         if ((y % 4 == 0 && y % 100 != 0) || (y % 400 == 0))
         {

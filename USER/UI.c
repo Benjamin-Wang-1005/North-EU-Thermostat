@@ -509,6 +509,7 @@ void UI_Update(void)
 
 					// Set backlight to 20%
 					Backlight_SetDuty(sleep_backlight_duty);
+					LOGD("SET Backlight\n\r");
 				}
 			}
 	}

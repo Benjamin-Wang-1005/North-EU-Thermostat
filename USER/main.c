@@ -66,7 +66,7 @@ int main(void)
 	// Display static elements (time, icons)
 	Draw_Active_Menu();
 	Log_USART_Init();
-	my_RTC_Init();			 //Read RTC Time
+	//my_RTC_Init();			 //Read RTC Time
 	Key_Init();          // Key initialization
 	
 	

@@ -34,3 +34,5 @@
 ..\obj\gui.o: ..\HARDWARE\LCD\font.h
 ..\obj\gui.o: ..\SYSTEM\delay\delay.h
 ..\obj\gui.o: ..\USER\gui.h
+..\obj\gui.o: ..\USER\icons_24x24.h
+..\obj\gui.o: ..\USER\arial_digits_flash.h
