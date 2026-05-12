@@ -18,6 +18,7 @@
 #ifndef __UI_H 
 #define __UI_H 
 #include <stdint.h>
+#include "rtc_driver.h"
 
 #define		MAX_SET_TEMP														(45)
 
@@ -29,20 +30,58 @@ typedef enum{
 		Temperature
 } set_time_t;
 
+typedef struct{
+		float temp_correct_internal;						//4 Bytes
+		float temp_correct_external;						//4 Bytes
+		int	temp_limit_max;											//4 Bytes
+		int temp_limit_min;											//4 Bytes
+		int 	temp_protect_max;									//4 Bytes
+		int		temp_protect_min;									//4 Bytes
+		int		setting_number;										//4 Bytes
+		int		room_temp;												//4 Bytes
+		unsigned char  temp_protect_max_switch;
+		unsigned char  temp_protect_min_switch;
+		unsigned char  power_on_state;
+		unsigned char  window_fun;
+		unsigned char  window_fun_temp;
+		unsigned char  window_fun_time;
+		unsigned char  sleep_backlight_duty;
+		unsigned char  child_lock;
+		unsigned char  pin_code[4];  // 4-digit PIN code for child lock
+		unsigned char  current_prog_type;
+		unsigned char  relay_staty;
+		unsigned char  operation_mode;
+		unsigned char  sensor_type;
+		unsigned char  power_limit;
+		unsigned char  power_limit_switch;
+		unsigned char  temp_diff;
+		unsigned char  comfort_mode;
+		unsigned char  floor_material;
+		unsigned char  workday_schedule[6][4];
+		unsigned char  holiday_schedule[6][4];
+}g_parameter_t;
+
+enum
+{
+    Display_Room_Temp = 0,
+    Display_Setting_Temp
+};
+
+extern g_parameter_t g_parameter;
 
 extern uint8_t current_prog_type;
 extern uint8_t	Top_Bar_Active;
 extern uint8_t schedule_edit_scroll;
 extern uint8_t schedule_edit_source;
 extern uint8_t item_selection;
-extern uint8_t schedule_settings[6][4];
-extern uint8_t schedule_settings_restday[6][4];
-extern uint8_t schedule_time_edit_hour;        // 小時 (0-23)
-extern uint8_t schedule_time_edit_min;        // 分 (0-59)
-extern uint8_t schedule_time_edit_temp;       // 溫度 (0-45)
-extern uint8_t schedule_time_on_off;           // ON/OFF狀態: 0=OFF, 1=ON
-extern uint8_t control_adj_menu_scroll;				// 捲動偏移: 0=show row0-3, 1=show row1-4
-extern uint8_t current_sensor_type;          // 儲存設定: 0=Room, 1=Floor (default Room)
+//extern uint8_t schedule_settings[6][4];
+//extern uint8_t schedule_settings_restday[6][4];
+extern uint8_t schedule_time_edit_hour;        // (0-23)
+extern uint8_t schedule_time_edit_min;        // (0-59)
+extern uint8_t schedule_time_edit_temp;       // (0-45)
+extern uint8_t schedule_time_on_off;           //  0=OFF, 1=ON
+extern uint8_t control_adj_menu_scroll;				// 0=show row0-3, 1=show row1-4
+extern uint8_t current_sensor_type;          // 0=Room, 1=Floor (default Room)
 extern float temp_correct_internal;    			 // Internal sensor correct num
 extern float temp_correct_external;					 // External sensor correct num
 extern int	 temp_limit_max;
@@ -55,10 +94,27 @@ extern uint8_t UI_state;
 extern uint8_t power_on_state;
 extern uint8_t user_setting_menu_scroll;
 extern uint8_t child_lock;
+extern uint8_t operation_mode;
 extern uint8_t window_fun;
 extern uint8_t window_fun_temp;
 extern uint8_t window_fun_time;
 extern uint8_t sleep_backlight_duty;
+extern uint8_t icon6_red_state;
+extern uint8_t main_display_digi;
+extern rtc_time_t temp_rtc;
+extern uint8_t old_relay_state;
+extern uint8_t power_limit;
+extern uint8_t power_limit_switch;
+extern uint8_t comfort_mode;
+extern uint8_t floor_material;
+
+// Child Lock PIN code variables
+extern uint8_t pin_code_input[4];      // Current PIN input buffer
+extern uint8_t pin_code_confirm[4];    // PIN confirmation buffer
+extern uint8_t pin_digit_index;        // Current digit index (0-3)
+extern uint8_t pin_setup_stage;        // 0=enter PIN, 1=confirm PIN
+extern uint8_t pin_digit_selected;     // Currently selected digit (0-9) for input
+extern char* week_texts[7];
 
 
 void Draw_Active_Menu(void);
@@ -112,7 +168,25 @@ void Draw_User_Setting_Backlight_Page(uint8_t selection, uint8_t leave_col, uint
 void Draw_User_Setting_Backlight_Content(uint8_t selection);
 void Draw_User_Setting_Reset_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_User_Setting_Reset_Contect(uint8_t selection);
+void Clear_Number_Area(void);
+void Display_Number(float number, uint16_t color, uint8_t show_decimal);
+void Draw_Control_Adj_Power_Limit_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_Power_Limit_Content(uint8_t selection);
+void Draw_Control_Adj_Comfort_Mode_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_Comfort_Mode_Content(uint8_t selection);
+void Draw_Control_Adj_Comfort_Mode_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_Comfort_Mode_Setting_Content(uint8_t selection);
 
+// Child Lock PIN functions
+void Draw_Child_Lock_Pin_Page(uint8_t stage);
+void Draw_Pin_Input_Box(uint8_t* pin_buffer, uint8_t digit_index);
+void Draw_Pin_Digit_Selector(uint8_t selected_digit);
+void Handle_Pin_Input(uint8_t key_val);
+uint8_t Verify_Pin_Code(void);
+void Clear_Pin_Input(void);
+
+// Leave Schedule Mode Confirm dialog
+void Draw_Leave_Schedule_Confirm_Page(uint8_t selection);
 
 #endif
 

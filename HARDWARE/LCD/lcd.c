@@ -51,6 +51,7 @@
   * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
   * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
 **************************************************************************************************/	
+#include "Thermostat.h"
 #include "lcd.h"
 #include "stdlib.h"
 #include "delay.h"	 
@@ -202,9 +203,9 @@ void LCD_GPIOInit(void)
 void LCD_RESET(void)
 {
 	LCD_RST_CLR;
-	delay_ms(100);	
+	my_delay_ms(100);	
 	LCD_RST_SET;
-	delay_ms(50);
+	my_delay_ms(50);
 }
 
 /*****************************************************************************
@@ -221,7 +222,7 @@ void LCD_Init(void)
  	LCD_RESET(); //LCD ∏¥Œª
 //************* ST7735S≥ı ºªØ**********//	
 	LCD_WR_REG(0x11);//Sleep exit 
-	delay_ms (120);	
+	my_delay_ms (120);	
 	//ST7735R Frame Rate
 	LCD_WR_REG(0xB1); 
 	LCD_WR_DATA(0x01); 

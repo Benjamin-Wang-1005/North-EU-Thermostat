@@ -23,6 +23,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_it.h" 
+#include "Thermostat.h"
 
 
  
@@ -77,6 +78,7 @@ void PendSV_Handler(void)
  
 void SysTick_Handler(void)
 {
+		time_tick++;
 }
 
 /******************************************************************************/

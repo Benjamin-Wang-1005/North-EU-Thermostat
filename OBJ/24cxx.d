@@ -30,4 +30,5 @@
 ..\obj\24cxx.o: ..\STM32F10x_FWLib\inc\stm32f10x_tim.h
 ..\obj\24cxx.o: ..\STM32F10x_FWLib\inc\stm32f10x_wwdg.h
 ..\obj\24cxx.o: ..\STM32F10x_FWLib\inc\misc.h
-..\obj\24cxx.o: ..\SYSTEM\delay\delay.h
+..\obj\24cxx.o: ..\USER\Peripheral.h
+..\obj\24cxx.o: C:\Keil_v5\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdio.h

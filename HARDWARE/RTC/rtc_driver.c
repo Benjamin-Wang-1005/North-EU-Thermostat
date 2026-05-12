@@ -19,7 +19,7 @@
 //---------------------------------------------------------------------------------------------------------
 
 #include "rtc_driver.h"
-#include "delay.h"
+#include "Peripheral.h"
 #include <stddef.h>
 
 // Private variables
@@ -91,7 +91,7 @@ uint8_t RTC_Init(void)
         while (RCC_GetFlagStatus(RCC_FLAG_LSERDY) == RESET)
         {
             retry++;
-            delay_ms(10);
+            my_delay_ms(10);
             if (retry > 250) // Timeout after ~2.5 seconds
             {
                 // LSE failed, try LSI as fallback
@@ -101,7 +101,7 @@ uint8_t RTC_Init(void)
                 while (RCC_GetFlagStatus(RCC_FLAG_LSIRDY) == RESET)
                 {
                     retry++;
-                    delay_ms(10);
+                    my_delay_ms(10);
                     if (retry > 100)
                     {
                         return RTC_ERROR; // Both LSE and LSI failed

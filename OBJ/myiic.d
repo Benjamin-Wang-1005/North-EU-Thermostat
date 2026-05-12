@@ -29,4 +29,5 @@
 ..\obj\myiic.o: ..\STM32F10x_FWLib\inc\stm32f10x_tim.h
 ..\obj\myiic.o: ..\STM32F10x_FWLib\inc\stm32f10x_wwdg.h
 ..\obj\myiic.o: ..\STM32F10x_FWLib\inc\misc.h
-..\obj\myiic.o: ..\SYSTEM\delay\delay.h
+..\obj\myiic.o: ..\USER\Peripheral.h
+..\obj\myiic.o: C:\Keil_v5\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdio.h

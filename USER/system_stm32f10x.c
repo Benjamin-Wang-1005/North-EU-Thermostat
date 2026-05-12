@@ -1074,8 +1074,53 @@ static void SetSysClockTo72(void)
     }
   }
   else
-  { /* If HSE fails to start-up, the application will have wrong clock 
-         configuration. User can add here some code to deal with this error */
+  {
+      /* HSE failed to start-up (no external crystal on this board) */
+      /* Fall back to HSI + PLL at 64MHz (HSI/2 * 16 = 4MHz * 16 = 64MHz) */
+
+      /* Turn off HSE to save power */
+      RCC->CR &= ~RCC_CR_HSEON;
+
+      /* Enable Prefetch Buffer */
+      FLASH->ACR |= FLASH_ACR_PRFTBE;
+
+      /* Flash 2 wait states for 64MHz (>48MHz) */
+      FLASH->ACR &= (uint32_t)((uint32_t)~FLASH_ACR_LATENCY);
+      FLASH->ACR |= (uint32_t)FLASH_ACR_LATENCY_2;
+
+      /* HCLK = SYSCLK */
+      RCC->CFGR |= (uint32_t)RCC_CFGR_HPRE_DIV1;
+
+      /* PCLK2 = HCLK */
+      RCC->CFGR |= (uint32_t)RCC_CFGR_PPRE2_DIV1;
+
+      /* PCLK1 = HCLK/2 */
+      RCC->CFGR |= (uint32_t)RCC_CFGR_PPRE1_DIV2;
+
+      /* PLL configuration: PLLCLK = HSI/2 * 16 = 4MHz * 16 = 64MHz */
+      /* PLLSRC=0 selects HSI/2 as PLL input (default after reset) */
+      RCC->CFGR &= (uint32_t)((uint32_t)~(RCC_CFGR_PLLSRC | RCC_CFGR_PLLXTPRE | RCC_CFGR_PLLMULL));
+      RCC->CFGR |= (uint32_t)RCC_CFGR_PLLMULL16;
+
+      /* Enable PLL */
+      RCC->CR |= RCC_CR_PLLON;
+
+      /* Wait till PLL is ready */
+      while((RCC->CR & RCC_CR_PLLRDY) == 0)
+      {
+      }
+
+      /* Select PLL as system clock source */
+      RCC->CFGR &= (uint32_t)((uint32_t)~(RCC_CFGR_SW));
+      RCC->CFGR |= (uint32_t)RCC_CFGR_SW_PLL;
+
+      /* Wait till PLL is used as system clock source */
+      while ((RCC->CFGR & (uint32_t)RCC_CFGR_SWS) != (uint32_t)0x08)
+      {
+      }
+
+      /* Update SystemCoreClock for the fallback frequency */
+      SystemCoreClock = 64000000;
   }
 }
 #endif

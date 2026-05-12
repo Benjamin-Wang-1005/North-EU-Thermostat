@@ -24,17 +24,14 @@
 // Function prototypes
 
 
-uint8_t Key_Scan(void);
-void Display_Number(float number, uint16_t color, uint8_t show_decimal);
-void Clear_Number_Area(void);
-
 void Draw_Main_Page(void);
 
 
 
 // Global variables
-float setting_number = 4.0f;     // 設定數字，初始值 4.0
-uint8_t key;													// key status
+//float setting_number = 4.0f;     	// 設定數字，初始值 4.0
+uint8_t	Relay;								// Output power indicator
+uint8_t Schedule_Period;					// Schedule indicator
 
 
 //RTC Time Default 2026/01/01 00:00:00
@@ -47,38 +44,70 @@ rtc_time_t rtc_time;
 #ifndef RED
 #define RED     0xF800
 #endif
-
+void test_system_tick(void)
+{
+		static uint32_t local_tick;
+		if(0 == g_clock_time_exceed(local_tick, 500)){								
+				return;
+		}
+		local_tick = time_tick;
+		RELAY_PORT->ODR ^= RELAY_PIN;
+		LOGD("Time Update\r\n");
+	
+}
 int main(void)
 {
-	
+//	uint8_t key_val;
 
 	SystemInit();        // Initialize RCC, system clock to 72MHZ
-	delay_init(72);	     // Delay initialization
+	sys_tick_Init();	 // Initialize system tick clock
+	Key_Init();          // Key initialization
 	Backlight_Init();    // Backlight PWM initialization
 	Backlight_SetDuty(0); 	//close LCM at initial
+	Log_USART_Init();
 	LCD_Init();	         // LCD initialization
 	// Set rotation to 90 degrees
 	LCD_direction(1);
-
-	// Clear screen with white background
-	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-
-	// Display static elements (time, icons)
-	Draw_Active_Menu();
-	Log_USART_Init();
-	//my_RTC_Init();			 //Read RTC Time
-	Key_Init();          // Key initialization
-	
-	
-	
+	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);			// Clear screen with white background
 	LOGD("-----------------  Program Start --------------------------\n\r");
+	
+	my_RTC_Init();			 //Read RTC Time
+	
+	if (Flash_Load_Parameter() != FLASH_OK) {
+        LOGD("Flash load failed, using default values\r\n");
+        golbal_par_init();
+        if(Flash_Save_Parameter() != FLASH_OK){
+						LOGE("Flash write fail!\r\n");
+				}
+        LOGD("Default values saved to Flash\r\n");
+   } else {
+        LOGD("Parameters loaded from Flash\r\n");
+   }
+	 Draw_Active_Menu();
+	 relay_init();
+	 if(rtc_rest){
+				LOGD("RTC Reset!\r\n");
+	 }
+		LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, week_texts[weekday]);
+		get_schedule_period();
+		
+	// Initialize ADC and measure VCC voltage
+	if(register_alarm(Min_Update_Alarm, 60000) == 0){
+			LOGE("Alarm Full!\r\n");
+	}
+	ADC_Init_And_Measure();
+	
 	// Main loop
 	while(1)
 	{
 		// Scan keys
-		key = Key_Scan();
+		Key_Scan();
 		
 		UI_Update();
+		
+		g_check_alarm();
+		//test_system_tick();
+		g_cmd_handler();
 		
 	}
 

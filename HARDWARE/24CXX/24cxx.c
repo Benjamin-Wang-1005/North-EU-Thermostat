@@ -52,7 +52,7 @@
   * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
 **************************************************************************************************/	
 #include "24cxx.h" 
-#include "delay.h"
+#include "Peripheral.h"
 
 /*****************************************************************************
  * @name       :void AT24CXX_Init(void)
@@ -123,7 +123,7 @@ void AT24CXX_WriteOneByte(u16 WriteAddr,u8 DataToWrite)
 	IIC_Send_Byte(DataToWrite);     //发送字节							   
 	IIC_Wait_Ack();  		    	   
     IIC_Stop();//产生一个停止条件 
-	delay_ms(10);	 
+	my_delay_ms(10);	 
 }
 
 /*****************************************************************************

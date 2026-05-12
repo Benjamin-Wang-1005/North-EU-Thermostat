@@ -1,9 +1,11 @@
 ..\obj\touch.o: ..\HARDWARE\TOUCH\touch.c
+..\obj\touch.o: ..\USER\Peripheral.h
+..\obj\touch.o: C:\Keil_v5\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdio.h
+..\obj\touch.o: C:\Keil_v5\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdint.h
 ..\obj\touch.o: ..\HARDWARE\TOUCH\touch.h
 ..\obj\touch.o: ..\SYSTEM\sys\sys.h
 ..\obj\touch.o: ..\USER\stm32f10x.h
 ..\obj\touch.o: ..\CORE\core_cm3.h
-..\obj\touch.o: C:\Keil_v5\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdint.h
 ..\obj\touch.o: ..\USER\system_stm32f10x.h
 ..\obj\touch.o: ..\USER\stm32f10x_conf.h
 ..\obj\touch.o: ..\STM32F10x_FWLib\inc\stm32f10x_adc.h

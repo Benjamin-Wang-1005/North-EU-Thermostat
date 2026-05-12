@@ -173,12 +173,13 @@ void Draw_Heating_Schedule_Prog_Type_Page(uint8_t selected, uint8_t leave_col, u
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	Show_Str(10, 25, BLACK, WHITE, "Current Type: ", 16, 0);
+	LCD_Fill(122, 25, 146, 41, WHITE);
 	Show_Str(122, 25, BLUE, WHITE, prog_type_strs[current_prog_type], 16, 0);
 
-	Draw_Heating_Schedule_Prog_Type_Content(selected);
+	Draw_Heating_Schedule_Prog_Type_Content(current_prog_type);
 
 	// Draw Save text/button
-	save_color = (Top_Bar_Active == 2) ? RED : BLACK;
+	save_color = (selected == 2) ? RED : BLACK;
 	Show_Str(115, 105, save_color, WHITE, "Save", 16, 0);
 }
 
@@ -219,40 +220,44 @@ void Draw_Schedule_Edit_Row(uint8_t row, uint8_t period_idx, uint8_t selected)
 		text_color = BLACK;
 	}
 	
-	// Clear this row area
+	// Clear this row area (24px height)
 	LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + 24, WHITE);
 	
 	// Draw Period name (P1-P6)
 	sprintf(period_name, "P%d", period_idx + 1);
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, row_y[row], BLACK, WHITE, period_name, 16, 0);
+	Show_Str(10, row_y[row] + 1, BLACK, WHITE, period_name, 16, 0);
 	
 	// Draw Arrow Icon
-	GUI_DrawMonoIcon16x16(35, row_y[row], arrow_icon_color, arrow_bg_color, Icon16x16_Arrow);
+	GUI_DrawMonoIcon16x16(35, row_y[row] + 1, arrow_icon_color, arrow_bg_color, Icon16x16_Arrow);
 	
 	// Get time and temperature from schedule_settings (Workday or Restday)
 	{
-		uint8_t (*sched_ptr)[4] = schedule_edit_source ? schedule_settings_restday : schedule_settings;
+		uint8_t (*sched_ptr)[4] = schedule_edit_source ? g_parameter.holiday_schedule : g_parameter.workday_schedule;
 		sprintf(time_str, "%02d:%02d", sched_ptr[period_idx][0], sched_ptr[period_idx][1]);
 		sprintf(temp_str, "%d", sched_ptr[period_idx][2]);
 	
 	// Draw Time
 	POINT_COLOR = text_color;
 	BACK_COLOR = WHITE;
-	Show_Str(55, row_y[row], text_color, WHITE, time_str, 16, 0);
+	Show_Str(55, row_y[row] + 1, text_color, WHITE, time_str, 16, 0);
 	
 	// Draw Temperature
-	Show_Str(100, row_y[row], text_color, WHITE, temp_str, 16, 0);
+	Show_Str(100, row_y[row] + 1, text_color, WHITE, temp_str, 16, 0);
 	
 	// Draw C Icon
-	GUI_DrawMonoIcon16x16(116, row_y[row], BLACK, WHITE, Icon16x16_C);
+	GUI_DrawMonoIcon16x16(116, row_y[row] + 1, BLACK, WHITE, Icon16x16_C);
 	
 	// Draw Hook or X Icon based on ON/OFF
 	if(sched_ptr[period_idx][3] == 0) {
-		GUI_DrawMonoIcon16x16(135, row_y[row], BLACK, WHITE, Icon16x16_X);
+		//GUI_DrawMonoIcon16x16(135, row_y[row], BLACK, WHITE, Icon16x16_X);
+		GUI_DrawMonoIcon16x16(135, row_y[row] + 1, BLACK, WHITE, OFF_Icon_16x16);
 	} else {
-		GUI_DrawMonoIcon16x16(135, row_y[row], BLACK, WHITE, Icon16x16_Hook);
+		// ON indicator: 16x16 box + filled circle
+		POINT_COLOR = BLACK;
+		LCD_DrawRectangle(135, row_y[row] + 1, 150, row_y[row] + 16);
+		LCD_FillCircle(142, row_y[row] + 8, 5, BLACK);
 	}
 	}  // end of sched_ptr block
 }
@@ -595,4 +600,52 @@ void Draw_Schedule_Time_Setting_Save(void)
 	POINT_COLOR = save_color;
 	BACK_COLOR = WHITE;
 	Show_Str(120, 110, save_color, WHITE, "Save", 16, 0);
+}
+
+// Child Lock PIN Code Functions
+
+void Clear_Pin_Input(void)
+{
+	uint8_t i;
+	for(i = 0; i < 4; i++){
+		pin_code_input[i] = 0xFF;  // 0xFF means not entered yet
+		pin_code_confirm[i] = 0xFF;
+	}
+}
+
+// Draw Leave Schedule Mode Confirm dialog (80x120 centered box)
+// selection: 0=Cancel (left), 1=Yes (right)
+void Draw_Leave_Schedule_Confirm_Page(uint8_t selection)
+{
+	uint16_t box_x = 19;   // Centered with offset
+	uint16_t box_y = 40;   // (160-80)/2 = 40
+	uint16_t box_w = 130;
+	uint16_t box_h = 80;
+	
+	// Clear the dialog area first
+	LCD_Fill(box_x, box_y, box_x + box_w, box_y + box_h, WHITE);
+	
+	// Draw box border (RED)
+	POINT_COLOR = RED;
+	LCD_DrawRectangle(box_x, box_y, box_x + box_w, box_y + box_h);
+	
+	// Draw title "Leave Schedule Mode"
+	POINT_COLOR = BLACK;
+	BACK_COLOR = WHITE;
+	Show_Str(box_x + 10, box_y + 10, BLACK, WHITE, "Leave Schedule", 16, 0);
+	Show_Str(box_x + 40, box_y + 28, BLACK, WHITE, "Mode", 16, 0);
+	
+	// Draw Cancel (bottom-left): selection=0 -> RED, selection=1 -> BLACK
+	if(selection == 0){
+		Show_Str(box_x + 8, box_y + box_h - 22, RED, WHITE, "Cancel", 16, 0);
+	}else{
+		Show_Str(box_x + 8, box_y + box_h - 22, BLACK, WHITE, "Cancel", 16, 0);
+	}
+	
+	// Draw Yes (bottom-right): selection=1 -> RED, selection=0 -> BLACK
+	if(selection == 1){
+		Show_Str(box_x + box_w - 35, box_y + box_h - 22, RED, WHITE, "Yes", 16, 0);
+	}else{
+		Show_Str(box_x + box_w - 35, box_y + box_h - 22, BLACK, WHITE, "Yes", 16, 0);
+	}
 }

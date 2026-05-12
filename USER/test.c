@@ -125,14 +125,14 @@ void GUI_DrawMonoIcon32x32Transparent(u16 x, u16 y, u16 fc, const uint8_t *bitma
 void Draw_Icon6_Red_32x32(u8 red)
 {
 	u16 x = 136;
-	u16 y = 85;
+	u16 y = 72;
 	u16 color = red ? RED : BLACK;
 
 	// Clear the icon area first (24x24 pixels)
 	LCD_Fill(x, y, x + 23, y + 23, WHITE);
 
 	// Draw Icon6 with specified color using 24x24 icon
-	GUI_DrawMonoIcon24x24(x, y, color, WHITE, Icon06_24x24);
+	GUI_DrawMonoIcon24x24(x, y, color, WHITE, Menu_Icon_24x24);
 }
 
 

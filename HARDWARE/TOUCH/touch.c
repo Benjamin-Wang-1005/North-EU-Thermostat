@@ -51,6 +51,7 @@
   * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
   * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
 **************************************************************************************************/		
+#include "Peripheral.h"
 #include "touch.h" 
 #include "lcd.h"
 #include "delay.h"
@@ -114,9 +115,9 @@ u16 TP_Read_AD(u8 CMD)
 	TDIN=0; 	//拉低数据线
 	TCS=0; 		//选中触摸屏IC
 	TP_Write_Byte(CMD);//发送命令字
-	delay_us(6);//ADS7846的转换时间最长为6us
+	my_delay_us(6);//ADS7846的转换时间最长为6us
 	TCLK=0; 	     	    
-	delay_us(1);    	   
+	my_delay_us(1);    	   
 	TCLK=1;		//给1个时钟，清除BUSY	    	    
 	TCLK=0; 	     	    
 	for(count=0;count<16;count++)//读出16位数据,只有高12位有效 
@@ -555,13 +556,13 @@ void TP_Adjust(void)
 					POINT_COLOR=BLUE;
 					LCD_Clear(WHITE);//清屏
 					LCD_ShowString(35,110, 16,"Touch Screen Adjust OK!",1);//校正完成
-					delay_ms(1000);
+					my_delay_ms(1000);
 					TP_Save_Adjdata();  
  					LCD_Clear(WHITE);//清屏   
 					return;//校正完成				 
 			}
 		}
-		delay_ms(10);
+		my_delay_ms(10);
 		outtime++;
 		if(outtime>1000)
 		{

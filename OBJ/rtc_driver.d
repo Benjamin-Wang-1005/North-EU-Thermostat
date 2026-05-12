@@ -28,5 +28,6 @@
 ..\obj\rtc_driver.o: ..\STM32F10x_FWLib\inc\stm32f10x_tim.h
 ..\obj\rtc_driver.o: ..\STM32F10x_FWLib\inc\stm32f10x_wwdg.h
 ..\obj\rtc_driver.o: ..\STM32F10x_FWLib\inc\misc.h
-..\obj\rtc_driver.o: ..\SYSTEM\delay\delay.h
+..\obj\rtc_driver.o: ..\USER\Peripheral.h
+..\obj\rtc_driver.o: C:\Keil_v5\ARM\ARM_Compiler_5.06u7\Bin\..\include\stdio.h
 ..\obj\rtc_driver.o: C:\Keil_v5\ARM\ARM_Compiler_5.06u7\Bin\..\include\stddef.h
