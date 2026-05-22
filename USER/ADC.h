@@ -1,18 +1,21 @@
 //---------------------------------------------------------------------------------------------------------
-//                                                                                                         
-// Copyright(c) 2026 E-poly Technology Co., Ltd. All rights reserved.                                           
-//                                                                                                         
+//
+// Copyright(c) 2026 E-Poly Technology Co., Ltd. All rights reserved.
+//
 //---------------------------------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------------------------------------
-// E-Poly North EU Thermostat Project 
+// E-Poly North EU Thermostat Project
 // Author: Benjamin Wang
-// Date: 2026/04/21
+// Date: 2026/05/13
 // Email: Benjamin@epoly-tech.com
 //---------------------------------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------------------------------------
 // File Function: ADC header file
+//      - ADC1 Channel 8 (PB0) and Channel 9 (PB1) via interrupt
+//      - 16 samples per conversion, averaged
+//      - 18-slot filtered buffer with min/max discard
 //---------------------------------------------------------------------------------------------------------
 
 #ifndef _ADC_H_
@@ -20,22 +23,56 @@
 
 #include <stdint.h>
 
-// Function prototypes
-void ADC_Init_Config(void);
-void ADC_Start_Channel(uint8_t channel);
-void ADC_Start_Conversion(void);  // Deprecated, use ADC_Start_Channel
-uint8_t ADC_Wait_Channel_Complete(uint8_t channel, uint32_t timeout_ms);
-uint8_t ADC_Wait_Complete(uint32_t timeout_ms);  // Deprecated, use ADC_Wait_Channel_Complete
-uint16_t ADC_Calculate_Average(uint8_t channel);
-float ADC_Measure_Channel(uint8_t channel);
-float ADC_Measure_VCC(void);
-void ADC_Init_And_Measure(void);
+#define ADC_SAMPLE_COUNT        16
+#define NTC_BUFFER_SIZE					16
+#define ADC_AVG_BUFFER_SIZE     18
 
-// External variables
-extern volatile uint16_t adc_ch8_buffer[16];   // 16 samples for CH8 (PB0)
-extern volatile uint16_t adc_ch9_buffer[16];   // 16 samples for CH9 (PB1)
-extern volatile uint8_t adc_ch8_complete;
-extern volatile uint8_t adc_ch9_complete;
-extern volatile uint8_t adc_current_channel;
+typedef struct {
+    volatile uint16_t raw_buffer[ADC_SAMPLE_COUNT];
+    volatile uint8_t  raw_count;
+    volatile uint8_t  complete;
+
+    uint16_t avg_buffer[ADC_AVG_BUFFER_SIZE];
+    uint8_t  avg_index;
+    uint8_t  avg_count;
+} adc_channel_data_t;
+
+typedef struct {
+    adc_channel_data_t ch8;
+    adc_channel_data_t ch9;
+
+    float    vcc_voltage;
+    volatile uint16_t vcc_raw_buffer[ADC_SAMPLE_COUNT];
+    volatile uint8_t  vcc_raw_count;
+    volatile uint8_t  vcc_complete;
+
+    uint8_t  next_channel;
+    uint32_t last_tick;
+    uint8_t  ch8_log_counter;
+    uint8_t  ch9_log_counter;
+    uint8_t  int_ntc_count;
+    uint8_t  ext_ntc_count;
+    uint8_t  int_ntc_valid;
+    uint8_t  ext_ntc_valid;
+    volatile float INT_NTC_Table[NTC_BUFFER_SIZE];
+    volatile float EXT_NTC_Table[NTC_BUFFER_SIZE];
+} adc_thermostat_t;
+
+// External instance
+extern adc_thermostat_t adc_ctrl;
+
+// Display temperature globals
+extern volatile float Average_INT_Temp;
+extern volatile float Average_EXT_Temp;
+
+// Function prototypes
+void Thermostat_ADC_Init(void);
+void ADC_Start_Channel(uint8_t channel);
+void ADC_Start_VCC(void);
+void Thermostat_Update(void);
+void ADC_Update_Display_Temperature(uint8_t);
+
+uint16_t ADC_Get_Channel_Average(uint8_t channel);
+float    ADC_Get_VCC_Voltage(void);
 
 #endif // _ADC_H_

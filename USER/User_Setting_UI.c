@@ -25,51 +25,61 @@ void Draw_User_Setting_Menu_Row(uint8_t row, uint8_t selected)
 {
 	uint16_t row_y[] = {30, 54, 78, 102};  // Y positions for 4 display rows
 	uint16_t arrow_bg_color;
-	char* menu_texts[] = {"Child lock", "Window Function", "Set Time", "Set Backlight", "Factory Reset"};
-	uint8_t text_idx = user_setting_menu_scroll + row;  // 0-4
-	
+	uint8_t text_idx = user_setting_menu_scroll + row;
+
 	// Bounds check
-	if(text_idx > 4) return;
-	if(row > 3) return;
-	
+	if(text_idx >= User_Setting_Menu_Item_Count) return;
+	if(row >= MENU_VISIBLE_ROWS) return;
+
 	if(selected) {
 		arrow_bg_color = RED;
 	} else {
 		arrow_bg_color = BLACK;
 	}
-	
+
 	// Clear this row area
 	LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + 24, WHITE);
-	
+
 	// Draw Arrow Icon (16x16) with appropriate background color
 	// Arrow icon lines are WHITE, background is RED (selected) or BLACK (not selected)
 	GUI_DrawMonoIcon16x16(10, row_y[row] + 4, WHITE, arrow_bg_color, Icon16x16_Arrow);
-	
+
 	// Draw menu text
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(30, row_y[row] + 4, BLACK, WHITE, menu_texts[text_idx], 16, 0);
+	Show_Str(30, row_y[row] + 4, BLACK, WHITE, User_Setting_Menu_Items[text_idx].text, 16, 0);
 }
 
 void Draw_User_Setting_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
 	uint8_t i;
 	uint8_t num_visible_rows;
-	
-	// Ensure scroll is valid (0 or 1 for 5 items with 4 visible)
-	if(user_setting_menu_scroll > 1) user_setting_menu_scroll = 1;
-	
+	uint8_t max_scroll = (User_Setting_Menu_Item_Count > MENU_VISIBLE_ROWS) ? (User_Setting_Menu_Item_Count - MENU_VISIBLE_ROWS) : 0;
+
+	// Auto-adjust scroll so that selected item is visible
+	if(!Top_Bar_Active && selection > 0) {
+		if(selection > user_setting_menu_scroll + MENU_VISIBLE_ROWS) {
+			user_setting_menu_scroll = selection - MENU_VISIBLE_ROWS;
+		}
+		if(selection - 1 < user_setting_menu_scroll) {
+			user_setting_menu_scroll = selection - 1;
+		}
+	}
+
+	// Ensure scroll is valid
+	if(user_setting_menu_scroll > max_scroll) user_setting_menu_scroll = max_scroll;
+
 	Draw_TopBar(leave_col, edit_col);
-	
-	// Calculate how many rows to draw (4 or less if near end)
-	num_visible_rows = 5 - user_setting_menu_scroll;
-	if(num_visible_rows > 4) num_visible_rows = 4;
-	
+
+	// Calculate how many rows to draw (MENU_VISIBLE_ROWS or less if near end)
+	num_visible_rows = User_Setting_Menu_Item_Count - user_setting_menu_scroll;
+	if(num_visible_rows > MENU_VISIBLE_ROWS) num_visible_rows = MENU_VISIBLE_ROWS;
+
 	// Draw rows based on scroll position
 	for(i = 0; i < num_visible_rows; i++) {
-		uint8_t option_idx = user_setting_menu_scroll + i;  // 0-4
+		uint8_t option_idx = user_setting_menu_scroll + i;
 		uint8_t is_selected = 0;
-		
+
 		if(!Top_Bar_Active && (option_idx == selection - 1)) {
 			is_selected = 1;
 		}

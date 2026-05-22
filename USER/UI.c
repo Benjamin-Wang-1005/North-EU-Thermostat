@@ -37,12 +37,16 @@ uint8_t edit_icon_color;
 uint8_t item_selection;
 uint8_t	Top_Bar_Active = 0;						// Top_Bar_Active cursor stay in Leave/Edit
 float	temp_int;									// Temporary variable for setting number
+#if(SIMULATION)
+float		disp_fack_temp = 17.5f;
+#endif
 
 
 
 uint8_t schedule_edit_scroll = 0;     // Scroll offset: 0=show P1-P4, 1=show P2-P5, 2=show P3-P6
 uint8_t control_adj_menu_scroll = 0;    // Scroll offset: 0=show row0-3, 1=show row1-4
 uint8_t user_setting_menu_scroll = 0;
+uint8_t number_area_dirty = 1;          // 1=number area was cleared, need full redraw
 
 // ------------------------------------  Global variables  ------------------------------------------------
 
@@ -60,16 +64,24 @@ uint8_t power_on_state = 1;
 uint8_t window_fun = 1;
 uint8_t window_fun_temp = 10;
 uint8_t window_fun_time = 30;
+uint8_t window_fun_triggered = 0;
+float window_fun_temp_buffer[60];
+uint8_t window_fun_buffer_count = 0;
+uint8_t window_fun_buffer_index = 0;
+volatile uint8_t window_fun_int_updated = 0;
+volatile uint8_t window_fun_ext_updated = 0;
 uint8_t sleep_backlight_duty = 20;
 uint8_t child_lock = 0;
 uint8_t current_prog_type = 0;        // 0="5+2", 1="6+1", 2="7"
 rtc_time_t temp_rtc;
 uint8_t main_display_digi = Display_Room_Temp;
-uint8_t old_relay_state;
+//uint8_t old_relay_state;
 uint8_t power_limit;
 uint8_t power_limit_switch;
 uint8_t comfort_mode;
 uint8_t floor_material;					// '0'=Wood/Laminate, '1'=Tile/Concrete, '2'=Fast Response
+float temp_swing;
+uint8_t child_lock_flag;
 
 char* week_texts[7] = {"MON", "TUE", "WED", "THE", "FRI", "SAT", "SUN"}; 
 
@@ -86,6 +98,8 @@ uint8_t schedule_time_setting_period = 1;  // Current schedule period (1-6)
 // ------------------------------------  Global variables  ------------------------------------------------
 uint8_t schedule_time_on_off = 1;
 uint8_t leave_schedule_confirm_selection = 0;  // 0=Cancel, 1=Yes           // ON/OFF state: 0=OFF, 1=ON
+uint8_t window_open_confirm_selection = 0;     // 0=Cancel Detect, 1=Reset Detect
+uint8_t window_open_flash_state = 0;           // Flash color toggle for window open detected
 
 // ------------------------------------  Global variables  ------------------------------------------------
 uint8_t schedule_time_edit_hour;        // Hour (0-23)
@@ -96,6 +110,53 @@ uint8_t schedule_time_edit_temp;       // Temperature (0-45)
 
 // ------------------------------------  Global variables  ------------------------------------------------
 uint8_t schedule_edit_source = 0;
+
+// Menu item definitions for Control Adj Menu
+const MenuItem_t Control_Adj_Menu_Items[] = {
+	{"Sensor", STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
+	//{"Comfort Mode", STATE_CONTROL_COMFORT_MODE, Draw_Control_Adj_Comfort_Mode_Page, NULL},
+	{"Temp.Swing", STATE_CONTROL_TEMP_SWING, Draw_Control_Adj_Temp_Swing_Page, NULL},
+	{"Power Limit", STATE_CONTROL_POWER_LIMIT, Draw_Control_Adj_Power_Limit_Page, NULL},
+	{"Sensor Calibrate", STATE_CONTROL_ADJ_TEMP_CORRECT, Draw_Control_Adj_TempCorrect_Page, NULL},
+	{"Input Temp.Limit", STATE_CONTROL_ADJ_TEMP_LIMIT, Draw_Control_Adj_TempLimit_Page, NULL},
+	{"Protect Temp.", STATE_CONTROL_ADJ_TEMP_PROTECT, Draw_Control_Adj_TempProtect_Page, NULL},
+	{"Power On State", STATE_CONTROL_ADJ_POWER_ON_STATE, Draw_Control_Adj_Power_On_State_Page, NULL},
+};
+const uint8_t Control_Adj_Menu_Item_Count = sizeof(Control_Adj_Menu_Items) / sizeof(Control_Adj_Menu_Items[0]);
+
+// Menu item definitions for User Setting Menu
+const MenuItem_t User_Setting_Menu_Items[] = {
+	{"Child lock", STATE_USER_SETTING_CHILD_LOCK, Draw_User_Setting_Child_Lock_Page, NULL},
+	{"Window Function", STATE_USER_SETTING_WINDOW_FUN, Draw_User_Setting_Window_Fun_Page, NULL},
+	{"Set Time", STATE_USER_SETTING_SET_TIME, Draw_User_Setting_SetTime_Page, NULL},
+	{"Comfort Mode", STATE_USER_SETTING_COMFORT_MODE, Draw_Control_Adj_Comfort_Mode_Page, NULL},
+	{"Set Backlight", STATE_USER_SETTING_BACKLIGHT, Draw_User_Setting_Backlight_Page, NULL},
+	{"Factory Reset", STATE_USER_SETTING_RESET, Draw_User_Setting_Reset_Page, NULL},
+};
+const uint8_t User_Setting_Menu_Item_Count = sizeof(User_Setting_Menu_Items) / sizeof(User_Setting_Menu_Items[0]);
+
+// Find 1-based menu index by next_state
+uint8_t Find_Control_Adj_Menu_Index(uint8_t state)
+{
+	uint8_t i;
+	for(i = 0; i < Control_Adj_Menu_Item_Count; i++) {
+		if(Control_Adj_Menu_Items[i].next_state == state) {
+			return i + 1;
+		}
+	}
+	return 1;
+}
+
+uint8_t Find_User_Setting_Menu_Index(uint8_t state)
+{
+	uint8_t i;
+	for(i = 0; i < User_Setting_Menu_Item_Count; i++) {
+		if(User_Setting_Menu_Items[i].next_state == state) {
+			return i + 1;
+		}
+	}
+	return 1;
+}
 
 // ------------------------------------  Global variables  ------------------------------------------------
 
@@ -114,8 +175,13 @@ void Draw_Static_Icons(void);
 
 void Draw_Active_Menu(void)
 {
+		float display_temp;
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
+
+		// Force number redraw because this function paints the full Active screen
+		// (other code may have cleared the LCD with LCD_Fill without telling Display_Number)
+		number_area_dirty = 1;
 		
 		//rtc_time.Hour = 10;				//For test
 		//rtc_time.Min = 32;				//For test
@@ -134,30 +200,40 @@ void Draw_Active_Menu(void)
 		
 		// Initial display: 4.0 in BLACK (no blinking)
 		if(main_display_digi == Display_Room_Temp){
-				if(Relay == RELAY_OFF){
-						Display_Number(g_parameter.setting_number, BLACK, 1);  // show_decimal = 1
-				}else{
-						Display_Number(g_parameter.setting_number, RED, 1);
+				
+				if(g_parameter.sensor_type == 0) {  // Room (Internal)
+						display_temp = Average_INT_Temp;
+						display_temp += g_parameter.temp_correct_internal;
+				} else {  // Floor (External)
+						display_temp = Average_EXT_Temp;
+						display_temp += g_parameter.temp_correct_external;
 				}
+#if(SIMULATION)
+				display_temp = disp_fack_temp + g_parameter.temp_correct_internal;
+				if(Relay == RELAY_OFF){
+						Display_Number(display_temp, BLACK, 1);  // show_decimal = 1
+				}else{
+						Display_Number(display_temp, RED, 1);
+				}
+#else
+				if(display_temp > -99){
+						if(Relay == RELAY_OFF){
+								Display_Number(display_temp, BLACK, 1);  // show_decimal = 1
+						}else{
+								Display_Number(display_temp, RED, 1);
+						}
+				}else{
+						LCD_Fill(24, 74, 51, 78, BLACK);
+						LCD_Fill(60, 74, 91, 78, BLACK);
+				}
+#endif
 				// Celsius Icon at (100, 45)
 				GUI_DrawMonoIcon24x24(100, 45, BLACK, WHITE, Celsius_Icon_24x24);
-				if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
-						LOGE("Alarm Fail\r\n");
-				}
-				UI_state = STATE_ACTIVE;
 		}else if(main_display_digi == Display_Setting_Temp){
 				Display_Number(g_parameter.setting_number, BLUE, 0);
 				// Celsius Icon at (100, 45)
 				GUI_DrawMonoIcon24x24(100, 45, BLACK, WHITE, Celsius_Icon_24x24);
-				if(register_alarm(Setting_Digi_Alarm, DIGI_UPDATE_TIME) == eFALSE){
-						LOGE("Alarm Full!\r\n");
-				}
-				UI_state = STATE_SETTING;
 		}
-
-		// Set initial state: Active with 90% backlight
-		
-		Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
 		
 		
 	
@@ -188,7 +264,10 @@ void Draw_Static_Icons(void)
 	// Icons on the RIGHT side - now using 24x24 monochrome icons
 	// Smaller size (24x24) to avoid overlapping with time display at left
 	// Screen width is 160px, icons positioned to stay within bounds
-	
+
+	// Clear entire top icon bar to avoid ghost icons when Relay state or display_num changes
+	LCD_Fill(88, 5, 160, 29, WHITE);
+
 	// Icon3 at rightmost (136, 5) - rightmost, RED foreground (136+24=160)
 	if(Relay == RELAY_ON){
 			GUI_DrawMonoIcon24x24(136, 5, RED, WHITE, Heating_Icon_24x24);
@@ -241,12 +320,26 @@ void Draw_Static_Icons(void)
 // show_decimal: 1 = show decimal point and fraction, 0 = show integer only
 void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 {
+	//static float prev_number = -999.0f;
+	static uint16_t prev_color = 0xFFFF;
+	static uint8_t prev_show_decimal = 0xFF;
+	static int prev_integer_part = -999;
+	static int prev_decimal_part = -999;
+	static uint8_t prev_has_tens = 0xFF;
+	static uint8_t prev_is_negative = 0xFF;
+
 	int integer_part;
 	int decimal_part;
 	uint8_t digit1, digit2;
 	uint8_t has_tens = 0;
 	uint8_t is_negative = 0;
-	
+	uint8_t force_redraw = 0;
+	uint8_t integer_changed = 0;
+	uint8_t decimal_changed = 0;
+	uint8_t color_changed = 0;
+	uint8_t tens_changed = 0;
+	uint8_t sign_changed = 0;
+
 	// Check if negative
 	if(number < 0)
 	{
@@ -257,14 +350,14 @@ void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 	{
 		integer_part = (int)number;
 	}
-	
+
 	// Calculate decimal part from absolute value
 	decimal_part = (int)((number >= 0 ? number : -number) * 10) % 10;
-	
+
 	// Ensure decimal part is 0-9
 	if(decimal_part < 0) decimal_part = 0;
 	if(decimal_part > 9) decimal_part = 9;
-	
+
 	// Calculate digits
 	if(integer_part >= 10)
 	{
@@ -278,60 +371,89 @@ void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 		digit2 = integer_part;       // Ones only
 		has_tens = 0;
 	}
-	
-	// Draw minus sign if negative
-	if(is_negative)
+
+	// Check what has changed
+	if(number_area_dirty)
 	{
-		// Draw minus sign - position depends on number of digits
-		if(has_tens)
+		force_redraw = 1;
+		number_area_dirty = 0;
+	}
+	if(color != prev_color) color_changed = 1;
+	if(show_decimal != prev_show_decimal) force_redraw = 1;
+	if(integer_part != prev_integer_part) integer_changed = 1;
+	if(decimal_part != prev_decimal_part) decimal_changed = 1;
+	if(has_tens != prev_has_tens) tens_changed = 1;
+	if(is_negative != prev_is_negative) sign_changed = 1;
+
+	// If nothing changed at all, return
+	if(!force_redraw && !color_changed && !integer_changed && !decimal_changed && !tens_changed && !sign_changed)
+	{
+		return;
+	}
+
+	// Update integer part if needed
+	if(force_redraw || color_changed || integer_changed || tens_changed || sign_changed)
+	{
+		// Handle sign
+		if(is_negative)
 		{
-			// Two digits: minus sign at far left (x=5)
-			LCD_Fill(5, 76, 21, 80, color);
+			if(has_tens)
+				LCD_Fill(5, 76, 21, 80, color);
+			else
+				LCD_Fill(35, 76, 51, 80, color);
 		}
 		else
 		{
-			// Single digit: minus sign closer to the digit (x=35)
-			LCD_Fill(35, 76, 51, 80, color);
+			// Clear minus sign area
+			if(prev_is_negative)
+				LCD_Fill(5, 80, 51, 84, WHITE);
+		}
+
+		// Draw digits with per-digit clear-draw
+		if(has_tens)
+		{
+			// Two digits: clear tens, draw tens, clear ones, draw ones
+			LCD_Fill(20, 42, 55, 106, WHITE);   // Clear tens digit area
+			GUI_DrawBigDigit(22, 42, color, WHITE, '0' + digit1, 0);  // Draw tens
+
+			LCD_Fill(56, 42, 95, 106, WHITE);   // Clear ones digit area
+			GUI_DrawBigDigit(59, 42, color, WHITE, '0' + digit2, 0);  // Draw ones
+		}
+		else
+		{
+			// Single digit - need to clear tens area if previously had tens
+			if(prev_has_tens)
+			{
+				LCD_Fill(20, 42, 55, 106, WHITE);   // Clear tens digit area
+			}
+			GUI_DrawBigDigit(59, 42, color, WHITE, '0' + digit2, 0);  // Draw ones
 		}
 	}
-	else
+
+	// Update decimal part if needed
+	if(show_decimal && (force_redraw || color_changed || decimal_changed))
 	{
-		// Clear minus sign area (for when going from negative to positive)
-		LCD_Fill(5, 80, 51, 84, WHITE);
-	}
-	
-	// Draw digits
-	// Position matches original -14.5 display layout
-	// "4" is at x=59 (same as original "4" in -14.5)
-	if(has_tens)
-	{
-		// Two digits - clear both digit areas first, then draw
-		// This ensures no residual pixels from previous display
-		LCD_Fill(20, 42, 55, 106, WHITE);   // Clear tens digit area
-		LCD_Fill(56, 42, 95, 106, WHITE);   // Clear ones digit area
-		// "1" at x=22, "4" at x=59
-		GUI_DrawBigDigit(22, 42, color, WHITE, '0' + digit1, 0);  // 32x64 font - tens
-		GUI_DrawBigDigit(59, 42, color, WHITE, '0' + digit2, 0);  // 32x64 font - ones
-	}
-	else
-	{
-		// Single digit - draw at x=59
-		// Note: Clear_Number_Area() already cleared everything before this function is called
-		GUI_DrawBigDigit(59, 42, color, WHITE, '0' + digit2, 0);  // 32x64 font (with bg)
-	}
-	
-		// Draw decimal point and fraction if needed
-	if(show_decimal)
-	{
+		// Clear decimal digit area
+		LCD_Fill(95, 74, 125, 106, WHITE);
+
 		// Draw decimal point (circular dot) at fixed position
 		LCD_Fill(96, 94, 100, 98, color);
 		LCD_Fill(95, 95, 101, 97, color);
 		LCD_Fill(96, 99, 100, 99, color);
 		LCD_Fill(96, 93, 100, 93, color);
-		
+
 		// Draw decimal digit using smaller font (16x32)
 		GUI_DrawBigDigit(109, 74, color, WHITE, '0' + decimal_part, 1);
 	}
+
+	// Save state
+	//prev_number = number;
+	prev_color = color;
+	prev_show_decimal = show_decimal;
+	prev_integer_part = integer_part;
+	prev_decimal_part = decimal_part;
+	prev_has_tens = has_tens;
+	prev_is_negative = is_negative;
 }
 
 
@@ -347,6 +469,7 @@ void Clear_Number_Area(void)
 	// x: 5 to 130 (cover all number elements)
 	// y: 40 to 108 (cover full digit height, avoid clearing Icon6 and Icon8 at the bottom)
 	LCD_Fill(5, 40, 130, 108, WHITE);
+	number_area_dirty = 1;
 }
 
 
@@ -415,22 +538,22 @@ void Draw_Function_Setting_Edit_Row(uint8_t row, uint8_t selected)
 	// Draw the row content based on row number
 	// Icon and text moved down by 2 pixels to center in the background row
 	if(row == 0) {
-		GUI_DrawMonoIcon8x16(10, row_y[row] + 4, text_color, bg_color, Icon16_8x16);
+		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, OP_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(30, row_y[row] + 2, text_color, bg_color, "Operation Mode", 16, 0);
 	} else if(row == 1) {
-		GUI_DrawMonoIcon8x16(10, row_y[row] + 4, text_color, bg_color, Icon16_8x16);
+		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, Schedule_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(30, row_y[row] + 2, text_color, bg_color, "Heating Schedule", 16, 0);
 	} else if(row == 2) {
-		GUI_DrawMonoIcon8x16(10, row_y[row] + 4, text_color, bg_color, Icon17_8x16);
+		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, Control_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(30, row_y[row] + 2, text_color, bg_color, "Control Adj.", 16, 0);
 	} else if(row == 3) {
-		GUI_DrawMonoIcon8x16(10, row_y[row] + 4, text_color, bg_color, Icon18_8x16);
+		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, User_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(30, row_y[row] + 2, text_color, bg_color, "User Settings", 16, 0);
@@ -514,6 +637,18 @@ void Draw_Operation_Mode_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t
 		}
 }
 
+void Process_Relay_Update(void)
+{
+		if(UI_state == STATE_ACTIVE){
+				update_alarm(Active_Alarm);
+				Draw_Active_Menu();
+				Update_Relay = eFALSE;
+		}else if(UI_state == STATE_SLEEP){
+				Draw_Active_Menu();
+				Update_Relay = eFALSE;
+		}
+}
+
 //---------------------------------------------------------------------------------------------------------
 // Funcation: UI_Update
 // Description: LCM UI main flow
@@ -526,18 +661,16 @@ void Draw_Operation_Mode_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t
 
 void UI_Update(void)
 {
+
+	if(Update_Relay == eTRUE) Process_Relay_Update();
 	
-	
+
 	if(key.key_active == 0){
 			return;
 	}
-	
+
 	if(UI_state == STATE_ACTIVE)
 	{
-			if(old_relay_state != Relay){
-					old_relay_state = Relay;
-					Draw_Static_Icons();
-			}
 			// Active state: handle key presses
 			if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
 			{
@@ -608,14 +741,11 @@ void UI_Update(void)
 	}
 	else if(UI_state == STATE_SLEEP)
 	{
-			if(old_relay_state != Relay){
-					old_relay_state = Relay;
-					Draw_Static_Icons();
-			}
 			// Sleep state: wait for any key press to wake up
 			if((key.key_val != NONKEY) && (key.key_val != SYS_RESET))  // Any key pressed
 			{
 				if(g_parameter.child_lock == 1){
+						child_lock_flag = 1;
 						// Child lock enabled - enter PIN verification
 						UI_state = STATE_CHILD_LOCK_PIN_VERIFY;
 						pin_digit_index = 0;
@@ -692,19 +822,25 @@ void UI_Update(void)
 				// Exit Setting state immediately, return to Active
 				UI_state = STATE_ACTIVE;
 				g_parameter.setting_number = temp_int;
+				delete_alarm(Setting_Digi_Alarm);
 				// Display final number with decimal in BLACK
 				main_display_digi = Display_Room_Temp;
-				Clear_Number_Area();
-				Display_Number(g_parameter.setting_number, BLACK, 1);  // show_decimal = 1
+				Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+				if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+						LOGE("Alarm Fail\r\n");
+				}
+				Draw_Active_Menu();
+				//Clear_Number_Area();
+				//Display_Number(g_parameter.setting_number, BLACK, 1);  // show_decimal = 1
 				// Celsius Icon at (100, 45)
-				GUI_DrawMonoIcon24x24(100, 45, BLACK, WHITE, Celsius_Icon_24x24);
+				//GUI_DrawMonoIcon24x24(100, 45, BLACK, WHITE, Celsius_Icon_24x24);
 				if(Flash_Save_Parameter() != FLASH_OK){
 						LOGE("Flash write fail!\r\n");
 				}
-				delete_alarm(Setting_Digi_Alarm);
-				if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
-						LOGE("Alarm Full!\r\n");
-				}
+				
+				//if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+				//		LOGE("Alarm Full!\r\n");
+				//}
 			}
 
 	}
@@ -735,8 +871,12 @@ void UI_Update(void)
 									icon6_red_state = 0;
 									main_display_digi = Display_Room_Temp;
 									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-									Draw_Active_Menu();
 									delete_alarm(Setting_Menu_Alarm);
+									Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+									if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+											LOGE("Alarm Fail\r\n");
+									}
+									Draw_Active_Menu();
 									//if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
 									//		LOGE("Alarm Full!\r\n");
 									//}
@@ -1481,7 +1621,7 @@ void UI_Update(void)
 			{
 				if(key.key_val == DOWNKEY)  // Down key pressed
 				{
-					if(item_selection < 7)  // Can go down (max=7, Power On State)
+					if(item_selection < Control_Adj_Menu_Item_Count)  // Can go down
 					{
 						uint8_t old_sel = item_selection;
 						uint8_t old_scroll = control_adj_menu_scroll;
@@ -1540,86 +1680,49 @@ void UI_Update(void)
 //"Sensor", "Comfort Mode", "Power Limit", "Sensor Calibrate", "Input Temp.Limit", "Protect Temp.", "Power On State"
 				else if(key.key_val == ENTERKEY)  // Enter key pressed
 				{
-					if(item_selection == 1)  // Sensor selected
+					uint8_t menu_idx = item_selection - 1;
+					if(menu_idx < Control_Adj_Menu_Item_Count)
 					{
-						// Enter Sensor Setting Page
-						UI_state = STATE_CONTROL_ADJ_SENSOR;
+						UI_state = Control_Adj_Menu_Items[menu_idx].next_state;
 						Top_Bar_Active = 1;
 						item_selection = 0;
 						leave_icon_color = 0;
 						edit_icon_color = 1;
-						current_sensor_type = g_parameter.sensor_type;  
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_Sensor_Page(item_selection, leave_icon_color, edit_icon_color);  // 0xFF = TopBar mode, Edit red
-					}
-					else if(item_selection == 3){
-							UI_state = STATE_CONTROL_POWER_LIMIT;
-							Top_Bar_Active = 1;
-							item_selection = 0;
-							leave_icon_color = 0;
-							edit_icon_color = 1;
+
+						if(UI_state == STATE_CONTROL_ADJ_SENSOR)
+						{
+							current_sensor_type = g_parameter.sensor_type;
+							Draw_Control_Adj_Sensor_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
+						else if(UI_state == STATE_CONTROL_POWER_LIMIT)
+						{
 							power_limit = g_parameter.power_limit;
 							power_limit_switch = g_parameter.power_limit_switch;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 							Draw_Control_Adj_Power_Limit_Page(item_selection, leave_icon_color, edit_icon_color);
-							
-					}
-					else if(item_selection == 2){
-							UI_state = STATE_CONTROL_COMFORT_MODE;
-							Top_Bar_Active = 1;
-							item_selection = 0;
-							leave_icon_color = 0;
-							edit_icon_color = 1;
-							comfort_mode = g_parameter.comfort_mode;
-							floor_material = g_parameter.floor_material;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-							Draw_Control_Adj_Comfort_Mode_Page(item_selection, leave_icon_color, edit_icon_color);
-							
-					}
-					else if(item_selection == 4)  // Temp. Correct selected
-					{
-						// Enter Temp. Correct setting mode
-						UI_state = STATE_CONTROL_ADJ_TEMP_CORRECT;
-						Top_Bar_Active = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 1;
-						item_selection = 0;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_TempCorrect_Page(item_selection, leave_icon_color, edit_icon_color); // 0xFF = TopBar mode, Edit red
-					}
-					else if(item_selection == 5)		//Temp. Limit selected
-					{
-							UI_state = STATE_CONTROL_ADJ_TEMP_LIMIT;
-							Top_Bar_Active = 1;
-							leave_icon_color = 0;
-							edit_icon_color = 1;
-							item_selection = 0;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						}
+						else if(UI_state == STATE_CONTROL_ADJ_TEMP_CORRECT)
+						{
+							Draw_Control_Adj_TempCorrect_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
+						else if(UI_state == STATE_CONTROL_ADJ_TEMP_LIMIT)
+						{
 							Draw_Control_Adj_TempLimit_Page(item_selection, leave_icon_color, edit_icon_color);
-							
-					}
-					else if(item_selection == 6)
-					{
-							UI_state = STATE_CONTROL_ADJ_TEMP_PROTECT;
-							Top_Bar_Active = 1;
-							leave_icon_color = 0;
-							edit_icon_color = 1;
-							item_selection = 0;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						}
+						else if(UI_state == STATE_CONTROL_ADJ_TEMP_PROTECT)
+						{
 							Draw_Control_Adj_TempProtect_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else if(item_selection == 7)
-					{
-							UI_state = STATE_CONTROL_ADJ_POWER_ON_STATE;
-							Top_Bar_Active = 1;
-							leave_icon_color = 0;
-							edit_icon_color = 1;
-							item_selection = 0;
+						}
+						else if(UI_state == STATE_CONTROL_ADJ_POWER_ON_STATE)
+						{
 							power_on_state = g_parameter.power_on_state;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 							Draw_Control_Adj_Power_On_State_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
+						else if(UI_state == STATE_CONTROL_TEMP_SWING){
+								temp_swing = g_parameter.temp_swing;
+								Draw_Control_Adj_Temp_Swing_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
 					}
-					
 				}
 			}
 	}
@@ -1650,7 +1753,7 @@ void UI_Update(void)
 						Top_Bar_Active = 0;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
-						item_selection = 1;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_SENSOR);
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
 					}
@@ -1706,8 +1809,8 @@ void UI_Update(void)
 					Top_Bar_Active = 0;
 					leave_icon_color = 0;
 					edit_icon_color = 0;
-					item_selection = 1;
-					g_parameter.sensor_type = current_sensor_type;  // 0=Room, 1=Floor 
+					item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_SENSOR);
+					g_parameter.sensor_type = current_sensor_type;  // 0=Room, 1=Floor
 					if(Flash_Save_Parameter() != FLASH_OK){
 							LOGE("Flash write fail!\r\n");
 					}
@@ -1723,6 +1826,86 @@ void UI_Update(void)
 					
 				}
 			}
+	}
+	else if(UI_state == STATE_CONTROL_TEMP_SWING)
+	{
+		if(Top_Bar_Active == 1)
+		{
+			if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+			{
+				Update_TopBar();
+			}
+			else if(key.key_val == ENTERKEY)
+			{
+				if(edit_icon_color)
+				{
+					Top_Bar_Active = 0;
+					item_selection = 1;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					temp_swing = g_parameter.temp_swing;
+					Draw_TopBar(leave_icon_color, edit_icon_color);
+					Draw_Control_Adj_Temp_Swing_Content(item_selection);
+				}
+				else
+				{
+					UI_state = STATE_CONTROL_ADJ_MENU;
+					Top_Bar_Active = 0;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_TEMP_SWING);
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+				}
+			}
+		}
+		else if(item_selection == 1)
+		{
+			if(key.key_val == DOWNKEY)
+			{
+				if(temp_swing > 0.5)
+				{
+					temp_swing -= 0.5;
+					Draw_Control_Adj_Temp_Swing_Content(item_selection);
+				}
+			}
+			else if(key.key_val == UPKEY)
+			{
+				if(temp_swing < 3)
+				{
+					temp_swing += 0.5;
+					Draw_Control_Adj_Temp_Swing_Content(item_selection);
+				}
+			}
+			else if(key.key_val == ENTERKEY)
+			{
+				item_selection = 2;
+				Draw_Control_Adj_Temp_Swing_Content(item_selection);
+			}
+		}
+		else if(item_selection == 2)
+		{
+			if((key.key_val == UPKEY) || (key.key_val == DOWNKEY))
+			{
+				item_selection = 1;
+				Draw_Control_Adj_Temp_Swing_Content(item_selection);
+			}
+			else if(key.key_val == ENTERKEY)
+			{
+				UI_state = STATE_CONTROL_ADJ_MENU;
+				item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_TEMP_SWING);
+				Top_Bar_Active = 0;
+				leave_icon_color = 0;
+				edit_icon_color = 0;
+				g_parameter.temp_swing = temp_swing;
+				if(Flash_Save_Parameter() != FLASH_OK)
+				{
+					LOGE("Flash write fail!\r\n");
+				}
+				LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+				Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+			}
+		}
 	}
 	else if(UI_state == STATE_CONTROL_ADJ_TEMP_CORRECT)
 	{
@@ -1753,7 +1936,7 @@ void UI_Update(void)
 						Top_Bar_Active = 0;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
-						item_selection = 2;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_CORRECT);
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
 					}
@@ -1814,7 +1997,7 @@ void UI_Update(void)
 							Top_Bar_Active = 0;
 							leave_icon_color = 0;
 							edit_icon_color = 0;
-							item_selection = 2;
+							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_CORRECT);
 							g_parameter.temp_correct_internal = temp_correct_internal;
 							g_parameter.temp_correct_external = temp_correct_external;
 							if(Flash_Save_Parameter() != FLASH_OK){
@@ -1857,7 +2040,7 @@ void UI_Update(void)
 						Top_Bar_Active = 0;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
-						item_selection = 3;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_LIMIT);
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
 					}
@@ -1916,7 +2099,7 @@ void UI_Update(void)
 							Top_Bar_Active = 0;
 							leave_icon_color = 0;
 							edit_icon_color = 0;
-							item_selection = 3;
+							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_LIMIT);
 							g_parameter.temp_limit_max = temp_limit_max;
 							g_parameter.temp_limit_min = temp_limit_min;
 							if(Flash_Save_Parameter() != FLASH_OK){
@@ -1957,7 +2140,7 @@ void UI_Update(void)
 						Top_Bar_Active = 0;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
-						item_selection = 4;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_PROTECT);
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
 					}
@@ -2203,7 +2386,7 @@ void UI_Update(void)
 						Top_Bar_Active = 0;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
-						item_selection = 5;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_POWER_ON_STATE);
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
@@ -2239,13 +2422,12 @@ void UI_Update(void)
 						Top_Bar_Active = 0;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
-						item_selection = 5;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_POWER_ON_STATE);
 						g_parameter.power_on_state = power_on_state;
 						if(Flash_Save_Parameter() != FLASH_OK){
 								LOGE("Flash write fail!\r\n");
 						}
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						control_adj_menu_scroll = 1;
 						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 				}else if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
 						item_selection = 1;
@@ -2292,7 +2474,7 @@ void UI_Update(void)
 			{
 				if(key.key_val == DOWNKEY)  // Down key pressed
 				{
-					if(item_selection < 5)  // Can go down (max=5, Reset state)
+					if(item_selection < User_Setting_Menu_Item_Count)  // Can go down
 					{
 						uint8_t old_sel = item_selection;
 						uint8_t old_scroll = user_setting_menu_scroll;
@@ -2350,72 +2532,73 @@ void UI_Update(void)
 				}
 				else if(key.key_val == ENTERKEY)  // Enter key pressed
 				{
-					if(item_selection == 1)  
+					uint8_t user_menu_idx = item_selection - 1;
+					if(user_menu_idx < User_Setting_Menu_Item_Count)
 					{
-						// Enter Child lock page
-						UI_state = STATE_USER_SETTING_CHILD_LOCK;
-						Top_Bar_Active = 1;
-						item_selection = 0;
-						leave_icon_color = 0;
-						edit_icon_color = 1; 
-						child_lock = g_parameter.child_lock;
+						UI_state = User_Setting_Menu_Items[user_menu_idx].next_state;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_User_Setting_Child_Lock_Page(item_selection, leave_icon_color, edit_icon_color);  // 0xFF = TopBar mode, Edit red
-					}
-					else if(item_selection == 2)  
-					{
-						// Enter Window Function page
-						UI_state = STATE_USER_SETTING_WINDOW_FUN;
-						Top_Bar_Active = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 1;
-						item_selection = 0;
-						window_fun = g_parameter.window_fun;
-						window_fun_temp = g_parameter.window_fun_temp;
-						window_fun_time = g_parameter.window_fun_time;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_User_Setting_Window_Fun_Page(item_selection, leave_icon_color, edit_icon_color); // 0xFF = TopBar mode, Edit red
-					}
-					else if(item_selection == 3)		
-					{
-							//Enter Time setting page
-							UI_state = STATE_USER_SETTING_SET_TIME;
+
+						if(UI_state == STATE_USER_SETTING_CHILD_LOCK)
+						{
 							Top_Bar_Active = 1;
+							item_selection = 0;
 							leave_icon_color = 0;
 							edit_icon_color = 1;
+							child_lock = g_parameter.child_lock;
+							Draw_User_Setting_Child_Lock_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
+						else if(UI_state == STATE_USER_SETTING_WINDOW_FUN)
+						{
+							Top_Bar_Active = 1;
 							item_selection = 0;
+							leave_icon_color = 0;
+							edit_icon_color = 1;
+							window_fun = g_parameter.window_fun;
+							window_fun_temp = g_parameter.window_fun_temp;
+							window_fun_time = g_parameter.window_fun_time;
+							Draw_User_Setting_Window_Fun_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
+						else if(UI_state == STATE_USER_SETTING_SET_TIME)
+						{
+							Top_Bar_Active = 1;
+							item_selection = 0;
+							leave_icon_color = 0;
+							edit_icon_color = 1;
 							temp_rtc.Year = rtc_time.Year;
 							temp_rtc.Mon = rtc_time.Mon;
 							temp_rtc.Date = rtc_time.Date;
 							temp_rtc.Hour = rtc_time.Hour;
 							temp_rtc.Min = rtc_time.Min;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 							Draw_User_Setting_SetTime_Page(item_selection, leave_icon_color, edit_icon_color);
-							
-					}
-					else if(item_selection == 4)
-					{
-							UI_state = STATE_USER_SETTING_BACKLIGHT;
+						}
+						else if(UI_state == STATE_USER_SETTING_BACKLIGHT)
+						{
 							Top_Bar_Active = 1;
+							item_selection = 0;
 							leave_icon_color = 0;
 							edit_icon_color = 1;
-							item_selection = 0;
 							sleep_backlight_duty = g_parameter.sleep_backlight_duty;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 							Draw_User_Setting_Backlight_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else if(item_selection == 5)
-					{
-							UI_state = STATE_USER_SETTING_RESET;
+						}
+						else if(UI_state == STATE_USER_SETTING_RESET)
+						{
+							Top_Bar_Active = 0;
+							item_selection = 1;
+							leave_icon_color = 0;
+							edit_icon_color = 0;
+							Draw_User_Setting_Reset_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
+						else if(UI_state == STATE_USER_SETTING_COMFORT_MODE)
+						{
 							Top_Bar_Active = 1;
+							item_selection = 0;
 							leave_icon_color = 0;
 							edit_icon_color = 1;
-							item_selection = 0;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-							Draw_User_Setting_Reset_Page(item_selection, leave_icon_color, edit_icon_color);
+							comfort_mode = g_parameter.comfort_mode;
+							floor_material = g_parameter.floor_material;
+							Draw_Control_Adj_Comfort_Mode_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
 					}
-					
-					//delay_ms(100);
 				}
 			}
 	}
@@ -2445,7 +2628,7 @@ void UI_Update(void)
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
 						Top_Bar_Active = 0;
-						item_selection = 1;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_CHILD_LOCK);
 						leave_icon_color = 0;
 						edit_icon_color = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
@@ -2494,9 +2677,10 @@ void UI_Update(void)
 									Draw_Child_Lock_Pin_Page(pin_setup_stage);
 							}else{
 									// Child lock OFF - save and return
+									child_lock_flag = 0;				//Release child lock flag
 									UI_state = STATE_USER_SETTING_MENU;
 									Top_Bar_Active = 0;
-									item_selection = 1;
+									item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_CHILD_LOCK);
 									leave_icon_color = 0;
 									edit_icon_color = 0;
 									if(Flash_Save_Parameter() != FLASH_OK){
@@ -2535,7 +2719,7 @@ void UI_Update(void)
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
 						Top_Bar_Active = 0;
-						item_selection = 2;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_WINDOW_FUN);
 						leave_icon_color = 0;
 						edit_icon_color = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
@@ -2559,7 +2743,7 @@ void UI_Update(void)
 							}else{
 									UI_state = STATE_USER_SETTING_MENU;
 									Top_Bar_Active = 0;
-									item_selection = 2;
+									item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_WINDOW_FUN);
 									leave_icon_color = 0;
 									edit_icon_color = 0;
 									g_parameter.window_fun = window_fun;
@@ -2653,7 +2837,7 @@ void UI_Update(void)
 					if(key.key_val == ENTERKEY){
 							UI_state = STATE_USER_SETTING_MENU;
 							Top_Bar_Active = 0;
-							item_selection = 2;
+							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_WINDOW_FUN);
 							leave_icon_color = 0;
 							edit_icon_color = 0;
 							g_parameter.window_fun = window_fun;
@@ -2694,7 +2878,7 @@ void UI_Update(void)
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
 						Top_Bar_Active = 0;
-						item_selection = 3;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_SET_TIME);
 						leave_icon_color = 0;
 						edit_icon_color = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
@@ -2850,7 +3034,7 @@ void UI_Update(void)
 					}else if(key.key_val == ENTERKEY){
 							UI_state = STATE_USER_SETTING_MENU;
 							Top_Bar_Active = 0;
-							item_selection = 3;
+							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_SET_TIME);
 							leave_icon_color = 0;
 							edit_icon_color = 0;
 							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
@@ -2862,6 +3046,7 @@ void UI_Update(void)
 							rtc_time.Min = temp_rtc.Min;
 							rtc_time.Sec = 0;
 							RTC_SetTime(&rtc_time);
+							weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 					}
 			}
 	}
@@ -2888,9 +3073,9 @@ void UI_Update(void)
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
-						Top_Bar_Active = 1;
-						item_selection = 0;
-						leave_icon_color = 1;
+						Top_Bar_Active = 0;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_BACKLIGHT);
+						leave_icon_color = 0;
 						edit_icon_color = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
@@ -2919,7 +3104,7 @@ void UI_Update(void)
 							Draw_User_Setting_Backlight_Content(item_selection);
 					}else if(key.key_val == ENTERKEY){
 							UI_state = STATE_USER_SETTING_MENU;
-							item_selection = 4;
+							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_BACKLIGHT);
 							Top_Bar_Active = 0;
 							leave_icon_color = 0;
 							edit_icon_color = 0;
@@ -2956,9 +3141,9 @@ void UI_Update(void)
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
-						Top_Bar_Active = 1;
-						item_selection = 0;
-						leave_icon_color = 1;
+						Top_Bar_Active = 0;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_RESET);
+						leave_icon_color = 0;
 						edit_icon_color = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
@@ -2984,6 +3169,11 @@ void UI_Update(void)
 							}
 							main_display_digi = Display_Room_Temp;
 							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+							Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+							delete_alarm(Setting_Menu_Alarm);
+							if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+									LOGE("Alarm Fail\r\n");
+							}
 							Draw_Active_Menu();
 					}
 			}
@@ -3001,15 +3191,15 @@ void UI_Update(void)
 				pin_digit_selected++;
 				Draw_Pin_Digit_Selector(pin_digit_selected);
 			}
-			update_alarm(Setting_Menu_Alarm);
+			//update_alarm(Setting_Menu_Alarm);
 		}else if(key.key_val == DOWNKEY){
 			if(pin_digit_selected > 0){
 				pin_digit_selected--;
 				Draw_Pin_Digit_Selector(pin_digit_selected);
 			}
-			update_alarm(Setting_Menu_Alarm);
+			//update_alarm(Setting_Menu_Alarm);
 		}else if(key.key_val == ENTERKEY){
-			update_alarm(Setting_Menu_Alarm);
+			//update_alarm(Setting_Menu_Alarm);
 			// Enter the selected digit
 			pin_code_input[pin_digit_index] = pin_digit_selected;
 			pin_digit_index++;
@@ -3023,12 +3213,16 @@ void UI_Update(void)
 					pin_digit_selected = 0;
 					Clear_Pin_Input();
 					delete_alarm(Setting_Menu_Alarm);
+					child_lock_flag = 0;
 					//if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
 					//	LOGE("Alarm Full!\r\n");
 					//}
 					Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
 					main_display_digi = Display_Room_Temp;
 					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+							LOGE("Alarm Fail\r\n");
+					}
 					Draw_Active_Menu();
 				}else{
 					// PIN incorrect - clear and stay in verify state
@@ -3076,6 +3270,11 @@ void UI_Update(void)
 				// Clear and redraw full Active menu, then highlight setting number
 				LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 				main_display_digi = Display_Setting_Temp;
+				g_parameter.operation_mode = 0;				//Change to manual mode
+				Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+				if(register_alarm(Setting_Digi_Alarm, DIGI_UPDATE_TIME) == eFALSE){
+						LOGE("Alarm Full!\r\n");
+				}
 				Draw_Active_Menu();
 				//LOGD("Disp:%.1f\r\n", temp_int);
 				//LOGD("UI: %d\r\n", UI_state);
@@ -3091,11 +3290,69 @@ void UI_Update(void)
 				// Redraw Active page
 				LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 				main_display_digi = Display_Room_Temp;
+				Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+				if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+						LOGE("Alarm Fail\r\n");
+				}
 				Draw_Active_Menu();
 			}
 		}
 	}
-	
+	else if(UI_state == STATE_WINDOW_OPEN_DETECTED)
+	{
+		// Any key press -> show confirmation dialog
+		if(key.key_val != NONKEY && key.key_val != SYS_RESET)
+		{
+			UI_state = STATE_WINDOW_OPEN_CONFIRM;
+			window_open_confirm_selection = 0; // Default to Cancel
+			// Delete all alarms except Min_Update_Alarm
+			delete_alarm(Active_Alarm);
+			delete_alarm(Setting_Digi_Alarm);
+			delete_alarm(Setting_Menu_Alarm);
+			// Register alarm for confirmation dialog timeout
+			if(register_alarm(Setting_Menu_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+				LOGE("Alarm Full!\r\n");
+			}
+			Draw_Window_Open_Confirm_Page(window_open_confirm_selection);
+		}
+	}
+	else if(UI_state == STATE_WINDOW_OPEN_CONFIRM)
+	{
+		if(key.key_val == UPKEY || key.key_val == DOWNKEY){
+			// Toggle between Cancel (0) and Reset (1)
+			window_open_confirm_selection = (window_open_confirm_selection == 0) ? 1 : 0;
+			Draw_Window_Open_Confirm_Page(window_open_confirm_selection);
+		}else if(key.key_val == ENTERKEY){
+			if(window_open_confirm_selection == 1){
+				// Reset Window Open Detect
+				delete_alarm(Setting_Menu_Alarm);
+				window_function_reset();
+				UI_state = STATE_ACTIVE;
+				LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+				main_display_digi = Display_Room_Temp;
+				Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+				if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+					LOGE("Alarm Fail\r\n");
+				}
+				Draw_Active_Menu();
+			}else{
+				// Cancel Window Open Detect
+				delete_alarm(Setting_Menu_Alarm);
+				g_parameter.window_fun = 0;
+				if(Flash_Save_Parameter() != FLASH_OK){
+					LOGE("Flash write fail!\r\n");
+				}
+				UI_state = STATE_ACTIVE;
+				LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+				main_display_digi = Display_Room_Temp;
+				Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+				if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+					LOGE("Alarm Fail\r\n");
+				}
+				Draw_Active_Menu();
+			}
+		}
+	}
 	else if(UI_state == STATE_CONTROL_POWER_LIMIT)
 	{
 		if(Top_Bar_Active)  // TopBar mode: Edit/Leave
@@ -3121,7 +3378,7 @@ void UI_Update(void)
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_CONTROL_ADJ_MENU;
 						Top_Bar_Active = 0;
-						item_selection = 3;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_POWER_LIMIT);
 						leave_icon_color = 0;
 						edit_icon_color = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
@@ -3160,7 +3417,7 @@ void UI_Update(void)
 							Draw_Control_Adj_Power_Limit_Content(item_selection);
 					}else if(key.key_val == ENTERKEY){
 							UI_state = STATE_CONTROL_ADJ_MENU;
-							item_selection = 3;
+							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_POWER_LIMIT);
 							Top_Bar_Active = 0;
 							leave_icon_color = 0;
 							edit_icon_color = 0;
@@ -3175,7 +3432,7 @@ void UI_Update(void)
 			}
 		
 	}
-	else if(UI_state == STATE_CONTROL_COMFORT_MODE)
+	else if(UI_state == STATE_USER_SETTING_COMFORT_MODE)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
@@ -3198,13 +3455,13 @@ void UI_Update(void)
 					else  // Leave Icon is red
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
-						UI_state = STATE_CONTROL_ADJ_MENU;
+						UI_state = STATE_USER_SETTING_MENU;
 						Top_Bar_Active = 0;
-						item_selection = 2;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_COMFORT_MODE);
 						leave_icon_color = 0;
 						edit_icon_color = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
 					//delay_ms(100);
 				}
@@ -3221,8 +3478,8 @@ void UI_Update(void)
 								item_selection = 1;
 								Draw_Control_Adj_Comfort_Mode_Content(item_selection);
 						}else if(key.key_val == ENTERKEY){
-								UI_state = STATE_CONTROL_ADJ_MENU;
-								item_selection = 2;
+								UI_state = STATE_USER_SETTING_MENU;
+								item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_COMFORT_MODE);
 								Top_Bar_Active = 0;
 								leave_icon_color = 0;
 								edit_icon_color = 0;
@@ -3231,10 +3488,10 @@ void UI_Update(void)
 										LOGE("Flash write fail!\r\n");
 								}
 								LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-								Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+								Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
 				}else if(comfort_mode == 1){
-						UI_state = STATE_CONTROL_COMFORT_MODE_SETTING;
+						UI_state = STATE_USER_SETTING_COMFORT_MODE_SETTING;
 						item_selection = 0;
 						Top_Bar_Active = 1;
 						leave_icon_color = 0;
@@ -3244,7 +3501,7 @@ void UI_Update(void)
 				}
 		}
 	}
-	else if(UI_state == STATE_CONTROL_COMFORT_MODE_SETTING)
+	else if(UI_state == STATE_USER_SETTING_COMFORT_MODE_SETTING)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
@@ -3267,7 +3524,7 @@ void UI_Update(void)
 					else  // Leave Icon is red
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
-						UI_state = STATE_CONTROL_ADJ_MENU;
+						UI_state = STATE_USER_SETTING_COMFORT_MODE;
 						Top_Bar_Active = 0;
 						item_selection = 1;
 						leave_icon_color = 0;
@@ -3301,8 +3558,9 @@ void UI_Update(void)
 							item_selection = 1;
 							Draw_Control_Adj_Comfort_Mode_Setting_Content(item_selection);
 					}else if(key.key_val == ENTERKEY){
+							UI_state = STATE_USER_SETTING_MENU;
 							Top_Bar_Active = 0;
-							item_selection = 2;
+							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_COMFORT_MODE);
 							leave_icon_color = 0;
 							edit_icon_color = 0;
 							g_parameter.comfort_mode = comfort_mode;
@@ -3311,14 +3569,16 @@ void UI_Update(void)
 									LOGE("Flash write fail!\r\n");
 							}
 							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-							Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+							Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
 			}
 	}
 
 	key.key_val = NONKEY;
 	key.key_active = 0;
-	key.key_press = 0;
+	if(key.key_press != DOUBLEKEY){
+			key.key_press = 0;
+	}
 
 }
 
@@ -3380,7 +3640,7 @@ void Handle_Pin_Input(uint8_t key_val)
 					// Return to User Setting Menu
 					UI_state = STATE_USER_SETTING_MENU;
 					Top_Bar_Active = 0;
-					item_selection = 1;
+					item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_CHILD_LOCK);
 					leave_icon_color = 0;
 					edit_icon_color = 0;
 					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);

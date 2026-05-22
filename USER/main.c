@@ -30,8 +30,10 @@ void Draw_Main_Page(void);
 
 // Global variables
 //float setting_number = 4.0f;     	// 設定數字，初始值 4.0
-uint8_t	Relay;								// Output power indicator
-uint8_t Schedule_Period;					// Schedule indicator
+volatile uint8_t	Relay;								// Output power indicator
+volatile uint8_t Schedule_Period;					// Schedule indicator
+uint8_t (*sch_table)[4];
+volatile uint8_t Update_Relay;
 
 
 //RTC Time Default 2026/01/01 00:00:00
@@ -59,7 +61,7 @@ int main(void)
 {
 //	uint8_t key_val;
 
-	SystemInit();        // Initialize RCC, system clock to 72MHZ
+	SystemInit();        // Initialize RCC, system clock to 64MHz (HSI/2 * 16 PLL)
 	sys_tick_Init();	 // Initialize system tick clock
 	Key_Init();          // Key initialization
 	Backlight_Init();    // Backlight PWM initialization
@@ -83,6 +85,12 @@ int main(void)
    } else {
         LOGD("Parameters loaded from Flash\r\n");
    }
+	 weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
+	 UI_state = STATE_ACTIVE;
+	 Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+	 if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+			 LOGE("Alarm Fail\r\n");
+	 }
 	 Draw_Active_Menu();
 	 relay_init();
 	 if(rtc_rest){
@@ -95,7 +103,9 @@ int main(void)
 	if(register_alarm(Min_Update_Alarm, 60000) == 0){
 			LOGE("Alarm Full!\r\n");
 	}
-	ADC_Init_And_Measure();
+#if(!SIMULATION)
+	Thermostat_ADC_Init();
+#endif
 	
 	// Main loop
 	while(1)
@@ -103,11 +113,19 @@ int main(void)
 		// Scan keys
 		Key_Scan();
 		
-		UI_Update();
+		if(Factory_testing == 0){
+				UI_Update();
+		}
+
+#if(!SIMULATION)		
+		Thermostat_Update();
+#endif
 		
-		g_check_alarm();
-		//test_system_tick();
+		g_relay_handler();
+		
 		g_cmd_handler();
+
+		g_check_alarm();
 		
 	}
 

@@ -22,9 +22,10 @@
 #include <stdint.h>
 
 #define		MAX_ALARM_NUMBER							(5)
-#define		ACTIVE_ALIVE_TIME							(20000)						//10 sec
-#define		DIGI_UPDATE_TIME							(10000)						//5 sec
-#define		SETTING_UPDATE_TIME						(20000)						//10 sec
+#define		ACTIVE_ALIVE_TIME							(20000)						//20 sec
+#define		DIGI_UPDATE_TIME							(10000)						//10 sec
+#define		SETTING_UPDATE_TIME						(20000)						//20 sec
+//#define		FACTORY_KEY_TEST_TIME					(20000)						//20 sec
 #define		Upkey_Mask										(1)
 #define		Downkey_Mask									(2)
 #define		Enterkey_Mask									(4)
@@ -64,6 +65,12 @@
 #define EVAL_COM2_RX_GPIO_CLK            RCC_APB2Periph_GPIOA
 #define EVAL_COM2_IRQn                   USART2_IRQn
 
+#define FACTORT_TEST_MASK								0x01
+#define LCD_TEST_MASK										0x02
+#define KEY_TEST_MASK										0x04
+#define SENSOR_TEST_MASK								0x08
+#define RELAY_TEST_MASK									0x10
+#define VCC_TEST_MASK										0x20
 
 #define LONG_PRESS_THRESHOLD						(250)
 typedef enum 
@@ -78,6 +85,7 @@ enum
 		UPKEY,
 		DOWNKEY,
 		ENTERKEY,
+		DOUBLEKEY,
 		SYS_RESET
 };
 
@@ -87,6 +95,7 @@ typedef enum{
 		Setting_Digi_Alarm,
 		Setting_Menu_Alarm,
 		Min_Update_Alarm,
+		//Factory_Key_Test_Alarm,
 } alarm_source_t;
 
 typedef struct{
@@ -156,6 +165,7 @@ void g_check_alarm(void);
 uint8_t getWeekday(uint16_t year, uint8_t month, uint8_t day);
 void get_schedule_period(void);
 void g_cmd_handler(void);
+void g_relay_handler(void);
 
 
 #endif

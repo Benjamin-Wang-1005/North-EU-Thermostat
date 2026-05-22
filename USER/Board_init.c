@@ -108,8 +108,8 @@ void Key_Init(void)
 // SysTick initialization: 1ms interrupt mode
 void sys_tick_Init(void)
 {
-    // System clock 72MHz, SysTick uses HCLK/8 = 9MHz
-    // For 1ms interrupt, reload value = 9000 - 1 = 8999
+    // System clock 64MHz, SysTick uses HCLK = 64MHz
+    // For 1ms interrupt, reload value = 64000 - 1 = 63999
     
     // Method 1: Direct register operation
     //SysTick->CTRL &= ~SysTick_CTRL_CLKSOURCE_Msk;   // Select HCLK/8 (bit2=0)
@@ -171,6 +171,7 @@ void golbal_par_init(void)
 		g_parameter.temp_correct_internal = -1.0f;	//Minus 1
 		g_parameter.temp_limit_max = INPUT_TEMPERATURE_MAX_DEFAULT;						// Setup temp limit max value
 		g_parameter.temp_limit_min = INPUT_TEMPERATURE_MIN_DEFAULT;
+		g_parameter.temp_swing = 1;									// swing range 0.5 ~ 3, 0.5 as one step
 		g_parameter.operation_mode = 0;							//'0'= Manual Mode '1'= Schedule Mode;
 		g_parameter.temp_protect_max = DEVICE_PROTECT_TEMP_MAX_DEFAULT;
 		g_parameter.temp_protect_max_switch = 0;
@@ -180,10 +181,12 @@ void golbal_par_init(void)
 		g_parameter.window_fun_temp = 5;
 		g_parameter.window_fun_time = 30;
 		memcpy(g_parameter.workday_schedule, workday_schedule, sizeof(workday_schedule));
-		memcpy(g_parameter.holiday_schedule, holiday_schedule, sizeof(holiday_schedule));		
+		memcpy(g_parameter.holiday_schedule, holiday_schedule, sizeof(holiday_schedule));
 		
-		weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
-	
+		child_lock_flag = 0;
+		//Display_INT_Temp = -100;
+		//Display_EXT_Temp = -100;
+
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -198,15 +201,22 @@ void golbal_par_init(void)
 void relay_init(void)
 {
 		
-		if(g_parameter.power_on_state == 1){
+		if(g_parameter.power_on_state == 1){						//Keep State
 				Relay = g_parameter.relay_staty;
-		}else if(g_parameter.power_on_state == 2){
+				if(Relay == RELAY_ON){
+						GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);			//Open relay
+				}else{
+						GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);		//Close relay
+				}
+		}else if(g_parameter.power_on_state == 2){			//Relay Off
 				Relay = RELAY_OFF;
-		}else if(g_parameter.relay_staty == 3){
+				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);		//Close relay
+		}else if(g_parameter.relay_staty == 3){					//Relay on
 				Relay = RELAY_ON;
+				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);			//Open relay
 		}
 		
-		old_relay_state = Relay;
+		//old_relay_state = Relay;
 	
 }
 

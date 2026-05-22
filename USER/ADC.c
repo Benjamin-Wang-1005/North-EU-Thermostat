@@ -1,479 +1,591 @@
 //---------------------------------------------------------------------------------------------------------
-//                                                                                                         
-// Copyright(c) 2026 E-poly Technology Co., Ltd. All rights reserved.                                           
-//                                                                                                         
+//
+// Copyright(c) 2026 E-Poly Technology Co., Ltd. All rights reserved.
+//
 //---------------------------------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------------------------------------
-// E-Poly North EU Thermostat Project 
+// E-Poly North EU Thermostat Project
 // Author: Benjamin Wang
-// Date: 2026/04/21
+// Date: 2026/05/13
 // Email: Benjamin@epoly-tech.com
 //---------------------------------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------------------------------------
-// File Function: ADC initialization and VCC measurement
+// File Function: ADC driver with interrupt mode
 //      - ADC1 Channel 8 (PB0) and Channel 9 (PB1)
-//      - Continuous conversion with DMA
-//      - 16 samples per channel
+//      - Channel 17 (Vrefint) for VCC measurement
+//      - 16 samples per conversion via ADC EOC interrupt
+//      - No DMA
 //---------------------------------------------------------------------------------------------------------
 
 #include "Thermostat.h"
 
-// ADC buffer for each channel (16 samples each)
-volatile uint16_t adc_ch8_buffer[16];  // 16 samples for CH8 (PB0)
-volatile uint16_t adc_ch9_buffer[16];  // 16 samples for CH9 (PB1)
-volatile uint8_t adc_ch8_complete = 0;
-volatile uint8_t adc_ch9_complete = 0;
-volatile uint8_t adc_current_channel = 0;  // 0=none, 8=CH8, 9=CH9
+static const uint16_t NTC_table[] =
+{	64440, 61420, 58570, 55870, 53310, 50880, 48590, 46410, 44350, 42390,
+	40500, 38700, 37000, 35380, 33850, 32390, 31000, 29690, 28400, 27250,
+	26100, 25000, 23960, 22970, 22030, 21130, 20280, 19460, 18690, 17950,
+	17230, 16550, 15900, 15270, 14680, 14110, 13570, 13050, 12560, 12090,
+	11630, 11200, 10780, 10380, 10000, 9633,	9281,  8945,  8623,  8314,
+	8016,  7730,  7456,  7193,  6941,  6700,  6468,  6246,  6033,  5829,
+	5630,  5440,  5257,  5081,  4912,  4750,  4594,  4444,  4300,  4162,
+	4027,  3897,  3773,  3653,  3537,  3426,  3319,  3216,  3117,  3022,
+	2929,  2839,  2753,  2670,  2589,  2512,  2438,  2366,  2296,  2229,
+};  //SEMITEC 103AP-2
 
-// Temporary buffer for DMA transfer
-volatile uint16_t adc_buffer_temp[16];
 
-// ADC calibration values
-#define ADC_VREF                3.3f    // Reference voltage
-#define ADC_RESOLUTION          4096.0f // 12-bit ADC
+#define  _R2												(10000)
+#define  EXTERNAL_R_SERIES       470.0f
+#define  EXTERNAL_R_PULLDOWN     4700.0f
+#define  ADC_VREF                3.3f
+#define  ADC_RESOLUTION          4096.0f
+#define  VREFINT_VOLTAGE         1.2f
 
-// VCC measurement using internal reference
-// Vrefint = 1.2V (typical), used to calculate actual VCC
-#define VREFINT_VOLTAGE         1.2f    // Internal reference voltage (typical)
-#define VREFINT_CHANNEL         17      // ADC Channel 17 is internal reference
+
+adc_thermostat_t adc_ctrl;
+
+volatile float Average_INT_Temp = -999.0f;
+volatile float Average_EXT_Temp = -999.0f;
+
+static uint8_t adc_current_channel = 0;
+
+#define DISPLAY_UPDATE_CALL_TARGET_MAX  16      // 57.6s / 3.6s = 16 calls
+
+static uint8_t display_update_call_counter = 0;   // Calls since last display update
+static uint8_t display_update_call_target = 1;    // Target calls before next update (1,2,3...16)
+static uint8_t display_update_initialized = 0;
+
+float  adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num);
+static float adc_process_vcc(void);
 
 //---------------------------------------------------------------------------------------------------------
-// Function: ADC_DMA_IRQHandler
-// Description: DMA interrupt handler for ADC conversion complete
+// ADC1 Interrupt Handler
+// Description: Called on every EOC. Stores sample, restarts conversion until 16 samples collected.
 //---------------------------------------------------------------------------------------------------------
-void DMA1_Channel1_IRQHandler(void)
+void ADC1_2_IRQHandler(void)
 {
-    uint8_t i;
-    
-    if(DMA_GetITStatus(DMA1_IT_TC1))
+    if (ADC_GetITStatus(ADC1, ADC_IT_EOC))
     {
-        DMA_ClearITPendingBit(DMA1_IT_TC1);
-        
-        // Copy data to appropriate buffer based on current channel
-        if(adc_current_channel == 8)
+        uint16_t value = ADC_GetConversionValue(ADC1);
+
+        if (adc_current_channel == 8)
         {
-            for(i = 0; i < 16; i++)
+            if (adc_ctrl.ch8.raw_count < ADC_SAMPLE_COUNT)
             {
-                adc_ch8_buffer[i] = adc_buffer_temp[i];
+                adc_ctrl.ch8.raw_buffer[adc_ctrl.ch8.raw_count++] = value;
             }
-            adc_ch8_complete = 1;
+            if (adc_ctrl.ch8.raw_count < ADC_SAMPLE_COUNT)
+            {
+                ADC_SoftwareStartConvCmd(ADC1, ENABLE);
+            }
+            else
+            {
+                adc_ctrl.ch8.complete = 1;
+                ADC_Cmd(ADC1, DISABLE);
+            }
         }
-        else if(adc_current_channel == 9)
+        else if (adc_current_channel == 9)
         {
-            for(i = 0; i < 16; i++)
+            if (adc_ctrl.ch9.raw_count < ADC_SAMPLE_COUNT)
             {
-                adc_ch9_buffer[i] = adc_buffer_temp[i];
+                adc_ctrl.ch9.raw_buffer[adc_ctrl.ch9.raw_count++] = value;
             }
-            adc_ch9_complete = 1;
+            if (adc_ctrl.ch9.raw_count < ADC_SAMPLE_COUNT)
+            {
+                ADC_SoftwareStartConvCmd(ADC1, ENABLE);
+            }
+            else
+            {
+                adc_ctrl.ch9.complete = 1;
+                ADC_Cmd(ADC1, DISABLE);
+            }
         }
-        
-        // Disable DMA and ADC after conversion complete
-        DMA_Cmd(DMA1_Channel1, DISABLE);
-        ADC_DMACmd(ADC1, DISABLE);
-        ADC_Cmd(ADC1, DISABLE);
-        
-        //LOGD("ADC CH%d DMA Complete\n\r", adc_current_channel);
-        
-        adc_current_channel = 0;  // Clear current channel
+        else if (adc_current_channel == 17)
+        {
+            if (adc_ctrl.vcc_raw_count < ADC_SAMPLE_COUNT)
+            {
+                adc_ctrl.vcc_raw_buffer[adc_ctrl.vcc_raw_count++] = value;
+            }
+            if (adc_ctrl.vcc_raw_count < ADC_SAMPLE_COUNT)
+            {
+                ADC_SoftwareStartConvCmd(ADC1, ENABLE);
+            }
+            else
+            {
+                adc_ctrl.vcc_complete = 1;
+                ADC_TempSensorVrefintCmd(DISABLE);
+                ADC_Cmd(ADC1, DISABLE);
+            }
+        }
+
+        ADC_ClearITPendingBit(ADC1, ADC_IT_EOC);
     }
 }
 
 //---------------------------------------------------------------------------------------------------------
-// Function: ADC_Init_Config
-// Description: Initialize ADC1 with DMA for continuous conversion
-//              - Channel 8 (PB0) and Channel 9 (PB1)
-//              - 16 samples per channel
+// Function: Thermostat_ADC_Init
+// Description: Initialize ADC1 hardware, NVIC, calibrate, measure VCC once.
 //---------------------------------------------------------------------------------------------------------
-void ADC_Init_Config(void)
+void Thermostat_ADC_Init(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
-    ADC_InitTypeDef ADC_InitStructure;
-    DMA_InitTypeDef DMA_InitStructure;
+    ADC_InitTypeDef  ADC_InitStructure;
     NVIC_InitTypeDef NVIC_InitStructure;
-    
-    // Enable clocks
+
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1 | RCC_APB2Periph_GPIOB, ENABLE);
-    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
-    
-    // Configure PB0 (ADC12_IN8) and PB1 (ADC12_IN9) as analog input
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;  // Analog input
+
+    GPIO_InitStructure.GPIO_Pin  = GPIO_Pin_0 | GPIO_Pin_1;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
-    
-    // DMA configuration
-    DMA_DeInit(DMA1_Channel1);
-    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
-    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)adc_buffer_temp;
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-    DMA_InitStructure.DMA_BufferSize = 16;  // 16 samples for single channel
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;  // Single shot, not circular
-    DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
-    DMA_Init(DMA1_Channel1, &DMA_InitStructure);
-    
-    // Enable DMA interrupt
-    DMA_ITConfig(DMA1_Channel1, DMA_IT_TC, ENABLE);
-    
-    // NVIC configuration for DMA
-    NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel1_IRQn;
-    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
-    NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-    NVIC_Init(&NVIC_InitStructure);
-    
-    // ADC configuration
-    ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
-    ADC_InitStructure.ADC_ScanConvMode = ENABLE;  // Scan mode for multiple channels
-    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;  // Continuous conversion
-    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
-    ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-    ADC_InitStructure.ADC_NbrOfChannel = 2;  // 2 channels
+
+    RCC_ADCCLKConfig(RCC_PCLK2_Div8);
+
+    ADC_InitStructure.ADC_Mode               = ADC_Mode_Independent;
+    ADC_InitStructure.ADC_ScanConvMode       = DISABLE;
+    ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
+    ADC_InitStructure.ADC_ExternalTrigConv   = ADC_ExternalTrigConv_None;
+    ADC_InitStructure.ADC_DataAlign          = ADC_DataAlign_Right;
+    ADC_InitStructure.ADC_NbrOfChannel       = 1;
     ADC_Init(ADC1, &ADC_InitStructure);
-    
-    // Configure ADC for single channel mode (will be set at start conversion)
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_8, 1, ADC_SampleTime_239Cycles5);
-    
-    // Enable ADC
+
     ADC_Cmd(ADC1, ENABLE);
-    
-    // ADC calibration
+
     ADC_ResetCalibration(ADC1);
-    while(ADC_GetResetCalibrationStatus(ADC1));
+    while (ADC_GetResetCalibrationStatus(ADC1));
     ADC_StartCalibration(ADC1);
-    while(ADC_GetCalibrationStatus(ADC1));
-    
-    LOGD("ADC Init Complete\n\r");
+    while (ADC_GetCalibrationStatus(ADC1));
+
+    NVIC_InitStructure.NVIC_IRQChannel                   = ADC1_2_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
+    NVIC_InitStructure.NVIC_IRQChannelSubPriority        = 1;
+    NVIC_InitStructure.NVIC_IRQChannelCmd                = ENABLE;
+    NVIC_Init(&NVIC_InitStructure);
+
+    ADC_ITConfig(ADC1, ADC_IT_EOC, ENABLE);
+
+    memset(&adc_ctrl, 0, sizeof(adc_ctrl));
+    adc_ctrl.next_channel    = 8;
+    adc_ctrl.ch8_log_counter = 0;
+    adc_ctrl.ch9_log_counter = 0;
+
+    display_update_call_counter = 0;
+    display_update_call_target = 1;
+    display_update_initialized = 0;
+
+    Average_INT_Temp = -999.0f;
+    Average_EXT_Temp = -999.0f;
+
+    ADC_Start_VCC();
+    while (!adc_ctrl.vcc_complete);
+    adc_ctrl.vcc_voltage = adc_process_vcc();
+    LOGD("ADC Init Complete, VCC: %.2fV\r\n", adc_ctrl.vcc_voltage);
 }
 
 //---------------------------------------------------------------------------------------------------------
 // Function: ADC_Start_Channel
-// Description: Start ADC conversion for specific channel
-// Parameters:
-//      - channel: 8 for CH8 (PB0), 9 for CH9 (PB1), 17 for Vrefint
+// Description: Start 16-sample interrupt conversion for CH8 or CH9.
 //---------------------------------------------------------------------------------------------------------
 void ADC_Start_Channel(uint8_t channel)
 {
-    DMA_InitTypeDef DMA_InitStructure;
-    
-    if(channel != 8 && channel != 9 && channel != 17) return;
-
-    // Clear completion flag
-    if(channel == 8)
-        adc_ch8_complete = 0;
-    else if(channel == 9)
-        adc_ch9_complete = 0;
+    if (channel != 8 && channel != 9) return;
 
     adc_current_channel = channel;
-    
-    // Re-initialize DMA (required after DMA was disabled in IRQ)
-    DMA_DeInit(DMA1_Channel1);
-    DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)&ADC1->DR;
-    DMA_InitStructure.DMA_MemoryBaseAddr = (uint32_t)adc_buffer_temp;
-    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;
-    DMA_InitStructure.DMA_BufferSize = 16;
-    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;
-    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;
-    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord;
-    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord;
-    DMA_InitStructure.DMA_Mode = DMA_Mode_Normal;
-    DMA_InitStructure.DMA_Priority = DMA_Priority_High;
-    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;
-    DMA_Init(DMA1_Channel1, &DMA_InitStructure);
-    
-    // Re-enable DMA interrupt
-    DMA_ITConfig(DMA1_Channel1, DMA_IT_TC, ENABLE);
 
-    // Configure ADC channel
-    if(channel == 8)
+    if (channel == 8)
+    {
+        adc_ctrl.ch8.raw_count = 0;
+        adc_ctrl.ch8.complete  = 0;
         ADC_RegularChannelConfig(ADC1, ADC_Channel_8, 1, ADC_SampleTime_239Cycles5);
-    else if(channel == 9)
-        ADC_RegularChannelConfig(ADC1, ADC_Channel_9, 1, ADC_SampleTime_239Cycles5);
-    else if(channel == 17)
-        ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_239Cycles5);
-
-    // Enable DMA
-    DMA_Cmd(DMA1_Channel1, ENABLE);
-
-    // Enable ADC DMA request
-    ADC_DMACmd(ADC1, ENABLE);
-
-    // Enable ADC
-    ADC_Cmd(ADC1, ENABLE);
-
-    // Start ADC conversion
-    ADC_SoftwareStartConvCmd(ADC1, ENABLE);
-
-    //LOGD("ADC CH%d Started\n\r", channel);
-}
-
-//---------------------------------------------------------------------------------------------------------
-// Function: ADC_Start_Conversion (deprecated, use ADC_Start_Channel instead)
-// Description: Start ADC conversion with DMA for both channels
-//---------------------------------------------------------------------------------------------------------
-void ADC_Start_Conversion(void)
-{
-    // Start both channels sequentially
-    ADC_Start_Channel(8);
-}
-
-//---------------------------------------------------------------------------------------------------------
-// Function: ADC_Wait_Channel_Complete
-// Description: Wait for specific channel conversion to complete
-// Parameters:
-//      - channel: 8 for CH8, 9 for CH9
-//      - timeout_ms: timeout in milliseconds
-// Return: 1 if success, 0 if timeout
-//---------------------------------------------------------------------------------------------------------
-uint8_t ADC_Wait_Channel_Complete(uint8_t channel, uint32_t timeout_ms)
-{
-    uint32_t start_tick = time_tick;
-    volatile uint8_t *complete_flag;
-    
-    if(channel == 8)
-        complete_flag = &adc_ch8_complete;
-    else if(channel == 9)
-        complete_flag = &adc_ch9_complete;
-    else if(channel == 17)
-        complete_flag = &adc_ch8_complete;  // Use CH8 flag for Vrefint (single sample)
+    }
     else
-        return 0;
-    
-    // For Vrefint (channel 17), we use a simple timeout without flag
-    if(channel == 17)
     {
-        // Wait for DMA transfer complete (single sample)
-        while(DMA_GetCurrDataCounter(DMA1_Channel1) > 0)
-        {
-            if((time_tick - start_tick) > timeout_ms)
-            {
-                LOGD("ADC Vrefint Timeout\n\r");
-                return 0;
-            }
-        }
-        return 1;
+        adc_ctrl.ch9.raw_count = 0;
+        adc_ctrl.ch9.complete  = 0;
+        ADC_RegularChannelConfig(ADC1, ADC_Channel_9, 1, ADC_SampleTime_239Cycles5);
     }
-    
-    while(!(*complete_flag))
-    {
-        if((time_tick - start_tick) > timeout_ms)
-        {
-            LOGD("ADC CH%d Timeout\n\r", channel);
-            return 0;
-        }
-    }
-    
-    return 1;
+
+    ADC_Cmd(ADC1, ENABLE);
+    ADC_SoftwareStartConvCmd(ADC1, ENABLE);
 }
 
 //---------------------------------------------------------------------------------------------------------
-// Function: ADC_Wait_Complete (deprecated, use ADC_Wait_Channel_Complete instead)
-// Description: Wait for ADC conversion to complete
-// Return: 1 if success, 0 if timeout
+// Function: ADC_Start_VCC
+// Description: Start 16-sample interrupt conversion for Vrefint (CH17).
 //---------------------------------------------------------------------------------------------------------
-uint8_t ADC_Wait_Complete(uint32_t timeout_ms)
+void ADC_Start_VCC(void)
 {
-    return ADC_Wait_Channel_Complete(8, timeout_ms);
+    adc_current_channel = 17;
+    adc_ctrl.vcc_raw_count = 0;
+    adc_ctrl.vcc_complete  = 0;
+
+    ADC_TempSensorVrefintCmd(ENABLE);
+    my_delay_us(100);
+
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_239Cycles5);
+
+    ADC_Cmd(ADC1, ENABLE);
+    ADC_SoftwareStartConvCmd(ADC1, ENABLE);
 }
 
 //---------------------------------------------------------------------------------------------------------
-// Function: ADC_Calculate_Average
-// Description: Calculate average from ADC samples
-// Parameters: 
-//      - channel: 8 for CH8 (PB0), 9 for CH9 (PB1)
-// Return: Average ADC value
+// Helper: lookup temperature from NTC resistance table.
+// Returns -999.0f if out of range.
 //---------------------------------------------------------------------------------------------------------
-uint16_t ADC_Calculate_Average(uint8_t channel)
+static float ntc_lookup(float resistance)
+{
+    uint8_t i;
+    const uint8_t table_size = sizeof(NTC_table) / sizeof(NTC_table[0]);
+
+    if (resistance > (float)NTC_table[0])
+    {
+        return -999.0f;
+    }
+    if (resistance < (float)NTC_table[table_size - 1])
+    {
+        return -999.0f;
+    }
+
+    for (i = 0; i < table_size - 1; i++)
+    {
+        if (resistance <= (float)NTC_table[i] && resistance >= (float)NTC_table[i + 1])
+        {
+            float temp = (float)(-19 + i);
+            float frac = ((float)NTC_table[i] - resistance) / (float)(NTC_table[i] - NTC_table[i + 1]);
+            return temp + frac;
+        }
+    }
+
+    return -999.0f;
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Helper: process 16 raw samples, store average, run 18-sample filter when full.
+//---------------------------------------------------------------------------------------------------------
+float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
 {
     uint32_t sum = 0;
-    uint8_t i;
-    volatile uint16_t *buffer;
-    
-    if(channel == 8)
-        buffer = adc_ch8_buffer;
-    else if(channel == 9)
-        buffer = adc_ch9_buffer;
-    else
-        return 0;
-    
-    for(i = 0; i < 16; i++)
+    uint8_t  i;
+    uint16_t avg;
+    float    result = -999.0f;
+		char str_1[] = "INT_NTC";
+		char str_2[] = "EXT_NTC";
+		char *prt;
+
+    for (i = 0; i < ADC_SAMPLE_COUNT; i++)
     {
-        sum += buffer[i];
+        sum += ch->raw_buffer[i];
     }
-    
-    return (uint16_t)(sum / 16);
-}
+    avg = (uint16_t)(sum / ADC_SAMPLE_COUNT);
 
-//---------------------------------------------------------------------------------------------------------
-// Function: ADC_Measure_Channel
-// Description: Measure specific ADC channel voltage
-// Parameters:
-//      - channel: 8 for CH8 (PB0), 9 for CH9 (PB1)
-// Return: Voltage in volts
-//---------------------------------------------------------------------------------------------------------
-float ADC_Measure_Channel(uint8_t channel)
-{
-    uint16_t avg_value;
-    float voltage;
-    
-    if(channel != 8 && channel != 9) return 0.0f;
-    
-    // Start conversion for specific channel
-    ADC_Start_Channel(channel);
-    
-    // Wait for conversion complete (timeout 100ms)
-    if(!ADC_Wait_Channel_Complete(channel, 100))
+    ch->avg_buffer[ch->avg_index] = avg;
+    ch->avg_index = (ch->avg_index + 1) % ADC_AVG_BUFFER_SIZE;
+    if (ch->avg_count < ADC_AVG_BUFFER_SIZE)
     {
-        LOGD("ADC CH%d Conversion Failed\n\r", channel);
-        return 0.0f;
+        ch->avg_count++;
     }
-    
-    // Calculate average
-    avg_value = ADC_Calculate_Average(channel);
-    
-    // Convert to voltage
-    voltage = (avg_value * ADC_VREF) / ADC_RESOLUTION;
-    
-    LOGD("ADC CH%d: %d, Voltage: %.3fV\n\r", channel, avg_value, voltage);
-    
-    return voltage;
-}
 
-//---------------------------------------------------------------------------------------------------------
-// Function: ADC_Measure_VCC
-// Description: Measure VCC voltage using ADC
-// Note: Measures both channels and returns CH8 voltage as VCC reference
-//---------------------------------------------------------------------------------------------------------
-float ADC_Measure_VCC(void)
-{
-    float voltage_ch8, voltage_ch9;
-    
-    // Measure CH8
-    voltage_ch8 = ADC_Measure_Channel(8);
-    
-    // Measure CH9
-    voltage_ch9 = ADC_Measure_Channel(9);
-    
-    LOGD("VCC Measurement - CH8: %.3fV, CH9: %.3fV\n\r", voltage_ch8, voltage_ch9);
-    
-    // Return CH8 voltage as VCC reference
-    return voltage_ch8;
-}
+    ch->raw_count = 0;
+    ch->complete  = 0;
 
-//---------------------------------------------------------------------------------------------------------
-// Function: ADC_Measure_VCC_Internal
-// Description: Measure system VCC voltage using internal reference (Channel 17)
-// Principle: Vrefint (1.2V) is connected to ADC, by measuring its ADC value,
-//            we can calculate actual VCC voltage
-// Formula: VCC = VREFINT_VOLTAGE * 4096 / ADC_Vrefint_Value
-// Return: VCC voltage in volts
-//---------------------------------------------------------------------------------------------------------
-float ADC_Measure_VCC_Internal(void)
-{
-    uint32_t vrefint_sum = 0;
-    uint16_t vrefint_adc_value;
-    float vcc_voltage;
-    uint8_t i;
-    uint32_t timeout;
-    ADC_InitTypeDef ADC_InitStructure;
-    
-    // Enable internal reference voltage channel
-    ADC_TempSensorVrefintCmd(ENABLE);
-    
-    // Wait for internal reference to stabilize (at least 10us)
-    my_delay_ms(1);
-    
-    // Configure ADC for single conversion mode (no DMA)
-    ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
-    ADC_InitStructure.ADC_ScanConvMode = DISABLE;
-    ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
-    ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;
-    ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;
-    ADC_InitStructure.ADC_NbrOfChannel = 1;
-    ADC_Init(ADC1, &ADC_InitStructure);
-    
-    // Configure Channel 17 (Vrefint)
-    ADC_RegularChannelConfig(ADC1, ADC_Channel_17, 1, ADC_SampleTime_239Cycles5);
-    
-    // Take 16 samples and average
-    for(i = 0; i < 16; i++)
+    if (ch->avg_count >= ADC_AVG_BUFFER_SIZE)
     {
-        // Start conversion
-        ADC_SoftwareStartConvCmd(ADC1, ENABLE);
-        
-        // Wait for conversion complete
-        timeout = 10000;
-        while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC))
+        uint8_t *log_counter = (channel_num == 8) ? &adc_ctrl.ch8_log_counter : &adc_ctrl.ch9_log_counter;
+
+        (*log_counter)++;
+        if (*log_counter >= ADC_AVG_BUFFER_SIZE)
         {
-            if(--timeout == 0)
+            uint16_t sorted[ADC_AVG_BUFFER_SIZE];
+            uint16_t filtered_avg;
+            float voltage;
+            float resistance;
+            float temperature;
+
+            memcpy(sorted, (uint16_t *)ch->avg_buffer, sizeof(sorted));
+
+            for (i = 0; i < ADC_AVG_BUFFER_SIZE - 1; i++)
             {
-                LOGD("VCC Measurement Timeout\n\r");
-                ADC_TempSensorVrefintCmd(DISABLE);
-                return 0.0f;
+                uint8_t j;
+                for (j = 0; j < ADC_AVG_BUFFER_SIZE - 1 - i; j++)
+                {
+                    if (sorted[j] > sorted[j + 1])
+                    {
+                        uint16_t tmp = sorted[j];
+                        sorted[j]     = sorted[j + 1];
+                        sorted[j + 1] = tmp;
+                    }
+                }
             }
+
+            sum = 0;
+            for (i = 1; i < ADC_AVG_BUFFER_SIZE - 1; i++)
+            {
+                sum += sorted[i];
+            }
+            filtered_avg = (uint16_t)(sum / (ADC_AVG_BUFFER_SIZE - 2));
+            voltage = (filtered_avg * ADC_VREF) / ADC_RESOLUTION;
+
+            if (channel_num == 8)
+            {
+                resistance = (adc_ctrl.vcc_voltage - voltage) * _R2 / voltage;
+            }
+            else
+            {
+                resistance = (adc_ctrl.vcc_voltage * EXTERNAL_R_PULLDOWN / voltage) - (EXTERNAL_R_SERIES + EXTERNAL_R_PULLDOWN);
+            }
+
+            temperature = ntc_lookup(resistance);
+
+            if (temperature <= -100.0f)
+            {
+								if(UI_state != STATE_FACTORY_TEST){
+										LOGE("ADC CH%d Temperature out of range! Resistance: %.1f\r\n", channel_num, resistance);
+								}
+            }
+            else
+            {
+                volatile float *ntc_table = (channel_num == 8) ? adc_ctrl.INT_NTC_Table : adc_ctrl.EXT_NTC_Table;
+                uint8_t *ntc_count = (channel_num == 8) ? &adc_ctrl.int_ntc_count : &adc_ctrl.ext_ntc_count;
+                uint8_t *ntc_valid = (channel_num == 8) ? &adc_ctrl.int_ntc_valid : &adc_ctrl.ext_ntc_valid;
+                prt = (channel_num == 8) ? str_1 : str_2;
+
+                ntc_table[*ntc_count] = temperature;
+                *ntc_count = (*ntc_count + 1) % NTC_BUFFER_SIZE;
+                if (*ntc_valid < NTC_BUFFER_SIZE)
+                {
+                    (*ntc_valid)++;
+                }
+								if(UI_state != STATE_FACTORY_TEST){
+										LOGD("%s : %.2f C\r\n", prt, temperature);
+								}
+                ADC_Update_Display_Temperature(channel_num);
+            }
+
+            result = temperature;
+            *log_counter = 0;
         }
-        
-        // Read ADC value
-        vrefint_sum += ADC_GetConversionValue(ADC1);
     }
-    
-    // Calculate average
-    vrefint_adc_value = (uint16_t)(vrefint_sum / 16);
-    
-    // Calculate VCC: VCC = Vrefint * 4096 / ADC_Value
-    // When VCC drops, ADC_Value drops proportionally
-    vcc_voltage = (VREFINT_VOLTAGE * ADC_RESOLUTION) / vrefint_adc_value;
-    
-    //LOGD("Vrefint ADC Value: %d (avg of 16 samples)\n\r", vrefint_adc_value);
-    //LOGD("System VCC Voltage: %.3fV\n\r", vcc_voltage);
-    
-    // Disable internal reference to save power
-    ADC_TempSensorVrefintCmd(DISABLE);
-    
-    // Restore ADC configuration for DMA mode
-    ADC_InitStructure.ADC_ScanConvMode = ENABLE;
-    ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;
-    ADC_InitStructure.ADC_NbrOfChannel = 1;
-    ADC_Init(ADC1, &ADC_InitStructure);
-    
-    return vcc_voltage;
+
+    return result;
 }
 
 //---------------------------------------------------------------------------------------------------------
-// Function: ADC_Init_And_Measure
-// Description: Initialize ADC and measure VCC voltage
-// This function should be called before entering main loop
+// Helper: process 16 Vrefint raw samples and return VCC voltage.
 //---------------------------------------------------------------------------------------------------------
-void ADC_Init_And_Measure(void)
+static float adc_process_vcc(void)
 {
-    float vcc_voltage;
-		float voltage_ch8, voltage_ch9;
-    
-    //LOGD("Starting ADC Initialization...\n\r");
-    
-    // Initialize ADC
-    ADC_Init_Config();
-    
-   
-    
-    // Measure System VCC using internal reference
-    vcc_voltage = ADC_Measure_VCC_Internal();
-    LOGD("System VCC: %.2fV\n\r", vcc_voltage);
-    
-    //LOGD("ADC Initialization Complete\n\r");
-	
-		 // Measure CH8 (PB0) - wait a bit for system to stabilize
-    my_delay_ms(10);
-    voltage_ch8 = ADC_Measure_Channel(8);
-    
-    
-    // Measure CH9 (PB1) - add delay between measurements
-    my_delay_ms(10);
-    voltage_ch9 = ADC_Measure_Channel(9);
-   
+    uint32_t sum = 0;
+    uint8_t  i;
+    uint16_t avg;
+
+    for (i = 0; i < ADC_SAMPLE_COUNT; i++)
+    {
+        sum += adc_ctrl.vcc_raw_buffer[i];
+    }
+    avg = (uint16_t)(sum / ADC_SAMPLE_COUNT);
+
+    adc_ctrl.vcc_raw_count = 0;
+    adc_ctrl.vcc_complete  = 0;
+
+    return (VREFINT_VOLTAGE * ADC_RESOLUTION) / avg;
 }
+
+//---------------------------------------------------------------------------------------------------------
+// Function: Thermostat_Update
+// Description: Called from main loop.
+//      - Every 100 ms: start CH8 or CH9
+//      - When CH8/CH9 completes (ISR): immediately process and start VCC
+//      - When VCC completes (ISR): process and store voltage
+//---------------------------------------------------------------------------------------------------------
+void Thermostat_Update(void)
+{
+		
+    // Process any completed conversions as soon as possible
+    if (adc_ctrl.ch8.complete)
+    {
+        adc_process_channel(&adc_ctrl.ch8, 8);
+        ADC_Start_VCC();
+    }
+
+    if (adc_ctrl.ch9.complete)
+    {
+        adc_process_channel(&adc_ctrl.ch9, 9);
+        ADC_Start_VCC();
+    }
+
+    if (adc_ctrl.vcc_complete)
+    {
+        adc_ctrl.vcc_voltage = adc_process_vcc();
+    }
+
+    // Every 100 ms, start the next channel
+    if (g_clock_time_exceed(adc_ctrl.last_tick, 100))
+    {
+        adc_ctrl.last_tick = time_tick;
+
+        if (adc_ctrl.next_channel == 8)
+        {
+            ADC_Start_Channel(8);
+            adc_ctrl.next_channel = 9;
+        }
+        else
+        {
+            ADC_Start_Channel(9);
+            adc_ctrl.next_channel = 8;
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: ADC_Update_Display_Temperature
+// Description: Calculate average of valid entries in INT_NTC_Table and EXT_NTC_Table.
+//              Updates global Average_INT_Temp and Average_EXT_Temp.
+//              Controls display update interval: gradual lengthening from 3.6s to 57.6s.
+//              Only updates LCD when UI_state is STATE_ACTIVE or STATE_SLEEP.
+//---------------------------------------------------------------------------------------------------------
+void ADC_Update_Display_Temperature(uint8_t channel)
+{
+    float sum;
+    uint8_t i;
+    float display_temp;
+    uint16_t color;
+
+    // Step 1: Update global display temperature for the requested channel
+    if(channel == 8)
+    {
+        if(adc_ctrl.int_ntc_valid > 0)
+        {
+            sum = 0.0f;
+            for(i = 0; i < adc_ctrl.int_ntc_valid; i++)
+            {
+                sum += adc_ctrl.INT_NTC_Table[i];
+            }
+            Average_INT_Temp = sum / (float)adc_ctrl.int_ntc_valid;
+        }
+				window_fun_int_updated = 1;
+    }
+    else if(channel == 9)
+    {
+        if(adc_ctrl.ext_ntc_valid > 0)
+        {
+            sum = 0.0f;
+            for(i = 0; i < adc_ctrl.ext_ntc_valid; i++)
+            {
+                sum += adc_ctrl.EXT_NTC_Table[i];
+            }
+            Average_EXT_Temp = sum / (float)adc_ctrl.ext_ntc_valid;
+        }
+				window_fun_ext_updated = 1;
+    }
+
+    // Signal window function that new average temperature is ready
+    //if(channel == 8)
+    //{
+    //    window_fun_int_updated = 1;
+    //}
+    //else if(channel == 9)
+    //{
+    //    window_fun_ext_updated = 1;
+    //}
+
+    // Step 2: Check display update call counter (gradual interval lengthening)
+    // Each call to this function represents approximately 3.6 seconds.
+    if(display_update_initialized == 0)
+    {
+        // First temperature calculated: initialize and update display immediately
+        display_update_initialized = 1;
+        display_update_call_counter = 0;
+    }
+    else
+    {
+        display_update_call_counter++;
+        if(display_update_call_counter < display_update_call_target)
+        {
+            // Not enough calls yet to update display
+            return;
+        }
+    }
+
+    // Step 3: Display update call target reached
+    display_update_call_counter = 0;
+
+    // Step 4: Increase call target for next time (gradual lengthening: 1,2,3...16 calls ~= 3.6s,7.2s,10.8s...57.6s)
+    if(display_update_call_target < DISPLAY_UPDATE_CALL_TARGET_MAX)
+    {
+        display_update_call_target++;
+    }
+
+    // Step 5: Only update LCD when UI_state is ACTIVE or SLEEP
+    if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP))
+    {
+        return;
+    }
+
+    // Step 6: Only update when main display is showing room temperature
+    if(main_display_digi != Display_Room_Temp)
+    {
+        return;
+    }
+
+    // Step 7: Select temperature based on sensor_type
+    if(g_parameter.sensor_type == 0)
+    {
+        // Room (Internal)
+        display_temp = Average_INT_Temp;
+				display_temp += g_parameter.temp_correct_internal;
+    }
+    else
+    {
+        // Floor (External)
+        display_temp = Average_EXT_Temp;
+				display_temp += g_parameter.temp_correct_external;
+    }
+
+    // Step 8: Update LCD temperature display
+    if(display_temp > -99)
+    {
+        if(Relay == RELAY_OFF)
+        {
+            color = BLACK;
+        }
+        else
+        {
+            color = RED;
+        }
+        Display_Number(display_temp, color, 1);
+        GUI_DrawMonoIcon24x24(100, 45, BLACK, WHITE, Celsius_Icon_24x24);
+    }
+    else
+    {
+        // Temperature not ready yet: draw two horizontal lines
+        LCD_Fill(24, 74, 51, 78, BLACK);
+        LCD_Fill(60, 74, 91, 78, BLACK);
+    }
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: ADC_Get_Channel_Average
+// Description: Return the latest averaged ADC value for a channel (0 if none yet).
+//---------------------------------------------------------------------------------------------------------
+//uint16_t ADC_Get_Channel_Average(uint8_t channel)
+//{
+//    if (channel == 8 && adc_ctrl.ch8.avg_count > 0)
+//    {
+//        uint8_t idx = (adc_ctrl.ch8.avg_index + ADC_AVG_BUFFER_SIZE - 1) % ADC_AVG_BUFFER_SIZE;
+//        return adc_ctrl.ch8.avg_buffer[idx];
+//    }
+//    if (channel == 9 && adc_ctrl.ch9.avg_count > 0)
+//    {
+//        uint8_t idx = (adc_ctrl.ch9.avg_index + ADC_AVG_BUFFER_SIZE - 1) % ADC_AVG_BUFFER_SIZE;
+//        return adc_ctrl.ch9.avg_buffer[idx];
+//    }
+//    return 0;
+//}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: ADC_Get_VCC_Voltage
+// Description: Return the last measured VCC voltage.
+//---------------------------------------------------------------------------------------------------------
+//float ADC_Get_VCC_Voltage(void)
+//{
+//    return adc_ctrl.vcc_voltage;
+//}

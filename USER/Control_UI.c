@@ -142,30 +142,29 @@ void Draw_Control_Adj_Menu_Row(uint8_t row, uint8_t selected)
 {
 	uint16_t row_y[] = {30, 54, 78, 102};  // Y positions for 4 display rows
 	uint16_t arrow_bg_color;
-	char* menu_texts[] = {"Sensor", "Comfort Mode", "Power Limit", "Sensor Calibrate", "Input Temp.Limit", "Protect Temp.", "Power On State"};
-	uint8_t text_idx = control_adj_menu_scroll + row;  // 0-4
-	
+	uint8_t text_idx = control_adj_menu_scroll + row;
+
 	// Bounds check
-	if(text_idx > 6) return;
-	if(row > 3) return;
-	
+	if(text_idx >= Control_Adj_Menu_Item_Count) return;
+	if(row >= MENU_VISIBLE_ROWS) return;
+
 	if(selected) {
 		arrow_bg_color = RED;
 	} else {
 		arrow_bg_color = BLACK;
 	}
-	
+
 	// Clear this row area
 	LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + 24, WHITE);
-	
+
 	// Draw Arrow Icon (16x16) with appropriate background color
 	// Arrow icon lines are WHITE, background is RED (selected) or BLACK (not selected)
 	GUI_DrawMonoIcon16x16(10, row_y[row] + 4, WHITE, arrow_bg_color, Icon16x16_Arrow);
-	
+
 	// Draw menu text
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(30, row_y[row] + 4, BLACK, WHITE, menu_texts[text_idx], 16, 0);
+	Show_Str(30, row_y[row] + 4, BLACK, WHITE, Control_Adj_Menu_Items[text_idx].text, 16, 0);
 }
 
 
@@ -173,29 +172,39 @@ void Draw_Control_Adj_Menu_Row(uint8_t row, uint8_t selected)
 // This page shows:
 // - Top-left: Leave Icon (black/red)
 // - Top-right: Edit Icon (black/red)
-// - 4 visible rows (out of 5 total) with scrolling
+// - 4 visible rows with scrolling
 // - Arrow Icon on the left of each row (red bg for selected, black bg for others)
-// - 5 menu items: Sensor / Temp. Correct / Temp. Limit / Temp. Protect / Power On State
 // selection: 0-4=options, 0xFF=TopBar Edit red, 0xFE=TopBar Leave red
 void Draw_Control_Adj_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
 	uint8_t i;
 	uint8_t num_visible_rows;
-	
-	// Ensure scroll is valid (for 7 items with 4 visible)
-	if(control_adj_menu_scroll > 3) control_adj_menu_scroll = 3;
-	
+	uint8_t max_scroll = (Control_Adj_Menu_Item_Count > MENU_VISIBLE_ROWS) ? (Control_Adj_Menu_Item_Count - MENU_VISIBLE_ROWS) : 0;
+
+	// Auto-adjust scroll so that selected item is visible
+	if(!Top_Bar_Active && selection > 0) {
+		if(selection > control_adj_menu_scroll + MENU_VISIBLE_ROWS) {
+			control_adj_menu_scroll = selection - MENU_VISIBLE_ROWS;
+		}
+		if(selection - 1 < control_adj_menu_scroll) {
+			control_adj_menu_scroll = selection - 1;
+		}
+	}
+
+	// Ensure scroll is valid
+	if(control_adj_menu_scroll > max_scroll) control_adj_menu_scroll = max_scroll;
+
 	Draw_TopBar(leave_col, edit_col);
-	
-	// Calculate how many rows to draw (4 or less if near end)
-	num_visible_rows = 7 - control_adj_menu_scroll;
-	if(num_visible_rows > 4) num_visible_rows = 4;
-	
+
+	// Calculate how many rows to draw (MENU_VISIBLE_ROWS or less if near end)
+	num_visible_rows = Control_Adj_Menu_Item_Count - control_adj_menu_scroll;
+	if(num_visible_rows > MENU_VISIBLE_ROWS) num_visible_rows = MENU_VISIBLE_ROWS;
+
 	// Draw rows based on scroll position
 	for(i = 0; i < num_visible_rows; i++) {
-		uint8_t option_idx = control_adj_menu_scroll + i;  // 0-4
+		uint8_t option_idx = control_adj_menu_scroll + i;
 		uint8_t is_selected = 0;
-		
+
 		if(!Top_Bar_Active && (option_idx + 1 == selection)) {
 			is_selected = 1;
 		}
@@ -744,5 +753,44 @@ void Draw_Control_Adj_Comfort_Mode_Setting_Page(uint8_t selection, uint8_t leave
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 			Draw_Control_Adj_Comfort_Mode_Setting_Content(selection);
 	
+}
+
+void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection)
+{
+	//float swing_val;
+	uint8_t int_part;
+	uint8_t dec_part;
+
+	//swing_val = (float)temp_swing * 0.5f;
+	//int_part = (uint8_t)swing_val;
+	//dec_part = (uint8_t)((swing_val * 10.0f) + 0.5f) % 10;
+		int_part = (uint8_t)temp_swing;
+		dec_part = (uint8_t)(temp_swing * 10.0f) % 10;
+
+	if(selection == 1) {
+		
+		LCD_Fill(20, 50, 88, 114, WHITE);
+		GUI_DrawMonoIcon16x16(10, 78, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(116, 78, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawBigDigit(32, 50, BLACK, WHITE, '0' + int_part, 0);
+		LCD_Fill(64, 108, 68, 112, BLACK);
+		GUI_DrawBigDigit(70, 50, BLACK, WHITE, '0' + dec_part, 0);
+		GUI_DrawMonoIcon24x24(104, 50, BLACK, WHITE, Celsius_Icon_24x24);
+		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+	} else if(selection == 2) {
+		//LCD_Fill(36, 78, 52, 94, WHITE);
+		//LCD_Fill(116, 78, 132, 94, WHITE);
+		Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+	}
+}
+
+void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+{
+	Draw_TopBar(leave_col, edit_col);
+	POINT_COLOR = BLACK;
+	BACK_COLOR = WHITE;
+	Show_Str(10, 24, BLACK, WHITE, "Temp.Swing", 16, 0);
+	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
+	Draw_Control_Adj_Temp_Swing_Content(selection);
 }
 

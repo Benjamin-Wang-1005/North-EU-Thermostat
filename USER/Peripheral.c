@@ -23,8 +23,9 @@
 
 #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
 	
-#define CMD_PREFIX          				"[CMD]"
-#define CMD_PREFIX_LEN      				(5)
+//#define CMD_PREFIX          				"[CMD]"
+//#define CMD_PREFIX_LEN      				(5)
+#define DOUBLE_PRESS_COUNT						(250)
 	
 volatile uint32_t time_tick = 0;  // Must be volatile to prevent compiler optimization
 struct_key_t key;
@@ -43,185 +44,179 @@ const uint32_t COM_RX_PORT_CLK[COMn] = {EVAL_COM1_RX_GPIO_CLK, EVAL_COM2_RX_GPIO
 const uint16_t COM_TX_PIN[COMn] = {EVAL_COM1_TX_PIN, EVAL_COM2_TX_PIN};
 const uint16_t COM_RX_PIN[COMn] = {EVAL_COM1_RX_PIN, EVAL_COM2_RX_PIN};
 	
+enum{
+		Key_Idle = 0,
+		Key_Debounce,
+		Key_Wait_Release
+};
+volatile uint8_t key_state = Key_Idle;
+
+
 
 
 // Scan keys
-// Return: 0 = no key, 1 = Up key, 2 = Down key, 3 = Enter key, 4 = System Reset
 void Key_Scan(void)
 {
 	static uint32_t local_tick;
-	static uint8_t long_press_triggered = 0;  // 
-	static uint8_t both_press_ongoing = 0;    // both key in press
 	
-	uint8_t up_physical;
-	uint8_t down_physical;
-	uint8_t enter_physical;
+	uint8_t up_press;
+	uint8_t down_press;
+	uint8_t enter_press;
 	
 	if(0 == g_clock_time_exceed(local_tick, 20)){								
 				return;
 	}
 	local_tick = time_tick;
 
-	// ========== read key status  high key press==========	
+	// ========== read key status ==========	
 #if(EVB_BOARD)
-	up_physical = (GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 1) ? 1 : 0;
-	down_physical = (GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 1) ? 1 : 0;
-	enter_physical = (GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 1) ? 1 : 0;
+	up_press = (GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 1) ? 1 : 0;
+	down_press = (GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 1) ? 1 : 0;
+	enter_press = (GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 1) ? 1 : 0;
 #else
-	up_physical = (GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 0) ? 1 : 0;
-	down_physical = (GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 0) ? 1 : 0;
-	enter_physical = (GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 0) ? 1 : 0;
+	up_press = (GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 0) ? 1 : 0;
+	down_press = (GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 0) ? 1 : 0;
+	enter_press = (GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 0) ? 1 : 0;
 #endif
 	
-	// ========== detect long press��UP + DOWN both press 5 sec ==========
-	if(up_physical && down_physical)
-	{
-		if(!both_press_ongoing)
-		{
-			// enter both key press
-			both_press_ongoing = 1;
-			long_press_triggered = 0;
-		}
-		
-		// acc counter��both key need accumulate��
-		if(key.key_press_cnt[UPKEY - 1] < 255){ 
-					key.key_press_cnt[UPKEY - 1]++;
-			//LOGD("Upkey_cnt:%d\r\n",key.key_press_cnt[UPKEY - 1]);
-		}
-		if(key.key_press_cnt[DOWNKEY - 1] < 255) key.key_press_cnt[DOWNKEY - 1]++;
-		
-		// Check if the long press threshold has been reached, and if it has not yet been triggered.
-		if(!long_press_triggered && 
-		   key.key_press_cnt[UPKEY - 1] >= LONG_PRESS_THRESHOLD && 
-		   key.key_press_cnt[DOWNKEY - 1] >= LONG_PRESS_THRESHOLD)
-		{
-			long_press_triggered = 1;
-			LOGD("Up+Down Long Press 5s: Trigger SYS_RESET\n\r");
-			key.key_active = 1;
-			key.key_val = SYS_RESET;
+	switch(key_state){
+			case Key_Idle:
+					if(key.key_active == 0){
+							if(up_press){
+									key.key_press_cnt[UPKEY - 1]++;
+									key_state = Key_Debounce;
+									key.key_press = UPKEY;
+							}else if(down_press){
+									key.key_press_cnt[DOWNKEY - 1]++;
+									key_state = Key_Debounce;
+									key.key_press = DOWNKEY;
+							}else if(enter_press){
+									key.key_press_cnt[ENTERKEY - 1]++;
+									key_state = Key_Debounce;
+									key.key_press = ENTERKEY;
+							}
+					}
+			break;
+
+			case Key_Debounce:
+					if(key.key_press == UPKEY){
+							if(up_press){
+									if(key.key_press_cnt[UPKEY - 1] > 1){
+											key_state = Key_Wait_Release;				//Ready for check release
+									}else{
+											key.key_press_cnt[UPKEY - 1]++;			//Count for debounce
+									}
+							}else{
+									key.key_press = NONKEY;									//Noise, back to Idle
+									key.key_press_cnt[UPKEY - 1] = 0;
+									key_state = Key_Idle;
+							}
+					}else if(key.key_press == DOWNKEY){
+							if(down_press){
+									if(key.key_press_cnt[DOWNKEY - 1] > 1){
+											key_state = Key_Wait_Release;
+									}else{
+											key.key_press_cnt[DOWNKEY - 1]++;
+									}
+							}else{
+									key.key_press = NONKEY;
+									key.key_press_cnt[DOWNKEY - 1] = 0;
+									key_state = Key_Idle;
+							}
+					}else if(key.key_press == ENTERKEY){
+							if(enter_press){
+									if(key.key_press_cnt[ENTERKEY - 1] > 1){
+											key_state = Key_Wait_Release;
+									}else{
+											key.key_press_cnt[ENTERKEY - 1]++;
+									}
+							}else{
+									key.key_press = NONKEY;
+									key.key_press_cnt[ENTERKEY - 1] = 0;
+									key_state = Key_Idle;
+							}
+					}
+			break;
+
+			case Key_Wait_Release:
+					if(key.key_press == UPKEY){
+							if(up_press == 0){												//UP key release
+									key.key_active = 1;
+									key.key_val = UPKEY;
+									key.key_press = NONKEY;
+									key_state = Key_Idle;
+									key.key_press_cnt[UPKEY - 1] = 0;
+									if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP) && (UI_state != STATE_SETTING)){
+											update_alarm(Setting_Menu_Alarm);
+									}else if(UI_state == STATE_SETTING){
+											update_alarm(Setting_Digi_Alarm);
+									}
+									LOGD("Up Key\r\n");
+							}else if(up_press && down_press){
+									key.key_press = DOUBLEKEY;
+									//key_state = Double_Key_Press;
+							}
+					}else if(key.key_press == DOWNKEY){
+							if(down_press == 0){
+									key.key_active = 1;
+									key.key_val = DOWNKEY;
+									key.key_press = NONKEY;
+									key_state = Key_Idle;
+									key.key_press_cnt[DOWNKEY - 1] = 0;
+									if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP) && (UI_state != STATE_SETTING)){
+											update_alarm(Setting_Menu_Alarm);
+									}else if(UI_state == STATE_SETTING){
+											update_alarm(Setting_Digi_Alarm);
+									}
+									LOGD("Down Key\r\n");
+							}else if(up_press && down_press){
+									key.key_press = DOUBLEKEY;
+									//key_state = Double_Key_Press;							//State in Key_Wait_Release
+							}
+					}else if(key.key_press == ENTERKEY){
+							if(enter_press == 0){
+									key.key_active = 1;
+									key.key_val = ENTERKEY;
+									key.key_press = NONKEY;
+									key_state = Key_Idle;
+									key.key_press_cnt[ENTERKEY - 1] = 0;
+									if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP) && (UI_state != STATE_SETTING)){
+											update_alarm(Setting_Menu_Alarm);
+									}else if(UI_state == STATE_SETTING){
+											update_alarm(Setting_Digi_Alarm);
+									}
+									LOGD("Enter Key\r\n");
+							}
+					}else if(key.key_press == DOUBLEKEY){
+							if(up_press && down_press){
+									if((key.key_press_cnt[UPKEY - 1] > 250) && (key.key_press_cnt[DOWNKEY - 1] >250)){
+											key.key_active = 1;
+											key.key_val = SYS_RESET;
+											if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP) && (UI_state != STATE_SETTING)){
+													update_alarm(Setting_Menu_Alarm);
+											}else if(UI_state == STATE_SETTING){
+													update_alarm(Setting_Digi_Alarm);
+											}
+											LOGD("Double Key\r\n");
+											//key.key_press = NONKEY;
+											//key_state = Key_Idle;
+									}else{
+											key.key_press_cnt[UPKEY - 1]++;
+											key.key_press_cnt[DOWNKEY - 1]++;
+									}
+							}else if((up_press == 0) && (down_press == 0)){
+									key.key_press = NONKEY;
+									key_state = Key_Idle;
+									key.key_press_cnt[UPKEY - 1] = 0;
+									key.key_press_cnt[DOWNKEY - 1] = 0;
+							}
+					}
+			break;
 			
-			// Note: Do not clear the counter; let it continue to accumulate, but `long_press_triggered` prevents repeated triggering.
-		}
-	}
-	else if(!up_physical && !down_physical)
-	{
-		// Releasing any key clears the state where both keys were pressed simultaneously.
-		if(both_press_ongoing)
-		{
-			both_press_ongoing = 0;
-			long_press_triggered = 0;
-			// Do not clear key.key_press_cnt; let the original short press logic determine whether a short press is valid.
-		}
-	}
-	
-	// ========== Existing short-press logic (modified to avoid overwriting SYS_RESET).==========
-	if(key.key_press != 0)
-	{
-		// If a SYS_RESET key is already pending, no further key presses will be processed.
-		if(key.key_val == SYS_RESET)
-		{
-			// Retain SYS_RESET and do nothing.
-			return;
-		}
-		
-		if((key.key_press & Upkey_Mask) != 0)
-		{
-			if(!up_physical)
-			{
-				LOGD("Up Key\n\r");
-				key.key_active = 1;
-				key.key_val = UPKEY;
-				if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP) && (UI_state != STATE_SETTING)){
-						update_alarm(Setting_Menu_Alarm);
-				}else if(UI_state == STATE_SETTING){
-						update_alarm(Setting_Digi_Alarm);
-				}
-			}
-		}
-		else if((key.key_press & Downkey_Mask) != 0)
-		{
-			if(!down_physical)
-			{
-				LOGD("Down Key\n\r");
-				key.key_active = 1;
-				key.key_val = DOWNKEY;
-				if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP) && (UI_state != STATE_SETTING)){
-						update_alarm(Setting_Menu_Alarm);
-				}else if(UI_state == STATE_SETTING){
-						update_alarm(Setting_Digi_Alarm);
-				}
-			}
-		}
-		else if((key.key_press & Enterkey_Mask) != 0)
-		{
-			if(!enter_physical)
-			{
-				LOGD("Enter Key\n\r");
-				key.key_active = 1;
-				key.key_val = ENTERKEY;
-				if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP) && (UI_state != STATE_SETTING)){
-						update_alarm(Setting_Menu_Alarm);
-				}else if(UI_state == STATE_SETTING){
-						update_alarm(Setting_Digi_Alarm);
-				}
-			}
-		}
-	}
-	else
-	{
-		if(!long_press_triggered){
-				if(key.key_active == 0){				//No key wait to process
-						// Up-key detection (add long_press_triggered check)
-#if(EVB_BOARD)
-						if(GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 1){
-#else
-						if(GPIO_ReadInputDataBit(UP_KEY_PORT, UP_KEY_PIN) == 0){
-#endif
-								// If it's triggered by a long press, a short press won't trigger it.
-								if(key.key_press_cnt[UPKEY - 1] > 1){
-										key.key_press_cnt[UPKEY - 1] = 0;
-										key.key_press = key.key_press | Upkey_Mask;
-								}else if(key.key_press_cnt[UPKEY - 1] <= 1){
-										key.key_press_cnt[UPKEY - 1]++;
-								}
-						}else{
-								key.key_press_cnt[UPKEY - 1] = 0;
-						}
-				
-						// Down Key Detection
-#if(EVB_BOARD)
-						if(GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 1){
-#else
-						if(GPIO_ReadInputDataBit(DOWN_KEY_PORT, DOWN_KEY_PIN) == 0){
-#endif
-								if(key.key_press_cnt[DOWNKEY - 1] > 1){
-										key.key_press_cnt[DOWNKEY - 1] = 0;
-										key.key_press = key.key_press | Downkey_Mask;
-								}else if(key.key_press_cnt[DOWNKEY - 1] <= 1){
-										key.key_press_cnt[DOWNKEY - 1]++;
-								}
-						}else{
-								key.key_press_cnt[DOWNKEY - 1] = 0;
-						}
-				
-						// Enter Key Check ( Keep as is)
-#if(EVB_BOARD)
-						if(GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 1){
-#else
-						if(GPIO_ReadInputDataBit(ENTER_KEY_PORT, ENTER_KEY_PIN) == 0){
-#endif
-								if(key.key_press_cnt[ENTERKEY - 1] > 1){
-										key.key_press_cnt[ENTERKEY - 1] = 0;
-										key.key_press = key.key_press | Enterkey_Mask;
-								}else{
-										key.key_press_cnt[ENTERKEY - 1]++;
-								}
-						}else{
-								key.key_press_cnt[ENTERKEY - 1] = 0;
-						}
-				}
-		}
-		
+			default:
+					LOGE("Key state error: %d\r\n",key_state);
+			break;
+
 	}
 
 }
@@ -339,212 +334,6 @@ void Log_USART_Init(void)
 }
 
 
-
-//---------------------------------------------------------------------------------------------------------
-// Funcation: _receiveCmd
-// Description: Check RX buffer had received complete command 
-// Input: None
-// Output: eTRUE -> complere command had received / eFALSE -> received not complete
-// Date: 2022/12/03
-// Update:
-//----------------------------------------------------------------------------------------------------------
-static bool_t receiveCmd(void)
-{
-		uint8_t inChar = 0xFF;
-		while((USART1->SR & USART_FLAG_RXNE) != 0){		//'0' no data can read
-				inChar = USART_ReceiveData(EVAL_COM1);
-				if(inChar == 0x00 || inChar == '\r' || inChar == '\n') {
-						cmd_queue.rx_buffer[cmd_queue.rx_index] = 0x00;
-                    return eTRUE;
-        }
-				// lowercase to uppercase
-        if (inChar >= 'a' && inChar <= 'z') {
-						inChar -= 0x20;
-        }
-				
-				if(cmd_queue.rx_index < UART_FIFO_QTY - 1)  // Reserved onr byte for '\0'
-        {
-            cmd_queue.rx_buffer[cmd_queue.rx_index] = inChar;
-            cmd_queue.rx_index++;
-        }
-        else
-        {
-            // FIFO full
-            LOGD("UART buffer overflow!\n\r");
-            // clear FIFO
-            cmd_queue.rx_index = 0;
-        }
-		}
-		
-		return eFALSE;
-}
-
-//---------------------------------------------------------------------------------------------------------
-// Function: USART1_IRQHandler
-// Description: UART1 interrupt handle
-// Input: None
-// Output: None
-// Date: 2026/05/03
-//---------------------------------------------------------------------------------------------------------
-void USART1_IRQHandler(void)
-{
-		bool_t completed = eFALSE;
-		// check rx index
-		if(USART_GetITStatus(EVAL_COM1, USART_IT_RXNE) != RESET)
-		{
-				completed = receiveCmd();
-				if(completed){
-						cmd_queue.F_received_complete = eTRUE;
-				}					
-				// clear interrupt flag
-				USART_ClearITPendingBit(EVAL_COM1, USART_IT_RXNE);
-		}
-}
-
-//------------------------------------------------------------------------------------------------------------------
-//
-// UART1 input command handle reative functions
-// 
-//
-//------------------------------------------------------------------------------------------------------------------
-
-//---------------------------------------------------------------------------------------------------------
-// Function: parse_command
-// Description: Parse received command string and extract command name and parameter
-// Input: cmd_str - received command string (without newline)
-// Output: cmd_name - extracted command name (max 32 chars)
-//         param - extracted parameter (may be NULL)
-// Return: 0 on success, -1 on failure
-//---------------------------------------------------------------------------------------------------------
-bool_t parse_command(const char* cmd_str, char* cmd_name, char* param)
-{
-    const char* p = cmd_str;
-    const char* colon_pos = NULL;
-    int cmd_len;
-    
-    // Check prefix [CMD]
-    if (strncmp(p, CMD_PREFIX, CMD_PREFIX_LEN) != 0) {
-        return eFALSE;
-    }
-    p += CMD_PREFIX_LEN;
-    
-    // Find colon ':'
-    colon_pos = strchr(p, ':');
-    if (colon_pos == NULL) {
-        // No param, whole string is command name
-        cmd_len = strlen(p);
-        if (cmd_len >= 32) cmd_len = 31;
-        strncpy(cmd_name, p, cmd_len);
-        cmd_name[cmd_len] = '\0';
-        param[0] = '\0';
-    } else {
-        // Has param
-        cmd_len = colon_pos - p;
-        if (cmd_len >= 32) cmd_len = 31;
-        strncpy(cmd_name, p, cmd_len);
-        cmd_name[cmd_len] = '\0';
-        
-        // Copy param
-        strncpy(param, colon_pos + 1, 31);
-        param[31] = '\0';
-    }
-    
-    // Convert command name to uppercase for case-insensitive comparison
-    // had implement in receiveCmd(void)
-    //for (int i = 0; cmd_name[i]; i++) {
-    //    cmd_name[i] = toupper(cmd_name[i]);
-    //}
-    
-    return eTRUE;
-}
-
-//---------------------------------------------------------------------------------------------------------
-// Function: processCmd
-// Description: Process received command from UART
-// Input: None
-// Output: None
-// Date: 2026/05/03
-// Update: Added factory test protocol parsing
-//----------------------------------------------------------------------------------------------------------
-static void processCmd(void)
-{
-    char cmd_name[10];
-    char param[10];
-    char* cmd_str;
-		int len;
-    
-    // Get the received command string
-    cmd_str = (char*)cmd_queue.rx_buffer;
-    
-    //LOGD("Received: %s\n", cmd_str);
-    
-    // Remove trailing newline/carriage return if present
-    len = strlen(cmd_str);
-    while (len > 0 && (cmd_str[len-1] == '\n' || cmd_str[len-1] == '\r')) {
-        cmd_str[len-1] = '\0';
-        len--;
-    }
-    
-    // Parse command
-    if (parse_command(cmd_str, cmd_name, param) == eFALSE) {
-        LOGD("Invalid command format: %s\n", cmd_str);
-        return;
-    }
-    
-    LOGD("Parsed: cmd=%s, param=%s\n", cmd_name, param);
-    
-    // Dispatch to appropriate handler
-    if (strcmp(cmd_name, "CONNECT") == 0) {
-        //connect_cmd();
-    }
-    else if (strcmp(cmd_name, "EXIT") == 0) {
-        //exit_cmd();
-    }
-    else if (strcmp(cmd_name, "LCD") == 0) {
-        //lcd_test_cmd(param);
-    }
-    else if (strcmp(cmd_name, "KEY_TEST") == 0) {
-        //key_test_cmd(param);
-    }
-    else if (strcmp(cmd_name, "GET") == 0) {
-        // Handle GET:TEMP or GET:VCC
-        if (strcasecmp(param, "TEMP") == 0) {
-            //get_temp_cmd();
-        }
-        else if (strcasecmp(param, "VCC") == 0) {
-            //get_vcc_cmd();
-        }
-        else {
-            //send_response("GET", "INVALID");
-        }
-    }
-    else if (strcmp(cmd_name, "RELAY") == 0) {
-        //relay_cmd(param);
-    }
-    else {
-        LOGD("Unknown command: %s\n", cmd_name);
-        printf("[CMD]RES:UNKNOWN:COMMAND\n");
-    }
-}
-
-
-//---------------------------------------------------------------------------------------------------------
-// Funcation: g_cmd_handler
-// Description: Handle UART1 received command process
-// Input: None
-// Output: None
-// Date: 2026/05/03
-// Update:
-//----------------------------------------------------------------------------------------------------------
-void g_cmd_handler(void)
-{
-		
-		if(cmd_queue.F_received_complete){
-				processCmd();
-				
-				cmd_queue.F_received_complete = eFALSE;
-		}
-}
 
 //------------------------------------------------------------------------------------------------------------------
 //
@@ -748,47 +537,7 @@ void delete_alarm(alarm_source_t source)
 		LOGD("Not found alarm source: %d\r\n", source);
 }
 
-void get_schedule_period(void)
-{
-		uint8_t i;
-		uint8_t (*sched_ptr)[4];
-		uint32_t current_min, sch_min;
-	
-		if(g_parameter.current_prog_type == 0){
-								if(weekday < 5){
-										sched_ptr = g_parameter.workday_schedule;
-								}else{
-										sched_ptr = g_parameter.holiday_schedule;
-								}
-						}else if(g_parameter.current_prog_type == 1){
-								if(weekday < 6){
-										sched_ptr = g_parameter.workday_schedule;
-								}else{
-										sched_ptr = g_parameter.holiday_schedule;
-								}
-						}else if(g_parameter.current_prog_type == 2){
-								sched_ptr = g_parameter.workday_schedule;
-						}
-						current_min = (rtc_time.Hour * 60) + rtc_time.Min;
-						
-						for(i=0; i<6; i++){
-								sch_min = (sched_ptr[i][0] * 60) + sched_ptr[i][1];
-								//LOGD("sch_min:%d\r\n", sch_min);
-								//LOGD("current_min:%d\r\n", current_min);
-								//LOGD("i=%d\r\n", i);
-								if(sch_min > current_min)	{	
-										break;
-								}
-								
-						}
-						
-						if(i > 0){
-								Schedule_Period = i - 1;
-						}else{
-								Schedule_Period = 5;
-						}
-						LOGD("S_Period:%d\r\n", Schedule_Period);
-}
+
 
 //---------------------------------------------------------------------------------------------------------
 // Funcation: l_process_alarm_source(alarm_source_t source)
@@ -826,19 +575,45 @@ void l_process_alarm_source(alarm_source_t source)
 				case Setting_Digi_Alarm:
 						delete_alarm(Setting_Digi_Alarm);
 						UI_state = STATE_ACTIVE;
-						Clear_Number_Area();
-						Display_Number(g_parameter.setting_number, BLACK, 1);  // show_decimal = 1
-						GUI_DrawMonoIcon24x24(100, 45, BLACK, WHITE, Celsius_Icon_24x24);
+						//Clear_Number_Area();
+						//Display_Number(g_parameter.setting_number, BLACK, 1);  // show_decimal = 1
+						//GUI_DrawMonoIcon24x24(100, 45, BLACK, WHITE, Celsius_Icon_24x24);
+						//if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+						//		LOGE("Alarm Fail\r\n");
+						//}
+						main_display_digi = Display_Room_Temp;
+						Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
 						if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
 								LOGE("Alarm Fail\r\n");
 						}
+						Draw_Active_Menu();
 				break;
 						
 				case Setting_Menu_Alarm:
-						delete_alarm(Setting_Menu_Alarm);
-						main_display_digi = Display_Room_Temp;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Active_Menu();
+							if(UI_state == STATE_WINDOW_OPEN_CONFIRM){
+									delete_alarm(Setting_Menu_Alarm);
+									UI_state = STATE_WINDOW_OPEN_DETECTED;
+									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+									Draw_Active_Menu();
+							}else if(child_lock_flag == 0){ 
+
+								delete_alarm(Setting_Menu_Alarm);
+								UI_state = STATE_ACTIVE;
+								main_display_digi = Display_Room_Temp;
+								LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+								Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+								if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+										LOGE("Alarm Fail\r\n");
+								}
+								Draw_Active_Menu();
+						}else{
+								delete_alarm(Setting_Menu_Alarm);
+								UI_state = STATE_SLEEP;
+								icon6_red_state = 0;
+								Backlight_SetDuty(g_parameter.sleep_backlight_duty);
+								LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+								Draw_Active_Menu();
+						}
 						// Reset to Active state (for any state that uses this alarm)
 						//UI_state = STATE_ACTIVE;
 						// Register Active_Alarm for normal active timeout
@@ -850,7 +625,7 @@ void l_process_alarm_source(alarm_source_t source)
 				case Min_Update_Alarm:
 						update_alarm(Min_Update_Alarm);
 						//Update Main Page Time
-						if((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP)){
+						if((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP) || (UI_state == STATE_WINDOW_OPEN_DETECTED)){
 								RTC_ReadTime(&rtc_time);
 								LCD_Fill(5, 5, 21, 37, WHITE);
 								LCD_Fill(21, 5, 37, 37, WHITE);
@@ -864,21 +639,29 @@ void l_process_alarm_source(alarm_source_t source)
 								//Update Weekday
 								if((rtc_time.Hour == 0) && (rtc_time.Min == 1)){
 										weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
-										LCD_Fill(5, 105, 21, 120, WHITE);
-										Show_Str(5, 105, BLACK, WHITE, week_texts[weekday], 16, 0);
+										LCD_Fill(136, 106, 160, 120, WHITE);
+										Show_Str(136, 106, BLACK, WHITE, week_texts[weekday], 16, 0);
 								}
 								//Update Schedule Period
 								if(g_parameter.operation_mode == 1){
 										get_schedule_period();
-										LCD_Fill(136, 45, 160, 69, WHITE);
-										GUI_DrawMonoIcon24x24(136, 45, BLACK, WHITE, icons[Schedule_Period]);	
+										LCD_Fill(136, 37, 160, 61, WHITE);
+										GUI_DrawMonoIcon24x24(136, 37, BLACK, WHITE, icons[Schedule_Period]);	
 								}
 								//LOGD("Min Alarm time out\r\n");
+#if(SIMULATION)
+								weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
+								LCD_Fill(136, 106, 160, 120, WHITE);
+								if((weekday == 5) || (weekday == 6)){
+										Show_Str(136, 106, RED, WHITE, week_texts[weekday], 16, 0);
+								}else{
+										Show_Str(136, 106, BLUE, WHITE, week_texts[weekday], 16, 0);
+								}
+#endif
 						}
 						
-						
-						
 				break;
+						
 				
 				default :
 						LOGE("Unknow Alarm source: %d\r\n", source);
@@ -922,6 +705,7 @@ void g_check_alarm(void)
 uint8_t getWeekday(uint16_t year, uint8_t month, uint8_t day) {
 		uint8_t week;
 		year += 2000;		//RTC base is 2000/01/01
+		//day += 1;
     // If month is Jan or Feb, treat as month 13 or 14 of previous year
     if (month == 1 || month == 2) {
         month += 12;
@@ -932,4 +716,225 @@ uint8_t getWeekday(uint16_t year, uint8_t month, uint8_t day) {
     week = (day + 2*month + 3*(month+1)/5 + year + year/4 - year/100 + year/400) % 7;
     //LOGD("Year / weekday: %d / %d\r\n", year, week);
     return week;
+}
+
+
+void get_schedule_period(void)
+{
+		uint8_t i;
+		uint8_t (*sched_ptr)[4];
+		uint32_t current_min, sch_min;
+	
+		if(g_parameter.current_prog_type == 0){
+								if(weekday < 5){
+										sched_ptr = g_parameter.workday_schedule;
+										sch_table = sched_ptr;
+								}else{
+										sched_ptr = g_parameter.holiday_schedule;
+										sch_table = sched_ptr;
+								}
+						}else if(g_parameter.current_prog_type == 1){
+								if(weekday < 6){
+										sched_ptr = g_parameter.workday_schedule;
+										sch_table = sched_ptr;
+								}else{
+										sched_ptr = g_parameter.holiday_schedule;
+										sch_table = sched_ptr;
+								}
+						}else if(g_parameter.current_prog_type == 2){
+								sched_ptr = g_parameter.workday_schedule;
+								sch_table = sched_ptr;
+						}
+						current_min = (rtc_time.Hour * 60) + rtc_time.Min;
+						
+						for(i=0; i<6; i++){
+								sch_min = (sched_ptr[i][0] * 60) + sched_ptr[i][1];
+								//LOGD("sch_min:%d\r\n", sch_min);
+								//LOGD("current_min:%d\r\n", current_min);
+								//LOGD("i=%d\r\n", i);
+								if(sch_min > current_min)	{	
+										break;
+								}
+								
+						}
+						
+						if(i > 0){
+								Schedule_Period = i - 1;
+						}else{
+								Schedule_Period = 5;
+						}
+						//LOGD("S_Period:%d\r\n", Schedule_Period);
+}
+
+
+void check_temp_set(float temp)
+{
+		if(g_parameter.operation_mode == 0){			//Manual Mode
+					if(g_parameter.setting_number <= temp){
+							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+							Relay = RELAY_OFF;
+					}else if(temp < (g_parameter.setting_number - g_parameter.temp_swing)){
+							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
+							Relay = RELAY_ON;
+					}
+			}else{																		//Program Mode
+					get_schedule_period();								//Get time period and schedule table
+					if(sch_table[Schedule_Period][3] == 1){			//Thermostat is on
+							if(sch_table[Schedule_Period][2] <= temp){
+									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+									Relay = RELAY_OFF;
+							}else if(temp < (sch_table[Schedule_Period][2] - g_parameter.temp_swing)){
+									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
+									Relay = RELAY_ON;
+							}
+					}else{																			//Thermostat is off
+							Relay = RELAY_OFF;
+							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+					}
+			}
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Funcation: window_function_reset
+// Description: Reset window function monitoring state
+// Input: None
+// Output: None
+// Date: 2026/05/20
+// Update:
+//---------------------------------------------------------------------------------------------------------
+void window_function_reset(void)
+{
+		memset((void*)window_fun_temp_buffer, 0, sizeof(window_fun_temp_buffer));
+		window_fun_buffer_count = 0;
+		window_fun_buffer_index = 0;
+		window_fun_int_updated = 0;
+		window_fun_ext_updated = 0;
+		window_fun_triggered = 0;
+		LOGD("Window function reset\r\n");
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Funcation: g_relay_handler
+// Description: Handler Relay status
+// Input: 
+// Output: 
+// Date: 2026/05/17
+// Update: 
+//---------------------------------------------------------------------------------------------------------
+void g_relay_handler(void)
+{
+		float temp;
+		float display_temp;
+		uint8_t old_relay_state;
+		static uint32_t local_tick;
+		uint8_t protect_triggered = 0;
+		static uint8_t last_window_fun_state = 0xFF;
+
+		if(0 == g_clock_time_exceed(local_tick, 500)){
+				return;
+		}
+		local_tick = time_tick;
+		old_relay_state = Relay;
+
+		// Detect window function on/off transition
+		if(last_window_fun_state != g_parameter.window_fun){
+				last_window_fun_state = g_parameter.window_fun;
+				if(g_parameter.window_fun == 1){
+						window_function_reset();
+				}else{
+						window_fun_triggered = 0;
+				}
+		}
+#if(!SIMULATION)
+		if(g_parameter.sensor_type == 0){			//Room temp
+				if(Average_INT_Temp > -900){
+						temp = Average_INT_Temp;
+				}else{
+						return;
+				}
+		}else{																//Floor temp
+				if(Average_EXT_Temp > -900){
+						temp = Average_EXT_Temp;
+				}else{
+						return;
+				}
+		}
+#endif
+#if(SIMULATION)
+		temp = disp_fack_temp + g_parameter.temp_correct_internal;
+#else
+		temp += g_parameter.temp_correct_internal;
+#endif
+
+			// Window function monitoring: record on each Average_*_Temp update
+			if(g_parameter.window_fun == 1 && window_fun_triggered == 0){
+					uint8_t new_temp_ready = 0;
+					if(g_parameter.sensor_type == 0 && window_fun_int_updated){
+							window_fun_int_updated = 0;
+							new_temp_ready = 1;
+					}else if(g_parameter.sensor_type == 1 && window_fun_ext_updated){
+							window_fun_ext_updated = 0;
+							new_temp_ready = 1;
+					}
+
+					if(new_temp_ready){
+							window_fun_temp_buffer[window_fun_buffer_index] = temp;
+							window_fun_buffer_index = (window_fun_buffer_index + 1) % 60;
+							if(window_fun_buffer_count < 60){
+									window_fun_buffer_count++;
+							}
+
+							if(window_fun_buffer_count >= g_parameter.window_fun_time){
+									uint8_t oldest_index = (window_fun_buffer_index + 60 - g_parameter.window_fun_time) % 60;
+									float temp_drop = window_fun_temp_buffer[oldest_index] - temp;
+									if(temp_drop > g_parameter.window_fun_temp){
+											window_fun_triggered = 1;
+											LOGD("Window function triggered! Drop: %.1f C in %d min\r\n", temp_drop, g_parameter.window_fun_time);
+									}
+							}
+					}
+			}
+
+			if(g_parameter.temp_protect_max_switch == 1 && temp >= g_parameter.temp_protect_max){
+					Relay = RELAY_OFF;
+					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+					protect_triggered = 1;
+			}
+
+			if(g_parameter.temp_protect_min_switch == 1 && temp <= g_parameter.temp_protect_min){
+					Relay = RELAY_ON;
+					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
+					protect_triggered = 1;
+			}
+
+			if(!protect_triggered){
+					if(!(g_parameter.window_fun == 1 && window_fun_triggered == 1)){
+								check_temp_set(temp);
+						}
+			}
+
+			// Window open detected: flash temperature number every 500ms
+			if(UI_state == STATE_WINDOW_OPEN_DETECTED){
+					window_open_flash_state = !window_open_flash_state;
+					
+					if(g_parameter.sensor_type == 0) {
+							display_temp = Average_INT_Temp;
+							display_temp += g_parameter.temp_correct_internal;
+					} else {
+							display_temp = Average_EXT_Temp;
+							display_temp += g_parameter.temp_correct_external;
+					}
+					if(display_temp > -99){
+							if(window_open_flash_state){
+									Display_Number(display_temp, RED, 1);
+							}else{
+									Display_Number(display_temp, BLACK, 1);
+							}
+					}
+			}
+
+			if(old_relay_state != Relay){
+					Update_Relay = eTRUE;
+			}
+
 }

@@ -41,12 +41,15 @@ enum{
 		STATE_SCHEDULE_EDIT,
 		STATE_SCHEDULE_TIME_SETTING,
 		STATE_LEAVE_SCHEDULE_CONFIRM,
+		STATE_WINDOW_OPEN_DETECTED,
+		STATE_WINDOW_OPEN_CONFIRM,
 		
 		STATE_CONTROL_ADJ_MENU,
 		STATE_CONTROL_ADJ_SENSOR,
 		STATE_CONTROL_POWER_LIMIT,
-		STATE_CONTROL_COMFORT_MODE,
-		STATE_CONTROL_COMFORT_MODE_SETTING,
+		//STATE_CONTROL_COMFORT_MODE,
+		//STATE_CONTROL_COMFORT_MODE_SETTING,
+		STATE_CONTROL_TEMP_SWING,
 		STATE_CONTROL_ADJ_TEMP_CORRECT,
 		STATE_CONTROL_ADJ_TEMP_LIMIT,
 		STATE_CONTROL_ADJ_TEMP_PROTECT,
@@ -62,10 +65,32 @@ enum{
 		STATE_USER_SETTING_WINDOW_TIME,
 		STATE_USER_SETTING_SET_TIME,
 		STATE_USER_SETTING_SET_CLK,
+		STATE_USER_SETTING_COMFORT_MODE,
+		STATE_USER_SETTING_COMFORT_MODE_SETTING,
 		STATE_USER_SETTING_BACKLIGHT,
 		STATE_USER_SETTING_RESET,
 		
+		STATE_FACTORY_TEST,
+
 };
+
+#include <stdint.h>
+
+// Menu definition structures
+#define MENU_VISIBLE_ROWS 4
+
+typedef struct {
+	char* text;
+	uint8_t next_state;
+	void (*draw_page)(uint8_t, uint8_t, uint8_t);
+	void (*init_func)(void);
+} MenuItem_t;
+
+extern const MenuItem_t Control_Adj_Menu_Items[];
+extern const uint8_t Control_Adj_Menu_Item_Count;
+
+extern const MenuItem_t User_Setting_Menu_Items[];
+extern const uint8_t User_Setting_Menu_Item_Count;
 
 // State definitions
 /*
@@ -128,7 +153,6 @@ typedef enum
 #include "UI.h"
 #include "lcd.h"
 #include "GUI.h"
-#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include "Peripheral.h"
@@ -153,16 +177,16 @@ typedef enum
 
     #define LOGD(...) \
     { \
-            printf("[Inf] "__VA_ARGS__); \
+            printf("[Inf]"__VA_ARGS__); \
     }
 
     #define LOGE(...) \
     { \
-            printf("[Err] "__VA_ARGS__); \
+            printf("[Err]"__VA_ARGS__); \
     }
 		#define TCMD(...) \
 		{ \
-						printf("[CMD] "__VA_ARGS__);\
+						printf("[CMD]"__VA_ARGS__);\
 		}
 #else
 #define LOGD(...)
@@ -185,11 +209,15 @@ void Log_USART_Init(void);
 void sys_tick_Init(void);
 void golbal_par_init(void);
 void relay_init(void);
+void Thermostat_Update(void);
 
 extern float setting_number;
 extern rtc_time_t rtc_time;
-extern uint8_t	Relay;
-extern uint8_t Schedule_Period;
+extern volatile uint8_t	Relay;
+extern volatile uint8_t Schedule_Period;
+extern uint8_t (*sch_table)[4];
+extern volatile uint8_t		Factory_testing;
+extern volatile uint8_t Update_Relay;
 
 
 #endif

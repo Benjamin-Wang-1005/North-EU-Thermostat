@@ -21,6 +21,7 @@
 #include "rtc_driver.h"
 
 #define		MAX_SET_TEMP														(45)
+#define 	SIMULATION															(0)
 
 
 typedef enum{
@@ -33,6 +34,7 @@ typedef enum{
 typedef struct{
 		float temp_correct_internal;						//4 Bytes
 		float temp_correct_external;						//4 Bytes
+		float temp_swing;												
 		int	temp_limit_max;											//4 Bytes
 		int temp_limit_min;											//4 Bytes
 		int 	temp_protect_max;									//4 Bytes
@@ -51,7 +53,7 @@ typedef struct{
 		unsigned char  current_prog_type;
 		unsigned char  relay_staty;
 		unsigned char  operation_mode;
-		unsigned char  sensor_type;
+		unsigned char  sensor_type;				// 0=Room, 1=Floor
 		unsigned char  power_limit;
 		unsigned char  power_limit_switch;
 		unsigned char  temp_diff;
@@ -98,15 +100,25 @@ extern uint8_t operation_mode;
 extern uint8_t window_fun;
 extern uint8_t window_fun_temp;
 extern uint8_t window_fun_time;
+extern uint8_t window_fun_triggered;
+extern uint8_t window_open_confirm_selection;
+extern uint8_t window_open_flash_state;
+extern float window_fun_temp_buffer[60];
+extern uint8_t window_fun_buffer_count;
+extern uint8_t window_fun_buffer_index;
+extern volatile uint8_t window_fun_int_updated;
+extern volatile uint8_t window_fun_ext_updated;
 extern uint8_t sleep_backlight_duty;
 extern uint8_t icon6_red_state;
 extern uint8_t main_display_digi;
 extern rtc_time_t temp_rtc;
-extern uint8_t old_relay_state;
+//extern uint8_t old_relay_state;
 extern uint8_t power_limit;
 extern uint8_t power_limit_switch;
 extern uint8_t comfort_mode;
 extern uint8_t floor_material;
+extern float temp_swing;
+extern uint8_t child_lock_flag;
 
 // Child Lock PIN code variables
 extern uint8_t pin_code_input[4];      // Current PIN input buffer
@@ -116,6 +128,7 @@ extern uint8_t pin_setup_stage;        // 0=enter PIN, 1=confirm PIN
 extern uint8_t pin_digit_selected;     // Currently selected digit (0-9) for input
 extern char* week_texts[7];
 
+extern float	disp_fack_temp;
 
 void Draw_Active_Menu(void);
 void Draw_Static_Icons(void);
@@ -159,6 +172,7 @@ void Draw_User_Setting_Child_Lock_Choice(uint8_t selection);
 void Draw_User_Setting_Window_Fun_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_User_Setting_Window_Fun_Content(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_User_Setting_Window_Time_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void window_function_reset(void);
 void Draw_User_Setting_Window_Time_Content(uint8_t selection);
 void Draw_User_Setting_SetTime_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_User_Setting_SetTime_Content(uint8_t selection);
@@ -169,6 +183,7 @@ void Draw_User_Setting_Backlight_Content(uint8_t selection);
 void Draw_User_Setting_Reset_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_User_Setting_Reset_Contect(uint8_t selection);
 void Clear_Number_Area(void);
+void Draw_Window_Open_Confirm_Page(uint8_t selection);
 void Display_Number(float number, uint16_t color, uint8_t show_decimal);
 void Draw_Control_Adj_Power_Limit_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_Power_Limit_Content(uint8_t selection);
@@ -176,6 +191,8 @@ void Draw_Control_Adj_Comfort_Mode_Page(uint8_t selection, uint8_t leave_col, ui
 void Draw_Control_Adj_Comfort_Mode_Content(uint8_t selection);
 void Draw_Control_Adj_Comfort_Mode_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_Comfort_Mode_Setting_Content(uint8_t selection);
+void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection);
 
 // Child Lock PIN functions
 void Draw_Child_Lock_Pin_Page(uint8_t stage);
@@ -187,6 +204,8 @@ void Clear_Pin_Input(void);
 
 // Leave Schedule Mode Confirm dialog
 void Draw_Leave_Schedule_Confirm_Page(uint8_t selection);
+
+extern uint8_t number_area_dirty;
 
 #endif
 
