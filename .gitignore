@@ -1,0 +1,31 @@
+# Build output files
+*.o
+*.crf
+*.d
+*.axf
+*.hex
+*.htm
+*.lnp
+*.sct
+*.dep
+*.bak
+*.bin
+*.map
+
+# Debug and log files
+JLinkLog.txt
+JLinkSettings.ini
+
+# User IDE settings
+*.uvguix.*
+
+# Build output directories
+OBJ/
+IAP_Bootloader/Objects/
+IAP_Bootloader/Listings/
+IAP_Bootloader/DebugConfig/
+PROJECT/RTE/
+PROJECT/DebugConfig/
+
+# Backups
+BACKUP_*/
