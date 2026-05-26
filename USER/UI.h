@@ -59,6 +59,7 @@ typedef struct{
 		unsigned char  temp_diff;
 		unsigned char  comfort_mode;
 		unsigned char  floor_material;
+		unsigned char  rtc_set_flag;
 		unsigned char  workday_schedule[6][4];
 		unsigned char  holiday_schedule[6][4];
 }g_parameter_t;

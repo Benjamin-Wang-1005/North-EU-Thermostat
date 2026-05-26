@@ -592,7 +592,7 @@ void Draw_Opeaation_Mode_Choices(uint8_t selection)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		if(i == 0) {
-			Show_Str(45, row_y[i] + 4, BLACK, WHITE, "Manu Mode", 16, 0);
+			Show_Str(45, row_y[i] + 4, BLACK, WHITE, "Manual Mode", 16, 0);
 		} else {
 			Show_Str(45, row_y[i] + 4, BLACK, WHITE, "Schedule Mode", 16, 0);
 		}
@@ -3305,6 +3305,7 @@ void UI_Update(void)
 		{
 			UI_state = STATE_WINDOW_OPEN_CONFIRM;
 			window_open_confirm_selection = 0; // Default to Cancel
+			Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
 			// Delete all alarms except Min_Update_Alarm
 			delete_alarm(Active_Alarm);
 			delete_alarm(Setting_Digi_Alarm);

@@ -824,11 +824,13 @@ void window_function_reset(void)
 void g_relay_handler(void)
 {
 		float temp;
-		float display_temp;
+		//float display_temp;
 		uint8_t old_relay_state;
 		static uint32_t local_tick;
 		uint8_t protect_triggered = 0;
 		static uint8_t last_window_fun_state = 0xFF;
+		static uint8_t window_open_flash_cnt = 0;
+		static float window_open_cached_temp = 0.0f;
 
 		if(0 == g_clock_time_exceed(local_tick, 500)){
 				return;
@@ -878,20 +880,33 @@ void g_relay_handler(void)
 					}
 
 					if(new_temp_ready){
+							uint8_t compare_count;
+							uint8_t i;
+
 							window_fun_temp_buffer[window_fun_buffer_index] = temp;
 							window_fun_buffer_index = (window_fun_buffer_index + 1) % 60;
 							if(window_fun_buffer_count < 60){
 									window_fun_buffer_count++;
 							}
 
-							if(window_fun_buffer_count >= g_parameter.window_fun_time){
-									uint8_t oldest_index = (window_fun_buffer_index + 60 - g_parameter.window_fun_time) % 60;
-									float temp_drop = window_fun_temp_buffer[oldest_index] - temp;
+							// Compare new temp against all previous records in the window
+							compare_count = g_parameter.window_fun_time;
+							if(window_fun_buffer_count - 1 < compare_count){
+									compare_count = window_fun_buffer_count - 1;
+							}
+							for(i = 0; i < compare_count; i++){
+									uint8_t check_idx = (window_fun_buffer_index + 60 - 2 - i + 60) % 60;
+									float temp_drop = window_fun_temp_buffer[check_idx] - temp;
 									if(temp_drop > g_parameter.window_fun_temp){
 											window_fun_triggered = 1;
-											LOGD("Window function triggered! Drop: %.1f C in %d min\r\n", temp_drop, g_parameter.window_fun_time);
+											window_open_cached_temp = temp;
+											LOGD("Window function triggered! Drop: %.1f C\r\n", temp_drop);
+											UI_state = STATE_WINDOW_OPEN_DETECTED;
+											LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+											Draw_Active_Menu();
+											break;
 									}
-							}
+						}
 					}
 			}
 
@@ -913,25 +928,42 @@ void g_relay_handler(void)
 						}
 			}
 
-			// Window open detected: flash temperature number every 500ms
+			// Window open detected: flash pattern RED -> blank -> BLACK -> blank (each 500ms)
+			// Update cached temperature when ADC signals new average temp is ready
 			if(UI_state == STATE_WINDOW_OPEN_DETECTED){
-					window_open_flash_state = !window_open_flash_state;
-					
-					if(g_parameter.sensor_type == 0) {
-							display_temp = Average_INT_Temp;
-							display_temp += g_parameter.temp_correct_internal;
-					} else {
-							display_temp = Average_EXT_Temp;
-							display_temp += g_parameter.temp_correct_external;
+					if(display_update_throttle_trigger){
+							display_update_throttle_trigger = 0;
+							if(g_parameter.sensor_type == 0) {
+									window_open_cached_temp = Average_INT_Temp;
+									window_open_cached_temp += g_parameter.temp_correct_internal;
+							} else {
+									window_open_cached_temp = Average_EXT_Temp;
+									window_open_cached_temp += g_parameter.temp_correct_external;
+							}
 					}
-					if(display_temp > -99){
-							if(window_open_flash_state){
-									Display_Number(display_temp, RED, 1);
-							}else{
-									Display_Number(display_temp, BLACK, 1);
+					
+					window_open_flash_cnt++;
+					if(window_open_flash_cnt >= 4){
+							window_open_flash_cnt = 0;
+					}
+					if(window_open_cached_temp > -99){
+							switch(window_open_flash_cnt){
+									case 0:
+											Display_Number(window_open_cached_temp, RED, 1);
+											break;
+									case 1:
+											Clear_Number_Area();
+											break;
+									case 2:
+											Display_Number(window_open_cached_temp, BLACK, 1);
+											break;
+									case 3:
+											Clear_Number_Area();
+											break;
 							}
 					}
 			}
+
 
 			if(old_relay_state != Relay){
 					Update_Relay = eTRUE;

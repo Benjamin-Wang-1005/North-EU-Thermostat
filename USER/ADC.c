@@ -46,6 +46,7 @@ adc_thermostat_t adc_ctrl;
 
 volatile float Average_INT_Temp = -999.0f;
 volatile float Average_EXT_Temp = -999.0f;
+volatile uint8_t display_update_throttle_trigger = 0;
 
 static uint8_t adc_current_channel = 0;
 
@@ -338,7 +339,7 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
             if (temperature <= -100.0f)
             {
 								if(UI_state != STATE_FACTORY_TEST){
-										LOGE("ADC CH%d Temperature out of range! Resistance: %.1f\r\n", channel_num, resistance);
+										//LOGE("ADC CH%d Temperature out of range! Resistance: %.1f\r\n", channel_num, resistance);
 								}
             }
             else
@@ -355,7 +356,7 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
                     (*ntc_valid)++;
                 }
 								if(UI_state != STATE_FACTORY_TEST){
-										LOGD("%s : %.2f C\r\n", prt, temperature);
+										//LOGD("%s : %.2f C\r\n", prt, temperature);
 								}
                 ADC_Update_Display_Temperature(channel_num);
             }
@@ -507,6 +508,7 @@ void ADC_Update_Display_Temperature(uint8_t channel)
 
     // Step 3: Display update call target reached
     display_update_call_counter = 0;
+    display_update_throttle_trigger = 1;  // Signal window flash to update cached temp
 
     // Step 4: Increase call target for next time (gradual lengthening: 1,2,3...16 calls ~= 3.6s,7.2s,10.8s...57.6s)
     if(display_update_call_target < DISPLAY_UPDATE_CALL_TARGET_MAX)
@@ -532,6 +534,7 @@ void ADC_Update_Display_Temperature(uint8_t channel)
         // Room (Internal)
         display_temp = Average_INT_Temp;
 				display_temp += g_parameter.temp_correct_internal;
+				LOGD("Avg_INT_Temp : %.2f\r\n", display_temp);
     }
     else
     {

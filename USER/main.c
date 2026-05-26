@@ -29,7 +29,7 @@ void Draw_Main_Page(void);
 
 
 // Global variables
-//float setting_number = 4.0f;     	// è¨­å®šæ•¸å­—ï¼Œåˆå§‹å€¼ 4.0
+//float setting_number = 4.0f;     	// ÔO¶¨”µ×Ö£¬³õÊ¼Öµ 4.0
 volatile uint8_t	Relay;								// Output power indicator
 volatile uint8_t Schedule_Period;					// Schedule indicator
 uint8_t (*sch_table)[4];
@@ -62,6 +62,7 @@ int main(void)
 //	uint8_t key_val;
 
 	SystemInit();        // Initialize RCC, system clock to 64MHz (HSI/2 * 16 PLL)
+	//SCB->VTOR = 0x08004000;  // Vector table relocated for IAP application area
 	sys_tick_Init();	 // Initialize system tick clock
 	Key_Init();          // Key initialization
 	Backlight_Init();    // Backlight PWM initialization

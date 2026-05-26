@@ -653,9 +653,9 @@ void Draw_Leave_Schedule_Confirm_Page(uint8_t selection)
 void Draw_Window_Open_Confirm_Page(uint8_t selection)
 {
 	uint16_t box_x = 10;
-	uint16_t box_y = 35;
-	uint16_t box_w = 140;
-	uint16_t box_h = 90;
+	uint16_t box_y = 30;
+	uint16_t box_w = 135;
+	uint16_t box_h = 85;
 	
 	LCD_Fill(box_x, box_y, box_x + box_w, box_y + box_h, WHITE);
 	POINT_COLOR = RED;
@@ -663,18 +663,18 @@ void Draw_Window_Open_Confirm_Page(uint8_t selection)
 	
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(box_x + 20, box_y + 8, BLACK, WHITE, "Window Open", 16, 0);
-	Show_Str(box_x + 25, box_y + 26, BLACK, WHITE, "Detected !", 16, 0);
+	Show_Str(box_x + 15, box_y + 8, BLACK, WHITE, "Window Open", 16, 0);
+	Show_Str(box_x + 15, box_y + 26, BLACK, WHITE, "Detected !", 16, 0);
 	
 	if(selection == 0){
-		Show_Str(box_x + 10, box_y + box_h - 30, RED, WHITE, "Cancel Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 36, RED, WHITE, "Cancel Detect", 16, 0);
 	}else{
-		Show_Str(box_x + 10, box_y + box_h - 30, BLACK, WHITE, "Cancel Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 36, BLACK, WHITE, "Cancel Detect", 16, 0);
 	}
 	
 	if(selection == 1){
-		Show_Str(box_x + 10, box_y + box_h - 14, RED, WHITE, "Reset Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 20, RED, WHITE, "Reset Detect", 16, 0);
 	}else{
-		Show_Str(box_x + 10, box_y + box_h - 14, BLACK, WHITE, "Reset Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 20, BLACK, WHITE, "Reset Detect", 16, 0);
 	}
 }
