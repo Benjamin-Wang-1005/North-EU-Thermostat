@@ -1,31 +1,24 @@
-# Build output files
+# Build output
+OBJ/
+Objects/
+Listings/
+*.axf
+*.hex
 *.o
 *.crf
 *.d
-*.axf
-*.hex
+*.map
+*.lst
 *.htm
 *.lnp
 *.sct
 *.dep
 *.bak
-*.bin
-*.map
 
-# Debug and log files
+# Debug logs
 JLinkLog.txt
-JLinkSettings.ini
-
-# User IDE settings
 *.uvguix.*
 
-# Build output directories
-OBJ/
-IAP_Bootloader/Objects/
-IAP_Bootloader/Listings/
-IAP_Bootloader/DebugConfig/
-PROJECT/RTE/
-PROJECT/DebugConfig/
-
-# Backups
-BACKUP_*/
+# OS files
+Thumbs.db
+.DS_Store
