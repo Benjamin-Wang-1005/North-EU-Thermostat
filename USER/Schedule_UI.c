@@ -45,19 +45,19 @@ void Draw_Heating_Schedule_Menu_Row(uint8_t row, uint8_t selected)
 	// Draw the row content based on row number
 	if(row == 0) {
 		// Program Type - uses Icon16
-		GUI_DrawMonoIcon8x16(12, row_y[row] + 4, text_color, bg_color, Icon16_8x16);
+		GUI_DrawMonoIcon16x16(5, row_y[row] + 4, text_color, bg_color, Program_Type_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(30, row_y[row] + 4, text_color, bg_color, "Program Type", 16, 0);
 	} else if(row == 1) {
 		// Workday Setting - uses Icon17
-		GUI_DrawMonoIcon8x16(12, row_y[row] + 4, text_color, bg_color, Icon17_8x16);
+		GUI_DrawMonoIcon16x16(5, row_y[row] + 4, text_color, bg_color, Workday_Setting_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(30, row_y[row] + 4, text_color, bg_color, "Workday Setting", 16, 0);
 	} else if(row == 2) {
 		// Restday Setting - uses Icon18
-		GUI_DrawMonoIcon8x16(12, row_y[row] + 4, text_color, bg_color, Icon18_8x16);
+		GUI_DrawMonoIcon16x16(5, row_y[row] + 4, text_color, bg_color, Restday_Setting_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(30, row_y[row] + 4, text_color, bg_color, "Restday Setting", 16, 0);

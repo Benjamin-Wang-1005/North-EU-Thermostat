@@ -21,7 +21,19 @@
 
 #include "Thermostat.h"
 
-static const uint16_t NTC_table[] =
+static const uint32_t EXT_NTC_table[] =
+{ 92250, 87100, 82270, 77740, 73480, 69490, 65730, 62190, 58870, 55750,
+	52800, 50030, 47430, 44970, 42650, 40470, 38410, 36460, 34630, 32900,
+	31260, 29710, 28240, 26860, 25550, 24310, 23140, 22040, 20990, 20000,
+	19060, 18170, 17320, 16520, 15760, 15040, 14360, 13710, 13100, 12510,
+	11960, 11430, 10930, 10450, 10000, 9570,  9161,  8772,  8402,  8049,
+	7713,  7393,  7087,  6797,  6519,  6255,  6002,  5762,  5532,  5312,
+	5103,  4903,  4711,  4529,  4354,  4187,  4027,  3874,  3728,  3588,
+	3454,  3325,  3202,  3084,  2971,  2863,  2759,  2660,  2564,  2473,
+	2385,  2301,  2221,  2143,  2069,  1998,  1929,  1864,  1800,  1740,
+};  //B value 3950K +/- 1%
+
+static const uint32_t INT_NTC_table[] =
 {	64440, 61420, 58570, 55870, 53310, 50880, 48590, 46410, 44350, 42390,
 	40500, 38700, 37000, 35380, 33850, 32390, 31000, 29690, 28400, 27250,
 	26100, 25000, 23960, 22970, 22030, 21130, 20280, 19460, 18690, 17950,
@@ -33,6 +45,7 @@ static const uint16_t NTC_table[] =
 	2929,  2839,  2753,  2670,  2589,  2512,  2438,  2366,  2296,  2229,
 };  //SEMITEC 103AP-2
 
+#define NTC_TABLE_SIZE  (sizeof(INT_NTC_table) / sizeof(INT_NTC_table[0]))
 
 #define  _R2												(10000)
 #define  EXTERNAL_R_SERIES       470.0f
@@ -232,26 +245,25 @@ void ADC_Start_VCC(void)
 // Helper: lookup temperature from NTC resistance table.
 // Returns -999.0f if out of range.
 //---------------------------------------------------------------------------------------------------------
-static float ntc_lookup(float resistance)
+static float ntc_lookup(float resistance, const uint32_t *ntc_table)
 {
     uint8_t i;
-    const uint8_t table_size = sizeof(NTC_table) / sizeof(NTC_table[0]);
 
-    if (resistance > (float)NTC_table[0])
+    if (resistance > (float)ntc_table[0])
     {
         return -999.0f;
     }
-    if (resistance < (float)NTC_table[table_size - 1])
+    if (resistance < (float)ntc_table[NTC_TABLE_SIZE - 1])
     {
         return -999.0f;
     }
 
-    for (i = 0; i < table_size - 1; i++)
+    for (i = 0; i < NTC_TABLE_SIZE - 1; i++)
     {
-        if (resistance <= (float)NTC_table[i] && resistance >= (float)NTC_table[i + 1])
+        if (resistance <= (float)ntc_table[i] && resistance >= (float)ntc_table[i + 1])
         {
             float temp = (float)(-19 + i);
-            float frac = ((float)NTC_table[i] - resistance) / (float)(NTC_table[i] - NTC_table[i + 1]);
+            float frac = ((float)ntc_table[i] - resistance) / (float)(ntc_table[i] - ntc_table[i + 1]);
             return temp + frac;
         }
     }
@@ -267,6 +279,7 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
     uint32_t sum = 0;
     uint8_t  i;
     uint16_t avg;
+	  static float int_temp;
     float    result = -999.0f;
 		char str_1[] = "INT_NTC";
 		char str_2[] = "EXT_NTC";
@@ -328,18 +341,18 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
             if (channel_num == 8)
             {
                 resistance = (adc_ctrl.vcc_voltage - voltage) * _R2 / voltage;
+                temperature = ntc_lookup(resistance, INT_NTC_table);
             }
             else
             {
                 resistance = (adc_ctrl.vcc_voltage * EXTERNAL_R_PULLDOWN / voltage) - (EXTERNAL_R_SERIES + EXTERNAL_R_PULLDOWN);
+                temperature = ntc_lookup(resistance, EXT_NTC_table);
             }
-
-            temperature = ntc_lookup(resistance);
 
             if (temperature <= -100.0f)
             {
 								if(UI_state != STATE_FACTORY_TEST){
-										//LOGE("ADC CH%d Temperature out of range! Resistance: %.1f\r\n", channel_num, resistance);
+										LOGE("ADC CH%d Temperature out of range! Resistance: %.1f\r\n", channel_num, resistance);
 								}
             }
             else
@@ -356,7 +369,12 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
                     (*ntc_valid)++;
                 }
 								if(UI_state != STATE_FACTORY_TEST){
-										//LOGD("%s : %.2f C\r\n", prt, temperature);
+										LOGD("%s ,%.2f \r\n", prt, temperature);
+										if(channel_num == 8){
+												int_temp = temperature;
+										}else if(channel_num == 9){
+											  LOGD("Diff ,%.2f \r\n", int_temp - temperature);
+										}
 								}
                 ADC_Update_Display_Temperature(channel_num);
             }
@@ -449,6 +467,7 @@ void ADC_Update_Display_Temperature(uint8_t channel)
     uint8_t i;
     float display_temp;
     uint16_t color;
+		uint8_t force_update = 0;
 
     // Step 1: Update global display temperature for the requested channel
     if(channel == 8)
@@ -490,7 +509,17 @@ void ADC_Update_Display_Temperature(uint8_t channel)
 
     // Step 2: Check display update call counter (gradual interval lengthening)
     // Each call to this function represents approximately 3.6 seconds.
-    if(display_update_initialized == 0)
+    
+    if((channel == 8) && (adc_ctrl.int_ntc_valid == 1))
+    {
+        force_update = 1;
+    }
+    else if((channel == 9) && (adc_ctrl.ext_ntc_valid == 1))
+    {
+        force_update = 1;
+    }
+
+    if((display_update_initialized == 0) || force_update)
     {
         // First temperature calculated: initialize and update display immediately
         display_update_initialized = 1;
@@ -534,7 +563,7 @@ void ADC_Update_Display_Temperature(uint8_t channel)
         // Room (Internal)
         display_temp = Average_INT_Temp;
 				display_temp += g_parameter.temp_correct_internal;
-				LOGD("Avg_INT_Temp : %.2f\r\n", display_temp);
+				//LOGD("Avg_INT_Temp : %.2f\r\n", display_temp);
     }
     else
     {

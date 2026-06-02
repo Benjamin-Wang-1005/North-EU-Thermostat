@@ -427,7 +427,7 @@ void Draw_User_Setting_Reset_Page(uint8_t selection, uint8_t leave_col, uint8_t 
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 	
 			Show_Str(10, 50, RED, WHITE, "Reset to Default?", 16, 0);
-			Show_Str(10, 66, BLACK, WHITE, "This will erease ", 16, 0);
+			Show_Str(10, 66, BLACK, WHITE, "This will erase ", 16, 0);
 			Show_Str(10, 82, BLACK, WHITE, "all saved settings.", 16, 0);
 	
 			Show_Str(119, 108, BLACK, WHITE, "Reset", 16, 0);
@@ -439,9 +439,9 @@ void Draw_Pin_Input_Box(uint8_t* pin_buffer, uint8_t digit_index)
 {
 	uint8_t i;
 	uint16_t box_x_start = 16;
-	uint16_t box_y = 45;
+	uint16_t box_y = 43;
 	uint16_t box_width = 28;
-	uint16_t box_height = 36;
+	uint16_t box_height = 40;
 	uint16_t box_spacing = 6;
 	
 	// Draw 4 boxes for PIN digits
@@ -467,7 +467,7 @@ void Draw_Pin_Input_Box(uint8_t* pin_buffer, uint8_t digit_index)
 		
 		// Draw digit inside box (center the 16x32 digit in the box)
 		if(pin_buffer[i] != 0xFF){
-			GUI_DrawBigDigit(x + 6, box_y + 2, BLACK, WHITE, '0' + pin_buffer[i], 1);  // font_size 1 = 16x32
+			GUI_DrawBigDigit(x + 6, box_y + 4, BLACK, WHITE, '0' + pin_buffer[i], 1);  // font_size 1 = 16x32
 		}
 	}
 }

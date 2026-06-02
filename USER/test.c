@@ -124,7 +124,7 @@ void GUI_DrawMonoIcon32x32Transparent(u16 x, u16 y, u16 fc, const uint8_t *bitma
 ******************************************************************************/
 void Draw_Icon6_Red_32x32(u8 red)
 {
-	u16 x = 136;
+	u16 x = 132;
 	u16 y = 72;
 	u16 color = red ? RED : BLACK;
 

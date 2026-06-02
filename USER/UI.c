@@ -83,7 +83,7 @@ uint8_t floor_material;					// '0'=Wood/Laminate, '1'=Tile/Concrete, '2'=Fast Re
 float temp_swing;
 uint8_t child_lock_flag;
 
-char* week_texts[7] = {"MON", "TUE", "WED", "THE", "FRI", "SAT", "SUN"}; 
+char* week_texts[7] = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}; 
 
 // Child Lock PIN code variables
 uint8_t pin_code_input[4] = {0, 0, 0, 0};      // Current PIN input buffer
@@ -266,23 +266,23 @@ void Draw_Static_Icons(void)
 	// Screen width is 160px, icons positioned to stay within bounds
 
 	// Clear entire top icon bar to avoid ghost icons when Relay state or display_num changes
-	LCD_Fill(88, 5, 160, 29, WHITE);
+	LCD_Fill(84, 5, 160, 29, WHITE);
 
 	// Icon3 at rightmost (136, 5) - rightmost, RED foreground (136+24=160)
 	if(Relay == RELAY_ON){
-			GUI_DrawMonoIcon24x24(136, 5, RED, WHITE, Heating_Icon_24x24);
+			GUI_DrawMonoIcon24x24(132, 5, RED, WHITE, Heating_Icon_24x24);
 			display_num++;
 	}
 	// Icon2 at (112, 5) - to the left of Icon3
 	if(g_parameter.child_lock == 1){
-			x_pos = 136 - (display_num * 24);
+			x_pos = 132 - (display_num * 24);
 			GUI_DrawMonoIcon24x24(x_pos, 5, BLACK, WHITE, Lock_Icon_24x24);
 			display_num++;
 	}
 	
 	// Icon1 at (88, 5) - to the left of Icon2
 	if(g_parameter.window_fun == 1){
-			x_pos = 136 - (display_num *24);
+			x_pos = 132 - (display_num *24);
 			GUI_DrawMonoIcon24x24(x_pos, 5, BLACK, WHITE, Window_Icon_24x24);
 	}
 	
@@ -291,25 +291,25 @@ void Draw_Static_Icons(void)
 	
 	// Icon8 at (136, 45) - below Icon3
 	if(g_parameter.operation_mode == 0){
-			GUI_DrawMonoIcon24x24(136, 37, BLACK, WHITE, M_Icon_24x24);
+			GUI_DrawMonoIcon24x24(132, 37, BLACK, WHITE, M_Icon_24x24);
 	}else{
-			GUI_DrawMonoIcon24x24(136, 37, BLACK, WHITE, icons[Schedule_Period]);	
+			GUI_DrawMonoIcon24x24(132, 37, BLACK, WHITE, icons[Schedule_Period]);	
 	}
 	
 	// Icon6 at (136, 85) - below Icon8
 	
 	if(icon6_red_state){
-			GUI_DrawMonoIcon24x24(136, 72, RED, WHITE, Menu_Icon_24x24);
+			GUI_DrawMonoIcon24x24(132, 72, RED, WHITE, Menu_Icon_24x24);
 	} else {
-			GUI_DrawMonoIcon24x24(136, 72, BLACK, WHITE, Menu_Icon_24x24);
+			GUI_DrawMonoIcon24x24(132, 72, BLACK, WHITE, Menu_Icon_24x24);
 	}
 	
 	//Draw weekday
 	//LCD_Fill(136, 106, 160, 120, WHITE);
 	if((weekday == 5) || (weekday == 6)){
-			Show_Str(136, 106, RED, WHITE, week_texts[weekday], 16, 0);
+			Show_Str(132, 106, RED, WHITE, week_texts[weekday], 16, 0);
 	}else{
-			Show_Str(136, 106, BLUE, WHITE, week_texts[weekday], 16, 0);
+			Show_Str(132, 106, BLUE, WHITE, week_texts[weekday], 16, 0);
 	}
 	
 }
@@ -647,6 +647,11 @@ void Process_Relay_Update(void)
 				Draw_Active_Menu();
 				Update_Relay = eFALSE;
 		}
+		if(Relay == RELAY_ON){
+				LOGD("Relay ON\r\n");
+		}else{
+				LOGD("Relay OFF\r\n");
+		}
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -678,7 +683,7 @@ void UI_Update(void)
 				if(icon6_red_state)
 				{
 					icon6_red_state = 0;
-					GUI_DrawMonoIcon24x24(136, 72, BLACK, WHITE, Menu_Icon_24x24);				// Draw black Manu Icon6 
+					GUI_DrawMonoIcon24x24(132, 72, BLACK, WHITE, Menu_Icon_24x24);				// Draw black Manu Icon6 
 				}
 				
 				// Check if in Schedule Mode - if so, show confirmation dialog
@@ -732,7 +737,7 @@ void UI_Update(void)
 				{
 					// Manu Icon is black -> toggle to red
 					icon6_red_state = 1;							//	red state
-					GUI_DrawMonoIcon24x24(136, 72, RED, WHITE, Menu_Icon_24x24);;  // Draw red Manu Icon
+					GUI_DrawMonoIcon24x24(132, 72, RED, WHITE, Menu_Icon_24x24);;  // Draw red Manu Icon
 					//update_alarm(Active_Alarm);
 				}
 
@@ -908,8 +913,8 @@ void UI_Update(void)
 							{
 									// At top, go back to Top Bar Active
 									Top_Bar_Active = 1;
-									leave_icon_color = 0;
-									edit_icon_color = 1;
+									leave_icon_color = 1;
+									edit_icon_color = 0;
 									Draw_TopBar(leave_icon_color, edit_icon_color); 		 // ReDraw Top Bar
 									item_selection = 0;  
 									Draw_Function_Setting_Edit_Row(item_selection, 0);		// Clear item 1 backfround
@@ -1113,8 +1118,8 @@ void UI_Update(void)
 					{
 						Top_Bar_Active = 1;
 						item_selection = 0;
-						leave_icon_color = 0;
-						edit_icon_color = 1;
+						leave_icon_color = 1;
+						edit_icon_color = 0;
 						Draw_TopBar(leave_icon_color, edit_icon_color);
 						Draw_Heating_Schedule_Menu_Row(1, item_selection); 	//Redraw RAW 1
 					}
@@ -1187,7 +1192,7 @@ void UI_Update(void)
 			{
 				if(key.key_val == DOWNKEY) // Down (Left)
 				{
-					if(current_prog_type > 1) {
+					if(current_prog_type > 0) {
 						// Move selection left - only update changed choices
 						current_prog_type--;
 						Draw_Heating_Schedule_Prog_Type_Content(current_prog_type);
@@ -1370,8 +1375,8 @@ void UI_Update(void)
 						//schedule_edit_top_sel = 1;  // Edit red
 						// Redraw entire page to show TopBar with Edit red and clear P1 selection
 						Top_Bar_Active = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 1;
+						leave_icon_color = 1;
+						edit_icon_color = 0;
 						item_selection = 0;
 						Draw_Schedule_Edit_Page(item_selection, leave_icon_color, edit_icon_color);  
 					}
@@ -2161,8 +2166,8 @@ void UI_Update(void)
 								Draw_Control_Adj_TempProtect_Page(item_selection, leave_icon_color, edit_icon_color);
 						}else if(item_selection == 1){		//go back Top_Bar Active
 								item_selection = 0;
-								leave_icon_color = 0;
-								edit_icon_color = 1;
+								leave_icon_color = 1;
+								edit_icon_color = 0;
 								Top_Bar_Active = 1;
 								Draw_Control_Adj_TempProtect_Page(item_selection, leave_icon_color, edit_icon_color);
 						}

@@ -557,7 +557,7 @@ void l_process_alarm_source(alarm_source_t source)
 						if(icon6_red_state)
 						{
 								icon6_red_state = 0;
-							GUI_DrawMonoIcon24x24(136, 72, BLACK, WHITE, Menu_Icon_24x24);  // Draw black Manu Icon
+							GUI_DrawMonoIcon24x24(132, 72, BLACK, WHITE, Menu_Icon_24x24);  // Draw black Manu Icon
 						}
 						// If in Leave Schedule Confirm state, go to Active first (then Active will timeout to Sleep naturally)
 						if(UI_state == STATE_LEAVE_SCHEDULE_CONFIRM){
@@ -639,23 +639,23 @@ void l_process_alarm_source(alarm_source_t source)
 								//Update Weekday
 								if((rtc_time.Hour == 0) && (rtc_time.Min == 1)){
 										weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
-										LCD_Fill(136, 106, 160, 120, WHITE);
-										Show_Str(136, 106, BLACK, WHITE, week_texts[weekday], 16, 0);
+										LCD_Fill(132, 106, 160, 120, WHITE);
+										Show_Str(132, 106, BLACK, WHITE, week_texts[weekday], 16, 0);
 								}
 								//Update Schedule Period
 								if(g_parameter.operation_mode == 1){
 										get_schedule_period();
-										LCD_Fill(136, 37, 160, 61, WHITE);
-										GUI_DrawMonoIcon24x24(136, 37, BLACK, WHITE, icons[Schedule_Period]);	
+										LCD_Fill(132, 37, 160, 61, WHITE);
+										GUI_DrawMonoIcon24x24(132, 37, BLACK, WHITE, icons[Schedule_Period]);	
 								}
 								//LOGD("Min Alarm time out\r\n");
 #if(SIMULATION)
 								weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
-								LCD_Fill(136, 106, 160, 120, WHITE);
+								LCD_Fill(132, 106, 160, 120, WHITE);
 								if((weekday == 5) || (weekday == 6)){
-										Show_Str(136, 106, RED, WHITE, week_texts[weekday], 16, 0);
+										Show_Str(132, 106, RED, WHITE, week_texts[weekday], 16, 0);
 								}else{
-										Show_Str(136, 106, BLUE, WHITE, week_texts[weekday], 16, 0);
+										Show_Str(132, 106, BLUE, WHITE, week_texts[weekday], 16, 0);
 								}
 #endif
 						}
@@ -851,12 +851,14 @@ void g_relay_handler(void)
 		if(g_parameter.sensor_type == 0){			//Room temp
 				if(Average_INT_Temp > -900){
 						temp = Average_INT_Temp;
+						temp += g_parameter.temp_correct_internal;
 				}else{
 						return;
 				}
 		}else{																//Floor temp
 				if(Average_EXT_Temp > -900){
 						temp = Average_EXT_Temp;
+						temp += g_parameter.temp_correct_external;
 				}else{
 						return;
 				}
@@ -865,7 +867,7 @@ void g_relay_handler(void)
 #if(SIMULATION)
 		temp = disp_fack_temp + g_parameter.temp_correct_internal;
 #else
-		temp += g_parameter.temp_correct_internal;
+		
 #endif
 
 			// Window function monitoring: record on each Average_*_Temp update

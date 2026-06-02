@@ -748,7 +748,7 @@ void Draw_Control_Adj_Comfort_Mode_Setting_Page(uint8_t selection, uint8_t leave
 			Draw_TopBar(leave_col, edit_col);
 			POINT_COLOR = BLACK;
 			BACK_COLOR = WHITE;
-			Show_Str(10, 24, BLACK, WHITE, "Floot Type", 16, 0);
+			Show_Str(10, 24, BLACK, WHITE, "Floor Type", 16, 0);
 			// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 			Draw_Control_Adj_Comfort_Mode_Setting_Content(selection);
