@@ -640,7 +640,7 @@ void l_process_alarm_source(alarm_source_t source)
 								if((rtc_time.Hour == 0) && (rtc_time.Min == 1)){
 										weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 										LCD_Fill(132, 106, 160, 120, WHITE);
-										Show_Str(132, 106, BLACK, WHITE, week_texts[weekday], 16, 0);
+										Show_Str(132, 106, BLACK, WHITE, en_week_texts[weekday], 16, 0);
 								}
 								//Update Schedule Period
 								if(g_parameter.operation_mode == 1){

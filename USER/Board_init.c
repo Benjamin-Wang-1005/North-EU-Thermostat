@@ -180,6 +180,7 @@ void golbal_par_init(void)
 		g_parameter.window_fun = 0;
 		g_parameter.window_fun_temp = 5;
 		g_parameter.window_fun_time = 30;
+		g_parameter.language = 0;										//English
 		memcpy(g_parameter.workday_schedule, workday_schedule, sizeof(workday_schedule));
 		memcpy(g_parameter.holiday_schedule, holiday_schedule, sizeof(holiday_schedule));
 		

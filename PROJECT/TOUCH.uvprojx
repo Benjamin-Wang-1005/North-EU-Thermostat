@@ -326,7 +326,7 @@
             <wLevel>0</wLevel>
             <uThumb>0</uThumb>
             <uSurpInc>0</uSurpInc>
-            <uC99>0</uC99>
+            <uC99>1</uC99>
             <uGnu>0</uGnu>
             <useXO>0</useXO>
             <v6Lang>1</v6Lang>
@@ -458,6 +458,11 @@
               <FileName>Factory_test.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\USER\Factory_test.c</FilePath>
+            </File>
+            <File>
+              <FileName>Language.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\Language.c</FilePath>
             </File>
           </Files>
         </Group>

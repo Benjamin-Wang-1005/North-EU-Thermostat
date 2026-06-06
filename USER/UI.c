@@ -19,6 +19,7 @@
 #include "Thermostat.h"
 
 
+
 // Color definitions
 #define EDIT_COLOR      BLUE    // Temperature at edit state
 
@@ -41,7 +42,7 @@ float	temp_int;									// Temporary variable for setting number
 float		disp_fack_temp = 17.5f;
 #endif
 
-
+const char* lan_str;
 
 uint8_t schedule_edit_scroll = 0;     // Scroll offset: 0=show P1-P4, 1=show P2-P5, 2=show P3-P6
 uint8_t control_adj_menu_scroll = 0;    // Scroll offset: 0=show row0-3, 1=show row1-4
@@ -82,8 +83,10 @@ uint8_t comfort_mode;
 uint8_t floor_material;					// '0'=Wood/Laminate, '1'=Tile/Concrete, '2'=Fast Response
 float temp_swing;
 uint8_t child_lock_flag;
+uint8_t language_temp;
 
-char* week_texts[7] = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}; 
+char* en_week_texts[7] = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}; 
+char* no_week_texts[7] = {"MAN", "TIR", "ONS", "TOR", "FRE", "L\xD8R", "S\xD8N"};
 
 // Child Lock PIN code variables
 uint8_t pin_code_input[4] = {0, 0, 0, 0};      // Current PIN input buffer
@@ -110,28 +113,28 @@ uint8_t schedule_time_edit_temp;       // Temperature (0-45)
 
 // ------------------------------------  Global variables  ------------------------------------------------
 uint8_t schedule_edit_source = 0;
-
+	
 // Menu item definitions for Control Adj Menu
 const MenuItem_t Control_Adj_Menu_Items[] = {
-	{"Sensor", STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
-	//{"Comfort Mode", STATE_CONTROL_COMFORT_MODE, Draw_Control_Adj_Comfort_Mode_Page, NULL},
-	{"Temp.Swing", STATE_CONTROL_TEMP_SWING, Draw_Control_Adj_Temp_Swing_Page, NULL},
-	{"Power Limit", STATE_CONTROL_POWER_LIMIT, Draw_Control_Adj_Power_Limit_Page, NULL},
-	{"Sensor Calibrate", STATE_CONTROL_ADJ_TEMP_CORRECT, Draw_Control_Adj_TempCorrect_Page, NULL},
-	{"Input Temp.Limit", STATE_CONTROL_ADJ_TEMP_LIMIT, Draw_Control_Adj_TempLimit_Page, NULL},
-	{"Protect Temp.", STATE_CONTROL_ADJ_TEMP_PROTECT, Draw_Control_Adj_TempProtect_Page, NULL},
-	{"Power On State", STATE_CONTROL_ADJ_POWER_ON_STATE, Draw_Control_Adj_Power_On_State_Page, NULL},
+	{STR_Sensor, STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
+	{STR_Temperature_Swing, STATE_CONTROL_TEMP_SWING, Draw_Control_Adj_Temp_Swing_Page, NULL},
+	{STR_Power_Limit, STATE_CONTROL_POWER_LIMIT, Draw_Control_Adj_Power_Limit_Page, NULL},
+	{STR_Sensor_Calibrate, STATE_CONTROL_ADJ_TEMP_CORRECT, Draw_Control_Adj_TempCorrect_Page, NULL},
+	{STR_Input_Temperature_Limit, STATE_CONTROL_ADJ_TEMP_LIMIT, Draw_Control_Adj_TempLimit_Page, NULL},
+	{STR_Protect_Temperature, STATE_CONTROL_ADJ_TEMP_PROTECT, Draw_Control_Adj_TempProtect_Page, NULL},
+	{STR_Power_On_State, STATE_CONTROL_ADJ_POWER_ON_STATE, Draw_Control_Adj_Power_On_State_Page, NULL},
 };
 const uint8_t Control_Adj_Menu_Item_Count = sizeof(Control_Adj_Menu_Items) / sizeof(Control_Adj_Menu_Items[0]);
 
 // Menu item definitions for User Setting Menu
 const MenuItem_t User_Setting_Menu_Items[] = {
-	{"Child lock", STATE_USER_SETTING_CHILD_LOCK, Draw_User_Setting_Child_Lock_Page, NULL},
-	{"Window Function", STATE_USER_SETTING_WINDOW_FUN, Draw_User_Setting_Window_Fun_Page, NULL},
-	{"Set Time", STATE_USER_SETTING_SET_TIME, Draw_User_Setting_SetTime_Page, NULL},
-	{"Comfort Mode", STATE_USER_SETTING_COMFORT_MODE, Draw_Control_Adj_Comfort_Mode_Page, NULL},
-	{"Set Backlight", STATE_USER_SETTING_BACKLIGHT, Draw_User_Setting_Backlight_Page, NULL},
-	{"Factory Reset", STATE_USER_SETTING_RESET, Draw_User_Setting_Reset_Page, NULL},
+	{STR_Child_lock, STATE_USER_SETTING_CHILD_LOCK, Draw_User_Setting_Child_Lock_Page, NULL},
+	{STR_Window_Function, STATE_USER_SETTING_WINDOW_FUN, Draw_User_Setting_Window_Fun_Page, NULL},
+	{STR_Set_Time, STATE_USER_SETTING_SET_TIME, Draw_User_Setting_SetTime_Page, NULL},
+	//{STR_Comfort_Mode, STATE_USER_SETTING_COMFORT_MODE, Draw_Control_Adj_Comfort_Mode_Page, NULL},
+	{STR_Language, STATE_USER_SETTING_LANGUAGE, Draw_User_Setting_Language_Page, NULL},
+	{STR_Set_Backlight, STATE_USER_SETTING_BACKLIGHT, Draw_User_Setting_Backlight_Page, NULL},
+	{STR_Factory_Reset, STATE_USER_SETTING_RESET, Draw_User_Setting_Reset_Page, NULL},
 };
 const uint8_t User_Setting_Menu_Item_Count = sizeof(User_Setting_Menu_Items) / sizeof(User_Setting_Menu_Items[0]);
 
@@ -150,6 +153,7 @@ uint8_t Find_Control_Adj_Menu_Index(uint8_t state)
 uint8_t Find_User_Setting_Menu_Index(uint8_t state)
 {
 	uint8_t i;
+	lan_str = LanguageTable[STR_Sensor][g_parameter.language];
 	for(i = 0; i < User_Setting_Menu_Item_Count; i++) {
 		if(User_Setting_Menu_Items[i].next_state == state) {
 			return i + 1;
@@ -307,9 +311,17 @@ void Draw_Static_Icons(void)
 	//Draw weekday
 	//LCD_Fill(136, 106, 160, 120, WHITE);
 	if((weekday == 5) || (weekday == 6)){
-			Show_Str(132, 106, RED, WHITE, week_texts[weekday], 16, 0);
+			if(g_parameter.language == LANG_ENGLISH){
+					Show_Str(132, 106, RED, WHITE, en_week_texts[weekday], 16, 0);
+			}else if(g_parameter.language == LANG_Norwegian){
+					Show_Str(132, 106, RED, WHITE, no_week_texts[weekday], 16, 0);
+			}
 	}else{
-			Show_Str(132, 106, BLUE, WHITE, week_texts[weekday], 16, 0);
+			if(g_parameter.language == LANG_ENGLISH){
+					Show_Str(132, 106, BLUE, WHITE, en_week_texts[weekday], 16, 0);
+			}else if(g_parameter.language == LANG_Norwegian){
+					Show_Str(132, 106, BLUE, WHITE, no_week_texts[weekday], 16, 0);
+			}
 	}
 	
 }
@@ -541,22 +553,31 @@ void Draw_Function_Setting_Edit_Row(uint8_t row, uint8_t selected)
 		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, OP_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_Str(30, row_y[row] + 2, text_color, bg_color, "Operation Mode", 16, 0);
+		
+		//lan_str = LanguageTable[STR_Operation_Mode][g_parameter.language];
+		//Show_Str(30, row_y[row] + 2, text_color, bg_color, "Operation Mode", 16, 0);
+		Show_Str(30, row_y[row] + 2, text_color, bg_color, (char*)LanguageTable[STR_Operation_Mode][g_parameter.language], 16, 0);
 	} else if(row == 1) {
 		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, Schedule_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_Str(30, row_y[row] + 2, text_color, bg_color, "Heating Schedule", 16, 0);
+		//lan_str = LanguageTable[STR_Heating_Schedule][g_parameter.language];
+		//Show_Str(30, row_y[row] + 2, text_color, bg_color, "Heating Schedule", 16, 0);
+		Show_Str(30, row_y[row] + 2, text_color, bg_color, (char*)LanguageTable[STR_Heating_Schedule][g_parameter.language], 16, 0);
 	} else if(row == 2) {
 		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, Control_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_Str(30, row_y[row] + 2, text_color, bg_color, "Control Adj.", 16, 0);
+		//lan_str = LanguageTable[STR_Control_Adjustment][g_parameter.language];
+		//Show_Str(30, row_y[row] + 2, text_color, bg_color, "Control Adj.", 16, 0);
+		Show_Str(30, row_y[row] + 2, text_color, bg_color, (char*)LanguageTable[STR_Control_Adjustment][g_parameter.language], 16, 0);
 	} else if(row == 3) {
 		GUI_DrawMonoIcon16x16(6, row_y[row] + 4, text_color, bg_color, User_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_Str(30, row_y[row] + 2, text_color, bg_color, "User Settings", 16, 0);
+		//lan_str = LanguageTable[STR_User_Settings][g_parameter.language];
+		//Show_Str(30, row_y[row] + 2, text_color, bg_color, "User Settings", 16, 0);
+		Show_Str(30, row_y[row] + 2, text_color, bg_color, (char*)LanguageTable[STR_User_Settings][g_parameter.language], 16, 0);
 	}
 }
 
@@ -592,9 +613,13 @@ void Draw_Opeaation_Mode_Choices(uint8_t selection)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		if(i == 0) {
-			Show_Str(45, row_y[i] + 4, BLACK, WHITE, "Manual Mode", 16, 0);
+			//lan_str = LanguageTable[STR_Manual_Mode][g_parameter.language];
+			//Show_Str(45, row_y[i] + 4, BLACK, WHITE, "Manual Mode", 16, 0);
+			Show_Str(45, row_y[i] + 4, BLACK, WHITE, (char*)LanguageTable[STR_Manual_Mode][g_parameter.language], 16, 0);
 		} else {
-			Show_Str(45, row_y[i] + 4, BLACK, WHITE, "Schedule Mode", 16, 0);
+			//lan_str = LanguageTable[STR_Schedule_Mode][g_parameter.language];
+			//Show_Str(45, row_y[i] + 4, BLACK, WHITE, "Schedule Mode", 16, 0);
+			Show_Str(45, row_y[i] + 4, BLACK, WHITE, (char*)LanguageTable[STR_Schedule_Mode][g_parameter.language], 16, 0);
 		}
 		if((selection == 0) || (selection == 3)){
 				if(operation_mode == i){
@@ -623,17 +648,21 @@ void Draw_Operation_Mode_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t
 		// Draw "Sensor" title closer to Top Bar (left aligned, y=24 - moved up)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(10, 24, BLACK, WHITE, "Operation Mode", 16, 0);
+		//lan_str = LanguageTable[STR_Operation_Mode][g_parameter.language];
+		//Show_Str(10, 24, BLACK, WHITE, "Operation Mode", 16, 0);
+		Show_Str(10, 24, BLACK, WHITE, (char*)LanguageTable[STR_Operation_Mode][g_parameter.language], 16, 0);
 	
 		// Draw horizontal line below "Sensor" title (y=42 to y=43, leave 4px margin on both sides)
 		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 	
 		Draw_Opeaation_Mode_Choices(selection);
-	
+		//lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 3){
-				Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+				//Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+				Show_Str(127, 108, RED, WHITE, (char*)LanguageTable[STR_Save][g_parameter.language], 16, 0);
 		}else{
-				Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+				//Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+				Show_Str(127, 108, BLACK, WHITE, (char*)LanguageTable[STR_Save][g_parameter.language], 16, 0);
 		}
 }
 
@@ -763,7 +792,9 @@ void UI_Update(void)
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						POINT_COLOR = BLACK;
 						BACK_COLOR = WHITE;
-						Show_Str(10, 10, BLACK, WHITE, "Enter Pin Code", 16, 0);
+						//lan_str = LanguageTable[STR_Enter_Pin_Code][g_parameter.language];
+						//Show_Str(10, 10, BLACK, WHITE, "Enter Pin Code", 16, 0);
+						Show_Str(10, 10, BLACK, WHITE, (char*)LanguageTable[STR_Enter_Pin_Code][g_parameter.language], 16, 0);
 						Draw_Pin_Input_Box(pin_code_input, pin_digit_index);
 						Draw_Pin_Digit_Selector(pin_digit_selected);
 				}else{
@@ -2603,6 +2634,15 @@ void UI_Update(void)
 							floor_material = g_parameter.floor_material;
 							Draw_Control_Adj_Comfort_Mode_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
+						else if(UI_state == STATE_USER_SETTING_LANGUAGE)
+						{
+							Top_Bar_Active = 1;
+							item_selection = 0;
+							leave_icon_color = 0;
+							edit_icon_color = 1;
+							language_temp = g_parameter.language;
+							Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
 					}
 				}
 			}
@@ -2958,7 +2998,9 @@ void UI_Update(void)
 					if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
 							item_selection = 1;
 							Draw_User_Setting_SetTime_Content(item_selection);
-							Show_Str(87, 108, BLACK, WHITE, "Set Clock", 16, 0);
+							//lan_str = LanguageTable[STR_Set_Clock][g_parameter.language];
+							//Show_Str(87, 108, BLACK, WHITE, "Set Clock", 16, 0);
+							Show_Str(87, 108, BLACK, WHITE, (char*)LanguageTable[STR_Set_Clock][g_parameter.language], 16, 0);
 					}else if(key.key_val == ENTERKEY){
 							UI_state = STATE_USER_SETTING_SET_CLK;
 							Top_Bar_Active = 1;
@@ -3238,7 +3280,9 @@ void UI_Update(void)
 					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 					POINT_COLOR = BLACK;
 					BACK_COLOR = WHITE;
-					Show_Str(10, 10, BLACK, WHITE, "Enter Pin Code", 16, 0);
+					//lan_str = LanguageTable[STR_Enter_Pin_Code][g_parameter.language];
+					//Show_Str(10, 10, BLACK, WHITE, "Enter Pin Code", 16, 0);
+					Show_Str(10, 10, BLACK, WHITE, (char*)LanguageTable[STR_Enter_Pin_Code][g_parameter.language], 16, 0);
 					Draw_Pin_Input_Box(pin_code_input, pin_digit_index);
 					Draw_Pin_Digit_Selector(pin_digit_selected);
 				}
@@ -3578,6 +3622,87 @@ void UI_Update(void)
 							Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
 			}
+	}
+	else if(UI_state == STATE_USER_SETTING_LANGUAGE)
+	{
+		if(Top_Bar_Active)  // TopBar mode: Edit/Leave
+			{
+				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				{
+					Update_TopBar();
+				}
+				else if(key.key_val == ENTERKEY)  // Enter key pressed
+				{
+					if(edit_icon_color)  // Edit Icon is red
+					{
+						// Enter Backlight edit mode
+						Top_Bar_Active = 0;
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+						Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+					else  // Leave Icon is red
+					{
+						// Go back to Function Setting Edit mode with cursor on Control Adj
+						UI_state = STATE_USER_SETTING_COMFORT_MODE;
+						Top_Bar_Active = 0;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_BACKLIGHT);
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+					//delay_ms(100);
+				}
+			}
+			else if((item_selection == 1) || (item_selection == 2))
+			{
+					if(key.key_val == DOWNKEY){		//Down key
+							if(item_selection == 1){
+									item_selection = 2;
+									Draw_User_Setting_Language_Choice(item_selection);
+							}
+							
+					}else if(key.key_val == UPKEY){		//Up key
+							if(item_selection == 2){
+									item_selection = 1;
+									Draw_User_Setting_Language_Choice(item_selection);
+							}else if(item_selection == 1){	//go back Top_Bar
+									Top_Bar_Active = 1;
+									item_selection = 0;
+									leave_icon_color = 1;
+									edit_icon_color = 0;
+									Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
+							}
+							
+					}else if(key.key_val == ENTERKEY){		//Enter key
+							language_temp = (item_selection == 1) ? 0: 1;
+							item_selection = 3;
+							Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
+							
+					}
+			}else if(item_selection == 3){
+					if(key.key_val == ENTERKEY){
+							g_parameter.language = language_temp;
+							UI_state = STATE_USER_SETTING_MENU;
+							Top_Bar_Active = 0;
+							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_CHILD_LOCK);
+							leave_icon_color = 0;
+							edit_icon_color = 0;
+							if(Flash_Save_Parameter() != FLASH_OK){
+									LOGE("Flash write fail!\r\n");
+							}
+							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+							Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+							
+					}else if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
+							item_selection = language_temp + 1;
+							Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+			}	
+			
 	}
 
 	key.key_val = NONKEY;

@@ -66,6 +66,7 @@ enum{
 		STATE_USER_SETTING_SET_TIME,
 		STATE_USER_SETTING_SET_CLK,
 		STATE_USER_SETTING_COMFORT_MODE,
+		STATE_USER_SETTING_LANGUAGE,
 		STATE_USER_SETTING_COMFORT_MODE_SETTING,
 		STATE_USER_SETTING_BACKLIGHT,
 		STATE_USER_SETTING_RESET,
@@ -80,7 +81,7 @@ enum{
 #define MENU_VISIBLE_ROWS 4
 
 typedef struct {
-	char* text;
+	uint8_t text_id;
 	uint8_t next_state;
 	void (*draw_page)(uint8_t, uint8_t, uint8_t);
 	void (*init_func)(void);
@@ -164,6 +165,7 @@ typedef enum
 #include "arial_digits_flash.h"
 #include "rtc_driver.h"
 #include "flash_storage.h"
+#include "Language.h"
 
 #define			u8					uint8_t
 #define			u16					uint16_t

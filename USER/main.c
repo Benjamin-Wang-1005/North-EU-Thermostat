@@ -17,6 +17,7 @@
 #include "icons_24x24.h"  // New 24x24 monochrome icons for Active page
 #include "stm32f10x.h"
 #include "stm32f10x_tim.h"
+//#include "Language.h"
 
 
 
@@ -97,7 +98,7 @@ int main(void)
 	 if(rtc_rest){
 				LOGD("RTC Reset!\r\n");
 	 }
-		LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, week_texts[weekday]);
+		LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);
 		get_schedule_period();
 		
 	// Initialize ADC and measure VCC voltage

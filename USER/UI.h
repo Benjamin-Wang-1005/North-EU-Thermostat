@@ -60,6 +60,7 @@ typedef struct{
 		unsigned char  comfort_mode;
 		unsigned char  floor_material;
 		unsigned char  rtc_set_flag;
+		unsigned char  language;
 		unsigned char  workday_schedule[6][4];
 		unsigned char  holiday_schedule[6][4];
 }g_parameter_t;
@@ -127,7 +128,9 @@ extern uint8_t pin_code_confirm[4];    // PIN confirmation buffer
 extern uint8_t pin_digit_index;        // Current digit index (0-3)
 extern uint8_t pin_setup_stage;        // 0=enter PIN, 1=confirm PIN
 extern uint8_t pin_digit_selected;     // Currently selected digit (0-9) for input
-extern char* week_texts[7];
+extern char* en_week_texts[7];
+extern const char* lan_str;
+extern uint8_t language_temp;
 
 extern float	disp_fack_temp;
 
@@ -194,6 +197,8 @@ void Draw_Control_Adj_Comfort_Mode_Setting_Page(uint8_t selection, uint8_t leave
 void Draw_Control_Adj_Comfort_Mode_Setting_Content(uint8_t selection);
 void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection);
+void Draw_User_Setting_Language_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_User_Setting_Language_Choice(uint8_t selection);
 
 // Child Lock PIN functions
 void Draw_Child_Lock_Pin_Page(uint8_t stage);

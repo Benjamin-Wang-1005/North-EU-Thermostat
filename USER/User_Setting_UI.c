@@ -47,7 +47,8 @@ void Draw_User_Setting_Menu_Row(uint8_t row, uint8_t selected)
 	// Draw menu text
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(30, row_y[row] + 4, BLACK, WHITE, User_Setting_Menu_Items[text_idx].text, 16, 0);
+	lan_str = LanguageTable[User_Setting_Menu_Items[text_idx].text_id][g_parameter.language];
+	Show_Str(30, row_y[row] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
 }
 
 void Draw_User_Setting_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
@@ -97,9 +98,11 @@ void Draw_User_Setting_Child_Lock_Choice(uint8_t selection)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		if(i == 0) {
-			Show_Str(45, row_y[i] + 4, BLACK, WHITE, "OFF", 16, 0);
+			lan_str = LanguageTable[STR_OFF][g_parameter.language];
+			Show_Str(45, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
 		} else {
-			Show_Str(45, row_y[i] + 4, BLACK, WHITE, "ON", 16, 0);
+			lan_str = LanguageTable[STR_ON][g_parameter.language];
+			Show_Str(45, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
 		}
 		if((selection == 0) || (selection == 3)){
 				if(child_lock == i){
@@ -128,16 +131,18 @@ void Draw_User_Setting_Child_Lock_Page(uint8_t selection, uint8_t leave_col, uin
 	// Draw "Sensor" title closer to Top Bar (left aligned, y=24 - moved up)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Child lock", 16, 0);
+	lan_str = LanguageTable[STR_Child_lock][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 	// Draw horizontal line below "Sensor" title (y=42 to y=43, leave 4px margin on both sides)
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 	
 	Draw_User_Setting_Child_Lock_Choice(selection);
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3){
-			Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+			Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-			Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+			Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 	
 }
@@ -157,16 +162,19 @@ void Draw_User_Setting_Window_Fun_Content(uint8_t selection, uint8_t leave_col, 
 		//Show_Str(30, 56, color, WHITE, "OFF", 16, 0);
 		//GUI_DrawMonoIcon16x16(54, 56, color, WHITE, Block_Icon_16x16);
 		if(window_fun == 0){
-				Show_Str(30, 56, BLACK, WHITE, "OFF", 16, 0);
+				lan_str = LanguageTable[STR_OFF][g_parameter.language];
+				Show_Str(30, 56, BLACK, WHITE, (char*)lan_str, 16, 0);
 				GUI_DrawMonoIcon16x16(54, 56, BLACK, WHITE, Block_Icon_16x16);
 		}else{
-				Show_Str(50, 56, RED, WHITE, "ON", 16, 0);
+				lan_str = LanguageTable[STR_ON][g_parameter.language];
+				Show_Str(50, 56, RED, WHITE, (char*)lan_str, 16, 0);
 				GUI_DrawMonoIcon16x16(30, 56, RED, WHITE, Block_Icon_16x16);
 		}
+		lan_str = LanguageTable[STR_Trigger_Temperature_Time][g_parameter.language];
 		if(selection == 1){
-				Show_Str(10, 92, GRAY, WHITE, "Trigger Temp./Time", 16, 0);
+				Show_Str(10, 92, GRAY, WHITE, (char*)lan_str, 16, 0);
 		}else if(selection == 2){
-				Show_Str(10, 92, RED, WHITE, "Trigger Temp./Time", 16, 0);
+				Show_Str(10, 92, RED, WHITE, (char*)lan_str, 16, 0);
 		}
 }
 
@@ -176,7 +184,8 @@ void Draw_User_Setting_Window_Fun_Page(uint8_t selection, uint8_t leave_col, uin
 		
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(10, 24, BLACK, WHITE, "Window Function", 16, 0);
+		lan_str = LanguageTable[STR_Window_Function][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		// Draw horizontal line below "Sensor" title (y=42 to y=43, leave 4px margin on both sides)
 		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
@@ -188,16 +197,16 @@ void Draw_User_Setting_Window_Fun_Page(uint8_t selection, uint8_t leave_col, uin
 				LCD_Fill(24, 52, 26, 76, BLACK); //
 				LCD_Fill(24, 74, 74, 76, BLACK); //
 				LCD_Fill(72, 52, 74, 76, BLACK); //
-	
-				Show_Str(30, 56, BLACK, WHITE, "OFF", 16, 0);
+				lan_str = LanguageTable[STR_OFF][g_parameter.language];
+				Show_Str(30, 56, BLACK, WHITE, (char*)lan_str, 16, 0);
 				GUI_DrawMonoIcon16x16(54, 56, BLACK, WHITE, Block_Icon_16x16);
 		}else{
 				LCD_Fill(24, 52, 74, 54, RED); //
 				LCD_Fill(24, 52, 26, 76, RED); //
 				LCD_Fill(24, 74, 74, 76, RED); //
 				LCD_Fill(72, 52, 74, 76, RED); //
-	
-				Show_Str(50, 56, RED, WHITE, "ON", 16, 0);
+				lan_str = LanguageTable[STR_ON][g_parameter.language];
+				Show_Str(50, 56, RED, WHITE, (char*)lan_str, 16, 0);
 				GUI_DrawMonoIcon16x16(30, 56, RED, WHITE, Block_Icon_16x16);
 		}
 			
@@ -205,21 +214,22 @@ void Draw_User_Setting_Window_Fun_Page(uint8_t selection, uint8_t leave_col, uin
 
 void Draw_User_Setting_Window_Time_Content(uint8_t selection)
 {
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 1) {
 		// Arrow points to Max
 		GUI_DrawMonoIcon16x16(4, 52, WHITE, RED, Icon16x16_Arrow);
 		Display_Adj_Number((float)window_fun_temp, BLACK, 0);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 2) {
 		// Arrow points to Floor
 		LCD_Fill(4, 52, 20, 68, WHITE);		//clearerr old Arrow
 		LCD_Fill(5, 74, 117, 106, WHITE);	//clear digi area
 		GUI_DrawMonoIcon16x16(80, 52, WHITE, RED, Icon16x16_Arrow);
 		Display_Adj_Number((float)window_fun_time, BLACK, 0);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 3) {
 		LCD_Fill(80, 52, 96, 68, WHITE);		//clearerr old Arrow
-		Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -230,15 +240,18 @@ void Draw_User_Setting_Window_Time_Page(uint8_t selection, uint8_t leave_col, ui
 		// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(10, 24, BLACK, WHITE, "Window Function", 16, 0);
+		lan_str = LanguageTable[STR_Window_Function][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 	
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(25, 52, BLACK, WHITE, "Temp.", 16, 0);
-		Show_Str(100, 52, BLACK, WHITE, "Time", 16, 0);
+		lan_str = LanguageTable[STR_Temperature][g_parameter.language];
+		Show_Str(25, 52, BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_Time][g_parameter.language];
+		Show_Str(100, 52, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		Draw_User_Setting_Window_Time_Content(selection);
 }
@@ -278,7 +291,8 @@ void Draw_User_Setting_SetTime_Content(uint8_t selection)
 		}else if(selection == 4){
 				LCD_Fill(121, 42, 137, 58, WHITE);
 				LCD_Fill(121, 94, 137, 110, WHITE);
-				Show_Str(87, 108, RED, WHITE, "Set Clock", 16, 0);
+				lan_str = LanguageTable[STR_Set_Clock][g_parameter.language];
+				Show_Str(87, 108, RED, WHITE, (char*)lan_str, 16, 0);
 		}
 		
 }
@@ -293,8 +307,9 @@ void Draw_User_Setting_SetTime_Page(uint8_t selection, uint8_t leave_col, uint8_
 		// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(6, 24, BLACK, WHITE, "  Year Month Date", 16, 0);
-		LOGD("Y:%d\r\n",temp_rtc.Year);
+		lan_str = LanguageTable[STR_Year_Month_Date][g_parameter.language];
+		Show_Str(6, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+		//LOGD("Y:%d\r\n",temp_rtc.Year);
 	
 		
 		GUI_DrawBigDigit(17, 58, BLACK, WHITE, '0' + high_digi, 1);   
@@ -311,8 +326,8 @@ void Draw_User_Setting_SetTime_Page(uint8_t selection, uint8_t leave_col, uint8_
 		low_digi = temp_rtc.Date % 10;
 		GUI_DrawBigDigit(113, 58, BLACK, WHITE, '0' + high_digi, 1);  
 		GUI_DrawBigDigit(129, 58, BLACK, WHITE, '0' + low_digi, 1); 
-	
-		Show_Str(87, 108, BLACK, WHITE, "Set Clock", 16, 0);
+		lan_str = LanguageTable[STR_Set_Clock][g_parameter.language];
+		Show_Str(87, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 		
 }
 
@@ -339,12 +354,13 @@ void Draw_User_Setting_Setclk_Content(uint8_t selection)
 				GUI_DrawMonoIcon16x16(94, 42, WHITE, RED, Icon16x16_Up_Arror);     
 				GUI_DrawMonoIcon16x16(94, 94, WHITE, RED, Icon16x16_Down_Arror);
 		}
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 3){
 				LCD_Fill(94, 42, 110, 58, WHITE);
 				LCD_Fill(94, 94, 110, 110, WHITE);
-				Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+				Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 		}else{
-				Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+				Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 		}
 }
 
@@ -357,7 +373,8 @@ void Draw_User_Setting_Setclk_Page(uint8_t selection, uint8_t leave_col, uint8_t
 	
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(30, 24, BLACK, WHITE, " Hour  Minute", 16, 0);
+		lan_str = LanguageTable[STR_Hour_Minute][g_parameter.language];
+		Show_Str(30, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		GUI_DrawBigDigit(38, 58, BLACK, WHITE, '0' + high_digi, 1);   
 		GUI_DrawBigDigit(54, 58, BLACK, WHITE, '0' + low_digi, 1); 
@@ -370,8 +387,8 @@ void Draw_User_Setting_Setclk_Page(uint8_t selection, uint8_t leave_col, uint8_t
 	
 		LCD_Fill(76, 67, 80, 71, BLACK);
 		LCD_Fill(76, 79, 80, 83, BLACK);
-	
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 }
 
 void Draw_User_Setting_Backlight_Content(uint8_t selection)
@@ -386,7 +403,8 @@ void Draw_User_Setting_Backlight_Content(uint8_t selection)
 		}if(selection == 2){
 				LCD_Fill(36, 78, 52, 94, WHITE);
 				LCD_Fill(116, 78, 132, 94, WHITE);
-				Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+				lan_str = LanguageTable[STR_Save][g_parameter.language];
+				Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 		}
 		
 }
@@ -398,7 +416,8 @@ void Draw_User_Setting_Backlight_Page(uint8_t selection, uint8_t leave_col, uint
 			// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 			POINT_COLOR = BLACK;
 			BACK_COLOR = WHITE;
-			Show_Str(10, 24, BLACK, WHITE, "Set Backlight", 16, 0);
+			lan_str = LanguageTable[STR_Set_Backlight][g_parameter.language];
+			Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 			// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
@@ -408,7 +427,8 @@ void Draw_User_Setting_Backlight_Page(uint8_t selection, uint8_t leave_col, uint
 			GUI_DrawBigDigit(84, 50, BLACK, WHITE, '0', 0);
 			
 			GUI_DrawMonoIcon16x16(116, 50, BLACK, WHITE, Percent_Icon_16x16);
-			Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+			lan_str = LanguageTable[STR_Save][g_parameter.language];
+			Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 }
 
 void Draw_User_Setting_Reset_Contect(uint8_t selection)
@@ -421,16 +441,19 @@ void Draw_User_Setting_Reset_Page(uint8_t selection, uint8_t leave_col, uint8_t 
 			// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 			POINT_COLOR = BLACK;
 			BACK_COLOR = WHITE;
-			Show_Str(10, 24, BLACK, WHITE, "Factory Reset", 16, 0);
+			lan_str = LanguageTable[STR_Factory_Reset][g_parameter.language];
+			Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 			// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
-	
-			Show_Str(10, 50, RED, WHITE, "Reset to Default?", 16, 0);
-			Show_Str(10, 66, BLACK, WHITE, "This will erase ", 16, 0);
-			Show_Str(10, 82, BLACK, WHITE, "all saved settings.", 16, 0);
-	
-			Show_Str(119, 108, BLACK, WHITE, "Reset", 16, 0);
+			lan_str = LanguageTable[STR_Reset_to_Default][g_parameter.language];
+			Show_Str(10, 50, RED, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_This_will_erase][g_parameter.language];
+			Show_Str(10, 66, BLACK, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_all_saved_settings][g_parameter.language];
+			Show_Str(10, 82, BLACK, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_Reset][g_parameter.language];
+			Show_Str(119, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 }
 
 
@@ -506,9 +529,11 @@ void Draw_Child_Lock_Pin_Page(uint8_t stage)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	if(stage == 0){
-		Show_Str(10, 10, BLACK, WHITE, "Please Setup Pin", 16, 0);
+		lan_str = LanguageTable[STR_Please_Setup_Pin][g_parameter.language];
+		Show_Str(10, 10, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(10, 10, BLACK, WHITE, "Please Confirm Pin", 16, 0);
+		lan_str = LanguageTable[STR_Please_Confirm_Pin][g_parameter.language];
+		Show_Str(10, 10, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 	
 	// Draw PIN input boxes
@@ -533,4 +558,59 @@ uint8_t Verify_Pin_Code(void)
 		}
 	}
 	return 1;  // PIN match
+}
+
+void Draw_User_Setting_Language_Choice(uint8_t selection)
+{
+	uint16_t row_y[] = {52, 72};  // Y positions for Room, Floor (moved up, consistent spacing)
+	uint8_t i;
+	
+	for(i = 0; i < 2; i++) {
+		// Draw text (always black on white background)
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		if(i == 0) {
+			lan_str = LanguageTable[STR_English][g_parameter.language];
+			Show_Str(45, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
+		} else {
+			lan_str = LanguageTable[STR_Norwegian][g_parameter.language];
+			Show_Str(45, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
+		}
+		if((selection == 0) || (selection == 3)){
+				if(language_temp == i){
+						GUI_DrawMonoIcon16x16(20, row_y[i] + 4, WHITE, BLACK, Icon16x16_Arrow);
+				}else{
+						LCD_Fill(20, row_y[i] + 4, 36, row_y[i] + 20, WHITE);
+				}
+		}else if((selection == 1) || (selection == 2)){
+				if((i+1) == selection) {
+					GUI_DrawMonoIcon16x16(20, row_y[i] + 4, WHITE, RED, Icon16x16_Arrow);
+				}else{
+						LCD_Fill(20, row_y[i] + 4, 36, row_y[i] + 20, WHITE);
+				}
+		}
+		
+	}
+}
+
+void Draw_User_Setting_Language_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+{
+	Draw_TopBar(leave_col, edit_col);
+	
+	// Draw "Sensor" title closer to Top Bar (left aligned, y=24 - moved up)
+	POINT_COLOR = BLACK;
+	BACK_COLOR = WHITE;
+	lan_str = LanguageTable[STR_Menu_Language][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+	
+	// Draw horizontal line below "Sensor" title (y=42 to y=43, leave 4px margin on both sides)
+	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
+	
+	Draw_User_Setting_Language_Choice(selection);
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
+	if(selection == 3){
+			Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
+	}else{
+			Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
+	}
 }
