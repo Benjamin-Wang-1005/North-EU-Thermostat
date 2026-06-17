@@ -28,7 +28,12 @@
 //------------------------------------------------------------------------------------------------------------------
 #define CMD_PREFIX          				"[CMD]"
 #define CMD_PREFIX_LEN      				(5)
-
+#define FACTORT_TEST_MASK						0x01
+#define LCD_TEST_MASK								0x02
+#define KEY_TEST_MASK								0x04
+#define SENSOR_TEST_MASK						0x08
+#define RELAY_TEST_MASK							0x10
+#define VCC_TEST_MASK								0x20
 
 
 
@@ -48,13 +53,10 @@ static bool_t receiveCmd(void)
 				inChar = USART_ReceiveData(EVAL_COM1);
 				//LOGD("RX: 0x%02X '%c'\n", inChar, (inChar >= 32 && inChar <= 126) ? inChar : '.');
 				if(inChar == 0x00 || inChar == '\r' || inChar == '\n') {
-			if (cmd_queue.rx_index > 0) {
 						cmd_queue.rx_buffer[cmd_queue.rx_index] = 0x00;
 					cmd_queue.rx_index = 0;
                     return eTRUE;
-			}
-			continue;
-		}
+        }
 				// lowercase to uppercase
         if (inChar >= 'a' && inChar <= 'z') {
 						inChar -= 0x20;
@@ -192,53 +194,30 @@ void lcd_test_cmd(char *param)
 //----------------------------------------------------------------------------------------------------------
 void key_test_cmd(char *param)
 {
-		uint8_t test_flag = 0;
-		static uint32_t local_tick;
 		if(strcmp(param, "START") == 0){
 				TCMD("RES:KEY_TEST:OK\n");
 				Factory_testing |= KEY_TEST_MASK;
 				key.key_val = NONKEY;
 				key.key_active = 0;
-				//key.key_press = 0;
+				key.key_press = 0;
 		}else if(strcmp(param, "STOP") == 0){
 				TCMD("RES:KEY_TEST:OK\n");
 				Factory_testing ^= KEY_TEST_MASK;
 				key.key_val = NONKEY;
 				key.key_active = 0;
-				//key.key_press = 0;
+				key.key_press = 0;
 		}
 		if((Factory_testing & KEY_TEST_MASK) == KEY_TEST_MASK){
-				local_tick = time_tick;
-				
-				while(1){
-						Key_Scan();
-						if(key.key_val == UPKEY){
-								TCMD("EVENT:KEY:UP\n");
-								key.key_val = NONKEY;
-								key.key_active = 0;
-								test_flag |= 0x01;
-								local_tick = time_tick;
-						}else if(key.key_val == DOWNKEY){
-								TCMD("EVENT:KEY:DOWN\n");
-								key.key_val = NONKEY;
-								key.key_active = 0;
-								test_flag |= 0x02;
-								local_tick = time_tick;
-						}else if(key.key_val == ENTERKEY){
-								TCMD("EVENT:KEY:ENTER\n");
-								key.key_val = NONKEY;
-								key.key_active = 0;
-								test_flag |= 0x04;
-								local_tick = time_tick;
-						}
-						if(test_flag == 7) break;
-						if(g_clock_time_exceed(local_tick, 10000)){
-								TCMD("EVENT:KEY:TIMEOUT\n");
-								key.key_val = NONKEY;
-								key.key_active = 0;
-								break;
-						}
+				if(key.key_val == UPKEY){
+						TCMD("EVENT:KEY:UP\n");
+				}else if(key.key_val == DOWNKEY){
+						TCMD("EVENT:KEY:DOWN\n");
+				}else if(key.key_val == ENTERKEY){
+						TCMD("EVENT:KEY:ENTER\n");
 				}
+				key.key_val = NONKEY;
+				key.key_active = 0;
+				key.key_press = 0;
 		}
 
 }
@@ -346,10 +325,6 @@ static void processCmd(void)
 								LOGE("Alarm Full!\r\n");
 						}
 						main_display_digi = Display_Room_Temp;
-						Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
-						if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
-								LOGE("Alarm Fail\r\n");
-						}
 						Draw_Active_Menu();								//Go back normal mode
 				}
     }
@@ -390,14 +365,6 @@ static void processCmd(void)
 						test_relay_cmd(param);
 				}
     }
-	else if (strcmp(cmd_name, "IAP_ENTER") == 0) {
-				TCMD("RES:IAP_ENTER:OK\n");
-				RCC_APB1PeriphClockCmd(RCC_APB1Periph_PWR | RCC_APB1Periph_BKP, ENABLE);
-				PWR_BackupAccessCmd(ENABLE);
-				BKP_WriteBackupRegister(BKP_DR2, 0x5AA5);
-				my_delay_ms(100);
-				NVIC_SystemReset();
-	}
     else {
         LOGD("Unknown command: %s\n", cmd_name);
         TCMD("RES:UNKNOWN:COMMAND\n");
@@ -414,11 +381,10 @@ static void processCmd(void)
 //----------------------------------------------------------------------------------------------------------
 void g_cmd_handler(void)
 {
-
+		
 		if(cmd_queue.F_received_complete){
 				processCmd();
-
+				
 				cmd_queue.F_received_complete = eFALSE;
 		}
-
 }

@@ -64,6 +64,7 @@ extern adc_thermostat_t adc_ctrl;
 // Display temperature globals
 extern volatile float Average_INT_Temp;
 extern volatile float Average_EXT_Temp;
+extern volatile uint8_t display_update_throttle_trigger;  // Set when throttle counter triggers (same rhythm as ACTIVE display update)
 
 // Function prototypes
 void Thermostat_ADC_Init(void);

@@ -17,6 +17,7 @@
 #include "icons_24x24.h"  // New 24x24 monochrome icons for Active page
 #include "stm32f10x.h"
 #include "stm32f10x_tim.h"
+//#include "Language.h"
 
 
 
@@ -29,7 +30,7 @@ void Draw_Main_Page(void);
 
 
 // Global variables
-//float setting_number = 4.0f;     	// è¨­å®šæ•¸å­—ï¼Œåˆå§‹å€¼ 4.0
+//float setting_number = 4.0f;     	// ÔO¶¨”µ×Ö£¬³õÊ¼Öµ 4.0
 volatile uint8_t	Relay;								// Output power indicator
 volatile uint8_t Schedule_Period;					// Schedule indicator
 uint8_t (*sch_table)[4];
@@ -62,6 +63,7 @@ int main(void)
 //	uint8_t key_val;
 
 	SystemInit();        // Initialize RCC, system clock to 64MHz (HSI/2 * 16 PLL)
+	//SCB->VTOR = 0x08004000;  // Vector table relocated for IAP application area
 	sys_tick_Init();	 // Initialize system tick clock
 	Key_Init();          // Key initialization
 	Backlight_Init();    // Backlight PWM initialization
@@ -96,7 +98,7 @@ int main(void)
 	 if(rtc_rest){
 				LOGD("RTC Reset!\r\n");
 	 }
-		LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, week_texts[weekday]);
+		LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);
 		get_schedule_period();
 		
 	// Initialize ADC and measure VCC voltage

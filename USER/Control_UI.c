@@ -164,7 +164,8 @@ void Draw_Control_Adj_Menu_Row(uint8_t row, uint8_t selected)
 	// Draw menu text
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(30, row_y[row] + 4, BLACK, WHITE, Control_Adj_Menu_Items[text_idx].text, 16, 0);
+	lan_str = LanguageTable[Control_Adj_Menu_Items[text_idx].text_id][g_parameter.language];
+	Show_Str(30, row_y[row] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
 }
 
 
@@ -235,11 +236,11 @@ void Draw_Control_Adj_Sensor_Choices(uint8_t selection)
 					GUI_DrawMonoIcon16x16(20, 76, WHITE, BLACK, Icon16x16_Arrow);
 			}
 	}
-	
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 2){
-			Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+			Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-			Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+			Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 	
 }
@@ -256,35 +257,37 @@ void Draw_Control_Adj_Sensor_Page(uint8_t selection, uint8_t leave_col, uint8_t 
 	// Draw "Sensor" title closer to Top Bar (left aligned, y=24 - moved up)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Temp.Read From", 16, 0);
+	lan_str = LanguageTable[STR_Temperature_Read_From][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 	// Draw horizontal line below "Sensor" title (y=42 to y=43, leave 4px margin on both sides)
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
-	
-	Show_Str(45, 52 + 4, BLACK, WHITE, "Room", 16, 0);
-	Show_Str(45, 72 + 4, BLACK, WHITE, "Floor", 16, 0);
+	lan_str = LanguageTable[STR_Room][g_parameter.language];
+	Show_Str(45, 52 + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Floor][g_parameter.language];
+	Show_Str(45, 72 + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
 	Draw_Control_Adj_Sensor_Choices(selection);
 }
 
 
 void Draw_Control_Adj_TempCorrect_Contect(uint8_t selection)
 {
-	
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 1) {
 		// Arrow points to Room
 		GUI_DrawMonoIcon16x16(4, 52, WHITE, RED, Icon16x16_Arrow);
 		Display_Adj_Number(temp_correct_internal, BLACK, 1);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 2) {
 		// Arrow points to Floor
 		LCD_Fill(4, 52, 20, 68, WHITE);		//clear old Arrow
 		LCD_Fill(5, 74, 117, 106, WHITE);	//clear digi area
 		GUI_DrawMonoIcon16x16(80, 52, WHITE, RED, Icon16x16_Arrow);
 		Display_Adj_Number(temp_correct_external, BLACK, 1);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 3) {
 		LCD_Fill(80, 52, 96, 68, WHITE);		//clearerr old Arrow
-		Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 	}
 		
 }
@@ -304,7 +307,8 @@ void Draw_Control_Adj_TempCorrect_Page(uint8_t selection, uint8_t leave_col, uin
 	// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Sensor Calibrate", 16, 0);
+	lan_str = LanguageTable[STR_Sensor_Calibrate][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 	// Draw horizontal line below "Temp. Correct" title (y=42 to y=43, leave 4px margin on both sides)
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
@@ -313,8 +317,10 @@ void Draw_Control_Adj_TempCorrect_Page(uint8_t selection, uint8_t leave_col, uin
 	// Internal at x=30, Arrow at x=90, External at x=110
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(25, 52, BLACK, WHITE, "Room", 16, 0);
-	Show_Str(100, 52, BLACK, WHITE, "Floor", 16, 0);
+	lan_str = LanguageTable[STR_Room][g_parameter.language];
+	Show_Str(25, 52, BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Floor][g_parameter.language];
+	Show_Str(100, 52, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 	// Draw Arrow Icon between Internal and External
 	// selection: 0=Internal (arrow at x=90), 1=External (arrow at x=90)
@@ -325,21 +331,22 @@ void Draw_Control_Adj_TempCorrect_Page(uint8_t selection, uint8_t leave_col, uin
 
 void Draw_Control_Adj_TempLimit_Content(uint8_t selection)
 {
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 1) {
 		// Arrow points to Max
 		GUI_DrawMonoIcon16x16(4, 52, WHITE, RED, Icon16x16_Arrow);
 		Display_Adj_Number((float)temp_limit_max, BLACK, 0);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 2) {
 		// Arrow points to Floor
 		LCD_Fill(4, 52, 20, 68, WHITE);		//clearerr old Arrow
 		LCD_Fill(5, 74, 117, 106, WHITE);	//clear digi area
 		GUI_DrawMonoIcon16x16(80, 52, WHITE, RED, Icon16x16_Arrow);
 		Display_Adj_Number((float)temp_limit_min, BLACK, 0);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 3) {
 		LCD_Fill(80, 52, 96, 68, WHITE);		//clearerr old Arrow
-		Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -351,15 +358,18 @@ void Draw_Control_Adj_TempLimit_Page(uint8_t selection, uint8_t leave_col, uint8
 		// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(10, 24, BLACK, WHITE, "Temp.Limit", 16, 0);
+		lan_str = LanguageTable[STR_Temperature_Limit][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 	
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(25, 52, BLACK, WHITE, "Max", 16, 0);
-		Show_Str(100, 52, BLACK, WHITE, "Min", 16, 0);
+		lan_str = LanguageTable[STR_Max][g_parameter.language];
+		Show_Str(25, 52, BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_Min][g_parameter.language];
+		Show_Str(100, 52, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		Draw_Control_Adj_TempLimit_Content(selection);
 	
@@ -382,7 +392,8 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 				LCD_Fill(0, 30, lcddev.width, 48, RED);
 				POINT_COLOR = WHITE;
 				BACK_COLOR = RED;
-				Show_Str(5, 32, WHITE, RED, "Max Temp.Protect", 16, 0);
+				lan_str = LanguageTable[STR_Max_Temperature_Protect][g_parameter.language];
+				Show_Str(5, 32, WHITE, RED, (char*)lan_str, 16, 0);
 				if(g_parameter.temp_protect_max_switch == 0){
 						GUI_DrawMonoIcon16x16(140, 32, WHITE, RED, OFF_Icon_16x16);
 				}else{
@@ -396,7 +407,8 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 				LCD_Fill(0, 30, lcddev.width, 48, WHITE);
 				POINT_COLOR = BLACK;
 				BACK_COLOR = WHITE;
-				Show_Str(5, 32, BLACK, WHITE, "Max Temp.Protect", 16, 0);
+				lan_str = LanguageTable[STR_Max_Temperature_Protect][g_parameter.language];
+				Show_Str(5, 32, BLACK, WHITE, (char*)lan_str, 16, 0);
 				if(g_parameter.temp_protect_max_switch == 0){
 						GUI_DrawMonoIcon16x16(140, 32, BLACK, WHITE, OFF_Icon_16x16);
 				}else{
@@ -412,7 +424,8 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 				LCD_Fill(0, 62, lcddev.width, 80, RED);
 				POINT_COLOR = WHITE;
 				BACK_COLOR = RED;
-				Show_Str(5, 64, WHITE, RED, "Min Temp.Protect", 16, 0);
+				lan_str = LanguageTable[STR_Min_Temperature_Protect][g_parameter.language];
+				Show_Str(5, 64, WHITE, RED, (char*)lan_str, 16, 0);
 				if(g_parameter.temp_protect_min_switch == 0){
 						GUI_DrawMonoIcon16x16(140, 64, WHITE, RED, OFF_Icon_16x16);
 				}else{
@@ -426,7 +439,8 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 				LCD_Fill(0, 62, lcddev.width, 80, WHITE);
 				POINT_COLOR = BLACK;
 				BACK_COLOR = WHITE;
-				Show_Str(5, 64, BLACK, WHITE, "Min Temp.Protect", 16, 0);
+				lan_str = LanguageTable[STR_Min_Temperature_Protect][g_parameter.language];
+				Show_Str(5, 64, BLACK, WHITE, (char*)lan_str, 16, 0);
 				if(g_parameter.temp_protect_min_switch == 0){
 						GUI_DrawMonoIcon16x16(140, 64, BLACK, WHITE, OFF_Icon_16x16);
 				}else{
@@ -461,7 +475,8 @@ void Draw_Control_Adj_TempProtect_Max_Content(uint8_t selection)
 		}else if(selection == 3){
 				LCD_Fill(104, 54, 120, 68, WHITE);
 				LCD_Fill(104, 104, 120, 120, WHITE);
-				Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+				lan_str = LanguageTable[STR_Save][g_parameter.language];
+				Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 		}
 			
 }
@@ -473,12 +488,14 @@ void Draw_Control_Adj_TempProtect_Max_Page(uint8_t selection, uint8_t leave_col,
 		// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(10, 24, BLACK, WHITE, "Max Temp.Protect", 16, 0);
+		lan_str = LanguageTable[STR_Max_Temperature_Protect][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 		Display_Adj_Number((float)temp_protect_max, BLACK, 0);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 		Draw_Control_Adj_TempProtect_Max_Content(selection);
 }
 
@@ -503,7 +520,8 @@ void Draw_Control_Adj_TempProtect_Min_Content(uint8_t selection)
 		}else if(selection == 3){
 				LCD_Fill(104, 54, 120, 68, WHITE);
 				LCD_Fill(104, 104, 120, 120, WHITE);
-				Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+				lan_str = LanguageTable[STR_Save][g_parameter.language];
+				Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 		}
 			
 }
@@ -515,12 +533,14 @@ void Draw_Control_Adj_TempProtect_Min_Page(uint8_t selection, uint8_t leave_col,
 		// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(10, 24, BLACK, WHITE, "Min Temp.Protect", 16, 0);
+		lan_str = LanguageTable[STR_Min_Temperature_Protect][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 		Display_Adj_Number((float)g_parameter.temp_protect_min, BLACK, 0);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 		Draw_Control_Adj_TempProtect_Min_Content(selection);
 }
 
@@ -545,7 +565,8 @@ void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 					}
 		
 		}else if(selection == 2){
-					Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+					lan_str = LanguageTable[STR_Save][g_parameter.language];
+					Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 					switch(power_on_state){
 						case 1:
 								GUI_DrawMonoIcon16x16(10, 48, WHITE, BLACK, Icon16x16_Arrow);
@@ -562,11 +583,13 @@ void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 }
 void Draw_Control_Adj_Power_On_State_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+		//char ch;
 		Draw_TopBar(leave_col, edit_col);
 	
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(10, 24, BLACK, WHITE, "Power On State", 16, 0);
+		lan_str = LanguageTable[STR_Power_On_State][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 		// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 		
@@ -574,16 +597,20 @@ void Draw_Control_Adj_Power_On_State_Page(uint8_t selection, uint8_t leave_col, 
 		if(power_on_state == 1){
 				GUI_DrawMonoIcon16x16(10, 48, WHITE, BLACK, Icon16x16_Arrow);
 		}
-		Show_Str(32, 48, BLACK, WHITE, "Keep State", 16, 0);
+		lan_str = LanguageTable[STR_Keep_State][g_parameter.language];
+		Show_Str(32, 48, BLACK, WHITE, (char*)lan_str, 16, 0);
 		if(power_on_state == 2){
 				GUI_DrawMonoIcon16x16(10, 68, WHITE, BLACK, Icon16x16_Arrow);
 		}
-		Show_Str(32, 68, BLACK, WHITE, "Device Close", 16, 0);
+		lan_str = LanguageTable[STR_Device_Close][g_parameter.language];
+		Show_Str(32, 68, BLACK, WHITE, (char*)lan_str, 16, 0);
 		if(power_on_state == 3){
 				GUI_DrawMonoIcon16x16(10, 88, WHITE, BLACK, Icon16x16_Arrow);
 		}
-		Show_Str(32, 88, BLACK, WHITE, "Device Open", 16, 0);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		lan_str = LanguageTable[STR_Device_Open][g_parameter.language];
+		Show_Str(32, 88, BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 		
 }
 
@@ -606,7 +633,8 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 						}
 						GUI_DrawBigDigit(96, 70, BLACK, WHITE, '0' + one_digi, 1);
 				}
-				Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+				lan_str = LanguageTable[STR_Save][g_parameter.language];
+				Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 		}else if(selection == 1){
 				LCD_Fill(4, 44, lcddev.width - 4, 128, WHITE);
 				GUI_DrawMonoIcon16x16(40, 54, WHITE, RED, Icon16x16_Up_Arror);     // Up arrow above hour (red bg)
@@ -619,9 +647,11 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 								GUI_DrawBigDigit(80, 70, BLACK, WHITE, '0' + ten_digi, 1);
 						}
 						GUI_DrawBigDigit(96, 70, BLACK, WHITE, '0' + one_digi, 1);
-						Show_Str(116, 50, BLACK, WHITE, "Min", 16, 0);
+						lan_str = LanguageTable[STR_Min][g_parameter.language];
+						Show_Str(116, 50, BLACK, WHITE, (char*)lan_str, 16, 0);
 				}
-				Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+				lan_str =LanguageTable[STR_Save][g_parameter.language];
+				Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 				
 		}else if(selection == 2){
 				LCD_Fill(4, 44, lcddev.width - 4, 128, WHITE);
@@ -636,8 +666,10 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 						GUI_DrawMonoIcon16x16(96, 104, WHITE, RED, Icon16x16_Down_Arror);   // Down arrow below hour (red bg)
 				}
 				GUI_DrawBigDigit(96, 70, BLACK, WHITE, '0' + one_digi, 1);
-				Show_Str(116, 50, BLACK, WHITE, "Min", 16, 0);
-				Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+				lan_str = LanguageTable[STR_Min][g_parameter.language];
+				Show_Str(116, 50, BLACK, WHITE, (char*)lan_str, 16, 0);
+				lan_str = LanguageTable[STR_Save][g_parameter.language];
+				Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 		}else if(selection == 3){
 				LCD_Fill(4, 44, lcddev.width - 4, 128, WHITE);
 				if(power_limit_switch == 0){
@@ -648,9 +680,11 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 								GUI_DrawBigDigit(80, 70, BLACK, WHITE, '0' + ten_digi, 1);
 						}
 						GUI_DrawBigDigit(96, 70, BLACK, WHITE, '0' + one_digi, 1);
-						Show_Str(116, 50, BLACK, WHITE, "Min", 16, 0);
+						lan_str = LanguageTable[STR_Min][g_parameter.language];
+						Show_Str(116, 50, BLACK, WHITE, (char*)lan_str, 16, 0);
 				}
-				Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+				lan_str = LanguageTable[STR_Save][g_parameter.language];
+				Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 		}
 		
 }
@@ -663,7 +697,8 @@ void Draw_Control_Adj_Power_Limit_Page(uint8_t selection, uint8_t leave_col, uin
 			// Draw "Temp. Correct" title (left aligned, y=24 - same as Sensor Setting)
 			POINT_COLOR = BLACK;
 			BACK_COLOR = WHITE;
-			Show_Str(10, 24, BLACK, WHITE, "Power Limit", 16, 0);
+			lan_str = LanguageTable[STR_Power_Limit][g_parameter.language];
+			Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 			// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
@@ -686,25 +721,29 @@ void Draw_Control_Adj_Comfort_Mode_Content(uint8_t selection)
 					LCD_Fill(24, 52, 26, 76, BLACK); //
 					LCD_Fill(24, 74, 74, 76, BLACK); //
 					LCD_Fill(72, 52, 74, 76, BLACK); //
-					Show_Str(30, 56, BLACK, WHITE, "OFF", 16, 0);
+					lan_str = LanguageTable[STR_OFF][g_parameter.language];
+					Show_Str(30, 56, BLACK, WHITE, (char*)lan_str, 16, 0);
 					GUI_DrawMonoIcon16x16(54, 56, BLACK, WHITE, Block_Icon_16x16);
 					LCD_Fill(0, 108, lcddev.width, lcddev.height, WHITE);
+					lan_str = LanguageTable[STR_Save][g_parameter.language];
 					if((selection == 0) || (selection == 1)){
-							Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+							Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 					}else if(selection == 2){
-							Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+							Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 					}
 			}else{
 					LCD_Fill(24, 52, 74, 54, RED); //
 					LCD_Fill(24, 52, 26, 76, RED); //
 					LCD_Fill(24, 74, 74, 76, RED); //
 					LCD_Fill(72, 52, 74, 76, RED); //
-					Show_Str(50, 56, RED, WHITE, "ON", 16, 0);
+					lan_str = LanguageTable[STR_ON][g_parameter.language];
+					Show_Str(50, 56, RED, WHITE, (char*)lan_str, 16, 0);
 					GUI_DrawMonoIcon16x16(30, 56, RED, WHITE, Block_Icon_16x16);
+					lan_str = LanguageTable[STR_Set_Floor_Material][g_parameter.language];
 					if((selection == 0) || (selection == 1)){
-							Show_Str(10, 92, BLACK, WHITE, "Set Floor Material", 16, 0);
+							Show_Str(10, 92, BLACK, WHITE, (char*)lan_str, 16, 0);
 					}else if(selection == 2){
-							Show_Str(10, 92, RED, WHITE, "Set Floor Material", 16, 0);
+							Show_Str(10, 92, RED, WHITE, (char*)lan_str, 16, 0);
 					}
 			}
 			
@@ -716,7 +755,8 @@ void Draw_Control_Adj_Comfort_Mode_Page(uint8_t selection, uint8_t leave_col, ui
 			Draw_TopBar(leave_col, edit_col);
 			POINT_COLOR = BLACK;
 			BACK_COLOR = WHITE;
-			Show_Str(10, 24, BLACK, WHITE, "Comfort Mode", 16, 0);
+			lan_str = LanguageTable[STR_Comfort_Mode][g_parameter.language];
+			Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 			// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
@@ -729,17 +769,20 @@ void Draw_Control_Adj_Comfort_Mode_Setting_Content(uint8_t selection)
 {
 			uint8_t y_pos[3] = {50, 70, 90};
 			uint16_t color;
-			
-			Show_Str(25, 50, BLACK, WHITE, "Wood/Laminate", 16, 0);
-			Show_Str(25, 70, BLACK, WHITE, "Tile/Concrete", 16, 0);
-			Show_Str(25, 90, BLACK, WHITE, "Fast Response", 16, 0);
+			lan_str = LanguageTable[STR_Wood_Laminate][g_parameter.language];
+			Show_Str(25, 50, BLACK, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_Tile_Concrete][g_parameter.language];
+			Show_Str(25, 70, BLACK, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_Fast_Response][g_parameter.language];
+			Show_Str(25, 90, BLACK, WHITE, (char*)lan_str, 16, 0);
 			LCD_Fill(5, 50, 21, 114, WHITE);
 			color = (selection == 1) ? RED : BLACK;
 			GUI_DrawMonoIcon16x16(5, y_pos[floor_material], WHITE, color, Icon16x16_Arrow);
+			lan_str = LanguageTable[STR_Save][g_parameter.language];
 			if(selection == 2){
-					Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+					Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 			}else{
-					Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+					Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 			}
 			
 }
@@ -748,7 +791,8 @@ void Draw_Control_Adj_Comfort_Mode_Setting_Page(uint8_t selection, uint8_t leave
 			Draw_TopBar(leave_col, edit_col);
 			POINT_COLOR = BLACK;
 			BACK_COLOR = WHITE;
-			Show_Str(10, 24, BLACK, WHITE, "Floot Type", 16, 0);
+			lan_str = LanguageTable[STR_Floor_Type][g_parameter.language];
+			Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 			// Draw horizontal line below "Temp. Limit" title (y=42 to y=43, leave 4px margin on both sides)
 			LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 			Draw_Control_Adj_Comfort_Mode_Setting_Content(selection);
@@ -766,7 +810,7 @@ void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection)
 	//dec_part = (uint8_t)((swing_val * 10.0f) + 0.5f) % 10;
 		int_part = (uint8_t)temp_swing;
 		dec_part = (uint8_t)(temp_swing * 10.0f) % 10;
-
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 1) {
 		
 		LCD_Fill(20, 50, 88, 114, WHITE);
@@ -776,11 +820,11 @@ void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection)
 		LCD_Fill(64, 108, 68, 112, BLACK);
 		GUI_DrawBigDigit(70, 50, BLACK, WHITE, '0' + dec_part, 0);
 		GUI_DrawMonoIcon24x24(104, 50, BLACK, WHITE, Celsius_Icon_24x24);
-		Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 2) {
 		//LCD_Fill(36, 78, 52, 94, WHITE);
 		//LCD_Fill(116, 78, 132, 94, WHITE);
-		Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
+		Show_Str(127, 108, RED, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -789,7 +833,8 @@ void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint
 	Draw_TopBar(leave_col, edit_col);
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Temp.Swing", 16, 0);
+	lan_str = LanguageTable[STR_Temperature_Swing][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 	Draw_Control_Adj_Temp_Swing_Content(selection);
 }

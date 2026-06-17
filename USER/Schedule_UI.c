@@ -45,22 +45,25 @@ void Draw_Heating_Schedule_Menu_Row(uint8_t row, uint8_t selected)
 	// Draw the row content based on row number
 	if(row == 0) {
 		// Program Type - uses Icon16
-		GUI_DrawMonoIcon8x16(12, row_y[row] + 4, text_color, bg_color, Icon16_8x16);
+		GUI_DrawMonoIcon16x16(5, row_y[row] + 4, text_color, bg_color, Program_Type_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_Str(30, row_y[row] + 4, text_color, bg_color, "Program Type", 16, 0);
+		lan_str = LanguageTable[STR_Program_Type][g_parameter.language];
+		Show_Str(30, row_y[row] + 4, text_color, bg_color, (char*)lan_str, 16, 0);
 	} else if(row == 1) {
 		// Workday Setting - uses Icon17
-		GUI_DrawMonoIcon8x16(12, row_y[row] + 4, text_color, bg_color, Icon17_8x16);
+		GUI_DrawMonoIcon16x16(5, row_y[row] + 4, text_color, bg_color, Workday_Setting_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_Str(30, row_y[row] + 4, text_color, bg_color, "Workday Setting", 16, 0);
+		lan_str = LanguageTable[STR_Workday_Setting][g_parameter.language];
+		Show_Str(30, row_y[row] + 4, text_color, bg_color, (char*)lan_str, 16, 0);
 	} else if(row == 2) {
 		// Restday Setting - uses Icon18
-		GUI_DrawMonoIcon8x16(12, row_y[row] + 4, text_color, bg_color, Icon18_8x16);
+		GUI_DrawMonoIcon16x16(5, row_y[row] + 4, text_color, bg_color, Restday_Setting_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_Str(30, row_y[row] + 4, text_color, bg_color, "Restday Setting", 16, 0);
+		lan_str = LanguageTable[STR_Restday_Setting][g_parameter.language];
+		Show_Str(30, row_y[row] + 4, text_color, bg_color, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -172,7 +175,8 @@ void Draw_Heating_Schedule_Prog_Type_Page(uint8_t selected, uint8_t leave_col, u
 	// Draw Current Type Text (Size 16, Moved up)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 25, BLACK, WHITE, "Current Type: ", 16, 0);
+	lan_str = LanguageTable[STR_Current_Type][g_parameter.language];
+	Show_Str(10, 25, BLACK, WHITE, (char*)lan_str, 16, 0);
 	LCD_Fill(122, 25, 146, 41, WHITE);
 	Show_Str(122, 25, BLUE, WHITE, prog_type_strs[current_prog_type], 16, 0);
 
@@ -180,7 +184,8 @@ void Draw_Heating_Schedule_Prog_Type_Page(uint8_t selected, uint8_t leave_col, u
 
 	// Draw Save text/button
 	save_color = (selected == 2) ? RED : BLACK;
-	Show_Str(115, 105, save_color, WHITE, "Save", 16, 0);
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
+	Show_Str(115, 105, save_color, WHITE, (char*)lan_str, 16, 0);
 }
 
 
@@ -194,7 +199,8 @@ void Draw_Schedule_Edit_Finish(uint8_t selected)
 	LCD_Fill(0, row_y, lcddev.width, row_y + 24, WHITE);
 	POINT_COLOR = finish_color;
 	BACK_COLOR = WHITE;
-	Show_Str(100, row_y + 4, finish_color, WHITE, "Finish", 16, 0);
+	lan_str =LanguageTable[STR_Finish][g_parameter.language];
+	Show_Str(100, row_y + 4, finish_color, WHITE, (char*)lan_str, 16, 0);
 }
 
 
@@ -330,9 +336,17 @@ void Draw_Schedule_Time_Setting_Page(uint8_t period_num, uint8_t leave_col, uint
 	Draw_TopBar(leave_col, edit_col);
 	
 	if(schedule_time_on_off) {
-		sprintf(period_text, "Period %d On", period_num);
+		if(g_parameter.language == LANG_ENGLISH){
+				sprintf(period_text, "Period %d On", period_num);
+		}else if(g_parameter.language == LANG_Norwegian){
+				sprintf(period_text, "Periode %d P\xE5",period_num);
+		}
 	} else {
-		sprintf(period_text, "Period %d Off", period_num);
+		if(g_parameter.language == LANG_ENGLISH){
+				sprintf(period_text, "Period %d Off", period_num);
+		}else if(g_parameter.language == LANG_Norwegian){
+				sprintf(period_text, "Periode %d Av", period_num);
+		}
 	}
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
@@ -387,21 +401,27 @@ void Draw_Schedule_Time_Setting_Page(uint8_t period_num, uint8_t leave_col, uint
 		// ON/OFF edit mode - show selected one in red - shifted right by 2 pixels
 		if(schedule_time_on_off) {
 			// ON selected - ON red, OFF black
-			Show_Str(123, 63, RED, WHITE, "ON", 16, 0);
-			Show_Str(123, 80, BLACK, WHITE, "OFF", 16, 0);
+			lan_str = LanguageTable[STR_ON][g_parameter.language];
+			Show_Str(123, 63, RED, WHITE, (char*)lan_str, 16, 0);
+			lan_str =LanguageTable[STR_OFF][g_parameter.language];
+			Show_Str(123, 80, BLACK, WHITE, (char*)lan_str, 16, 0);
 			// Left Arrow Icon next to ON (y=63, aligned with ON) - shifted right by 2 pixels
 			GUI_DrawMonoIcon8x16(147, 63, RED, WHITE, IconLeft_Arrow_8x16);
 		} else {
 			// OFF selected - ON black, OFF red
-			Show_Str(123, 63, BLACK, WHITE, "ON", 16, 0);
-			Show_Str(123, 80, RED, WHITE, "OFF", 16, 0);
+			lan_str = LanguageTable[STR_ON][g_parameter.language];
+			Show_Str(123, 63, BLACK, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_OFF][g_parameter.language];
+			Show_Str(123, 80, RED, WHITE, (char*)lan_str, 16, 0);
 			// Left Arrow Icon next to OFF (y=80, aligned with OFF) - shifted right by 2 pixels
 			GUI_DrawMonoIcon8x16(147, 80, RED, WHITE, IconLeft_Arrow_8x16);
 		}
 	} else {
 		// Not in ON/OFF edit mode - both black - shifted right by 2 pixels
-		Show_Str(123, 63, BLACK, WHITE, "ON", 16, 0);
-		Show_Str(123, 80, BLACK, WHITE, "OFF", 16, 0);
+		lan_str = LanguageTable[STR_ON][g_parameter.language];
+		Show_Str(123, 63, BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_OFF][g_parameter.language];
+		Show_Str(123, 80, BLACK, WHITE, (char*)lan_str, 16, 0);
 		// Left Arrow Icon stays at the last selected position (ON or OFF) - shifted right by 2 pixels
 		if(schedule_time_on_off) {
 			GUI_DrawMonoIcon8x16(147, 63, RED, WHITE, IconLeft_Arrow_8x16);  // Next to ON
@@ -418,7 +438,8 @@ void Draw_Schedule_Time_Setting_Page(uint8_t period_num, uint8_t leave_col, uint
 	}
 	POINT_COLOR = save_color;
 	BACK_COLOR = WHITE;
-	Show_Str(120, 110, save_color, WHITE, "Save", 16, 0);
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
+	Show_Str(120, 110, save_color, WHITE, (char*)lan_str, 16, 0);
 }
 
 // Clear arrow area (for switching between edit modes)
@@ -559,21 +580,27 @@ void Draw_Schedule_Time_Setting_OnOff(void)
 		// ON/OFF edit mode - show selected one in red
 		if(schedule_time_on_off) {
 			// ON selected - ON red, OFF black
-			Show_Str(123, 63, RED, WHITE, "ON", 16, 0);
-			Show_Str(123, 80, BLACK, WHITE, "OFF", 16, 0);
+			lan_str = LanguageTable[STR_ON][g_parameter.language];
+			Show_Str(123, 63, RED, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_OFF][g_parameter.language];
+			Show_Str(123, 80, BLACK, WHITE, (char*)lan_str, 16, 0);
 			// Left Arrow Icon next to ON (y=63, aligned with ON) - shifted right by 2 pixels
 			GUI_DrawMonoIcon8x16(147, 63, RED, WHITE, IconLeft_Arrow_8x16);
 		} else {
 			// OFF selected - ON black, OFF red
-			Show_Str(123, 63, BLACK, WHITE, "ON", 16, 0);
-			Show_Str(123, 80, RED, WHITE, "OFF", 16, 0);
+			lan_str = LanguageTable[STR_ON][g_parameter.language];
+			Show_Str(123, 63, BLACK, WHITE, (char*)lan_str, 16, 0);
+			lan_str = LanguageTable[STR_OFF][g_parameter.language];
+			Show_Str(123, 80, RED, WHITE, (char*)lan_str, 16, 0);
 			// Left Arrow Icon next to OFF (y=80, aligned with OFF) - shifted right by 2 pixels
 			GUI_DrawMonoIcon8x16(147, 80, RED, WHITE, IconLeft_Arrow_8x16);
 		}
 	} else {
 		// Not in ON/OFF edit mode - both black
-		Show_Str(123, 63, BLACK, WHITE, "ON", 16, 0);
-		Show_Str(123, 80, BLACK, WHITE, "OFF", 16, 0);
+		lan_str = LanguageTable[STR_ON][g_parameter.language];
+		Show_Str(123, 63, BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_OFF][g_parameter.language];
+		Show_Str(123, 80, BLACK, WHITE, (char*)lan_str, 16, 0);
 		// Left Arrow Icon stays at the last selected position (ON or OFF) - shifted right by 2 pixels
 		if(schedule_time_on_off) {
 			GUI_DrawMonoIcon8x16(147, 63, RED, WHITE, IconLeft_Arrow_8x16);  // Next to ON
@@ -599,7 +626,8 @@ void Draw_Schedule_Time_Setting_Save(void)
 	}
 	POINT_COLOR = save_color;
 	BACK_COLOR = WHITE;
-	Show_Str(120, 110, save_color, WHITE, "Save", 16, 0);
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
+	Show_Str(120, 110, save_color, WHITE, (char*)lan_str, 16, 0);
 }
 
 // Child Lock PIN Code Functions
@@ -632,30 +660,34 @@ void Draw_Leave_Schedule_Confirm_Page(uint8_t selection)
 	// Draw title "Leave Schedule Mode"
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(box_x + 10, box_y + 10, BLACK, WHITE, "Leave Schedule", 16, 0);
-	Show_Str(box_x + 40, box_y + 28, BLACK, WHITE, "Mode", 16, 0);
+	lan_str = LanguageTable[STR_Leave_Schedule][g_parameter.language];
+	Show_Str(box_x + 10, box_y + 10, BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Mode][g_parameter.language];
+	Show_Str(box_x + 40, box_y + 28, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 	// Draw Cancel (bottom-left): selection=0 -> RED, selection=1 -> BLACK
+	lan_str = LanguageTable[STR_Cancel][g_parameter.language];
 	if(selection == 0){
-		Show_Str(box_x + 8, box_y + box_h - 22, RED, WHITE, "Cancel", 16, 0);
+		Show_Str(box_x + 8, box_y + box_h - 22, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(box_x + 8, box_y + box_h - 22, BLACK, WHITE, "Cancel", 16, 0);
+		Show_Str(box_x + 8, box_y + box_h - 22, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 	
 	// Draw Yes (bottom-right): selection=1 -> RED, selection=0 -> BLACK
+	lan_str = LanguageTable[STR_Yes][g_parameter.language];
 	if(selection == 1){
-		Show_Str(box_x + box_w - 35, box_y + box_h - 22, RED, WHITE, "Yes", 16, 0);
+		Show_Str(box_x + box_w - 35, box_y + box_h - 22, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(box_x + box_w - 35, box_y + box_h - 22, BLACK, WHITE, "Yes", 16, 0);
+		Show_Str(box_x + box_w - 35, box_y + box_h - 22, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
 void Draw_Window_Open_Confirm_Page(uint8_t selection)
 {
 	uint16_t box_x = 10;
-	uint16_t box_y = 35;
-	uint16_t box_w = 140;
-	uint16_t box_h = 90;
+	uint16_t box_y = 30;
+	uint16_t box_w = 135;
+	uint16_t box_h = 85;
 	
 	LCD_Fill(box_x, box_y, box_x + box_w, box_y + box_h, WHITE);
 	POINT_COLOR = RED;
@@ -663,18 +695,20 @@ void Draw_Window_Open_Confirm_Page(uint8_t selection)
 	
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(box_x + 20, box_y + 8, BLACK, WHITE, "Window Open", 16, 0);
-	Show_Str(box_x + 25, box_y + 26, BLACK, WHITE, "Detected !", 16, 0);
-	
+	lan_str = LanguageTable[STR_Window_Open][g_parameter.language];
+	Show_Str(box_x + 15, box_y + 8, BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Detected][g_parameter.language];
+	Show_Str(box_x + 15, box_y + 26, BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Cancel_Detect][g_parameter.language];
 	if(selection == 0){
-		Show_Str(box_x + 10, box_y + box_h - 30, RED, WHITE, "Cancel Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 36, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(box_x + 10, box_y + box_h - 30, BLACK, WHITE, "Cancel Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 36, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
-	
+	lan_str = LanguageTable[STR_Reset_Detect][g_parameter.language];
 	if(selection == 1){
-		Show_Str(box_x + 10, box_y + box_h - 14, RED, WHITE, "Reset Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 20, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(box_x + 10, box_y + box_h - 14, BLACK, WHITE, "Reset Detect", 16, 0);
+		Show_Str(box_x + 15, box_y + box_h - 20, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }

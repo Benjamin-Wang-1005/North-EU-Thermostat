@@ -1,0 +1,24 @@
+# Build output
+OBJ/
+Objects/
+Listings/
+*.axf
+*.hex
+*.o
+*.crf
+*.d
+*.map
+*.lst
+*.htm
+*.lnp
+*.sct
+*.dep
+*.bak
+
+# Debug logs
+JLinkLog.txt
+*.uvguix.*
+
+# OS files
+Thumbs.db
+.DS_Store
