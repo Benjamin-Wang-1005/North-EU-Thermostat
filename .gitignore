@@ -1,24 +1,39 @@
-# Build output
+# Keil MDK generated files
 OBJ/
-Objects/
-Listings/
-*.axf
-*.hex
 *.o
 *.crf
 *.d
-*.map
-*.lst
+*.axf
 *.htm
 *.lnp
 *.sct
 *.dep
+*.iex
 *.bak
-
-# Debug logs
+*.map
+*.lst
 JLinkLog.txt
-*.uvguix.*
 
-# OS files
-Thumbs.db
+# IAP Bootloader generated files
+IAP_Bootloader/OBJ/
+IAP_Bootloader/Listings/
+IAP_Bootloader/*.uvguix.*
+IAP_Bootloader/JLinkLog.txt
+
+# Project generated files
+PROJECT/JLinkLog.txt
+PROJECT/*.uvguix.*
+PROJECT/TOUCH.uvprojx.bak
+PROJECT/startup_stm32f10x_hd.lst
+PROJECT/TOUCH.map
+
+# Claude configuration
+.claude/
+
+# Backup
+BACKUP_20260518/
+USER/Peripheral.c.backup_powerlimit
+
+# System files
 .DS_Store
+Thumbs.db

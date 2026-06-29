@@ -166,6 +166,7 @@ uint8_t getWeekday(uint16_t year, uint8_t month, uint8_t day);
 void get_schedule_period(void);
 void g_cmd_handler(void);
 void g_relay_handler(void);
+uint32_t g_check_power_off_time(void);
 
 
 #endif

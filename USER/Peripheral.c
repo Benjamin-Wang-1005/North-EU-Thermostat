@@ -557,7 +557,7 @@ void l_process_alarm_source(alarm_source_t source)
 						if(icon6_red_state)
 						{
 								icon6_red_state = 0;
-							GUI_DrawMonoIcon24x24(132, 72, BLACK, WHITE, Menu_Icon_24x24);  // Draw black Manu Icon
+							GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, Menu_Icon_24x24);  // Draw black Manu Icon
 						}
 						// If in Leave Schedule Confirm state, go to Active first (then Active will timeout to Sleep naturally)
 						if(UI_state == STATE_LEAVE_SCHEDULE_CONFIRM){
@@ -624,6 +624,21 @@ void l_process_alarm_source(alarm_source_t source)
 				
 				case Min_Update_Alarm:
 						update_alarm(Min_Update_Alarm);
+						if(adc_ctrl.idle_comp_count < INT_NTC_COMP_STEP){
+								adc_ctrl.idle_comp_count++;
+								adc_ctrl.idle_comp_val = adc_ctrl.idle_comp_step_val * adc_ctrl.idle_comp_count;
+						}
+						if(Relay == RELAY_ON){
+								if(adc_ctrl.heating_comp_count < HEAT_COMP_STEP){
+										adc_ctrl.heating_comp_count++;
+										adc_ctrl.heating_comp_val = adc_ctrl.heatting_comp_step_val * adc_ctrl.heating_comp_count;
+								}
+						}else{
+								if(adc_ctrl.heating_comp_count > 0){
+										adc_ctrl.heating_comp_count--;
+										adc_ctrl.heating_comp_val = adc_ctrl.heatting_comp_step_val * adc_ctrl.heating_comp_count;
+								}
+						}
 						//Update Main Page Time
 						if((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP) || (UI_state == STATE_WINDOW_OPEN_DETECTED)){
 								RTC_ReadTime(&rtc_time);
@@ -639,14 +654,14 @@ void l_process_alarm_source(alarm_source_t source)
 								//Update Weekday
 								if((rtc_time.Hour == 0) && (rtc_time.Min == 1)){
 										weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
-										LCD_Fill(132, 106, 160, 120, WHITE);
-										Show_Str(132, 106, BLACK, WHITE, en_week_texts[weekday], 16, 0);
+										LCD_Fill(84, 5, 128, 37, WHITE);
+										Show_Str(84, 5, BLACK, WHITE, en_week_texts[weekday], 32, 1);
 								}
 								//Update Schedule Period
 								if(g_parameter.operation_mode == 1){
 										get_schedule_period();
-										LCD_Fill(132, 37, 160, 61, WHITE);
-										GUI_DrawMonoIcon24x24(132, 37, BLACK, WHITE, icons[Schedule_Period]);	
+										LCD_Fill(28, 131, 52, 155, WHITE);
+										GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, icons[Schedule_Period]);	
 								}
 								//LOGD("Min Alarm time out\r\n");
 #if(SIMULATION)
@@ -766,30 +781,86 @@ void get_schedule_period(void)
 						//LOGD("S_Period:%d\r\n", Schedule_Period);
 }
 
-
-void check_temp_set(float temp)
+volatile uint16_t heating_count = 0;          // Consecutive ON ticks (500ms each)
+volatile uint16_t power_off_count = 0;         // Ticks spent in forced-OFF period
+volatile uint8_t power_limit_trigger = 0;      // 1 = currently in forced-OFF period
+void relay_update(float temp)
 {
 		if(g_parameter.operation_mode == 0){			//Manual Mode
 					if(g_parameter.setting_number <= temp){
-							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
 							Relay = RELAY_OFF;
+							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+							heating_count = 0;
 					}else if(temp < (g_parameter.setting_number - g_parameter.temp_swing)){
-							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
 							Relay = RELAY_ON;
+							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
 					}
-			}else{																		//Program Mode
+		}else{																		//Program Mode
 					get_schedule_period();								//Get time period and schedule table
 					if(sch_table[Schedule_Period][3] == 1){			//Thermostat is on
 							if(sch_table[Schedule_Period][2] <= temp){
-									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
 									Relay = RELAY_OFF;
+									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+									heating_count = 0;
 							}else if(temp < (sch_table[Schedule_Period][2] - g_parameter.temp_swing)){
-									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
 									Relay = RELAY_ON;
+									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
 							}
 					}else{																			//Thermostat is off
 							Relay = RELAY_OFF;
 							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+							heating_count = 0;
+					}
+		}
+	
+}
+
+
+void check_temp_set(float temp)
+{
+			uint16_t on_limit, off_limit;
+			
+			if(g_parameter.power_limit_switch == 0){
+					// Power limit disabled: normal temperature-based control
+					relay_update(temp);
+					return;
+			}
+			
+			// Power limit active: divide 1 hour into 3 segments of 20 minutes
+			// 20 min = 1200 seconds = 2400 ticks (at 500ms per tick)
+			// OFF ticks per segment = (power_limit / 3 min) * 60 * 2 = power_limit * 40
+			// ON ticks per segment = 2400 - OFF ticks
+			off_limit = g_parameter.power_limit * 40;   // e.g. 6*40=240 ticks = 2 min
+			on_limit = 2400 - off_limit;                 // e.g. 2400-240=2160 ticks = 18 min
+			
+			if(power_limit_trigger){
+					// Forced OFF period: keep relay OFF regardless of temperature
+					power_off_count++;
+					Relay = RELAY_OFF;
+					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+					
+					if(power_off_count >= off_limit){
+							// Forced OFF period complete: reset, let normal control resume
+							power_limit_trigger = 0;
+							power_off_count = 0;
+							heating_count = 0;
+					}
+			}else{
+					// Normal operation: temperature-based control
+					relay_update(temp);
+					
+					if(Relay == RELAY_ON){
+							heating_count++;
+							if(heating_count >= on_limit){
+									// Continuous heating exceeded: enter forced OFF
+									power_limit_trigger = 1;
+									power_off_count = 0;
+									Relay = RELAY_OFF;
+									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+							}
+					}else{
+							// Relay OFF due to temperature: reset counter
+							heating_count = 0;
 					}
 			}
 }
@@ -824,6 +895,7 @@ void window_function_reset(void)
 void g_relay_handler(void)
 {
 		float temp;
+		float ext_temp;
 		//float display_temp;
 		uint8_t old_relay_state;
 		static uint32_t local_tick;
@@ -850,7 +922,11 @@ void g_relay_handler(void)
 #if(!SIMULATION)
 		if(g_parameter.sensor_type == 0){			//Room temp
 				if(Average_INT_Temp > -900){
+#if(IDLE_COMPENSATE)
+						temp = Average_INT_Temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val;
+#else
 						temp = Average_INT_Temp;
+#endif
 						temp += g_parameter.temp_correct_internal;
 				}else{
 						return;
@@ -859,6 +935,7 @@ void g_relay_handler(void)
 				if(Average_EXT_Temp > -900){
 						temp = Average_EXT_Temp;
 						temp += g_parameter.temp_correct_external;
+						ext_temp = temp;
 				}else{
 						return;
 				}
@@ -912,16 +989,24 @@ void g_relay_handler(void)
 					}
 			}
 
-			if(g_parameter.temp_protect_max_switch == 1 && temp >= g_parameter.temp_protect_max){
+			if(g_parameter.temp_protect_max_switch == 1 && ext_temp >= g_parameter.temp_protect_max){
 					Relay = RELAY_OFF;
 					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
 					protect_triggered = 1;
+			}else{
+					if(g_parameter.temp_protect_max_switch == 1 && (ext_temp < g_parameter.temp_protect_max - g_parameter.temp_swing)){
+							protect_triggered = 0;
+					}
 			}
 
-			if(g_parameter.temp_protect_min_switch == 1 && temp <= g_parameter.temp_protect_min){
+			if(g_parameter.temp_protect_min_switch == 1 && ext_temp <= g_parameter.temp_protect_min){
 					Relay = RELAY_ON;
 					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
 					protect_triggered = 1;
+			}else{
+					if(g_parameter.temp_protect_min_switch == 1 && (ext_temp > g_parameter.temp_protect_min + g_parameter.temp_swing)){
+							protect_triggered = 0;
+					}
 			}
 
 			if(!protect_triggered){
@@ -929,6 +1014,8 @@ void g_relay_handler(void)
 								check_temp_set(temp);
 						}
 			}
+			
+			
 
 			// Window open detected: flash pattern RED -> blank -> BLACK -> blank (each 500ms)
 			// Update cached temperature when ADC signals new average temp is ready
@@ -936,7 +1023,11 @@ void g_relay_handler(void)
 					if(display_update_throttle_trigger){
 							display_update_throttle_trigger = 0;
 							if(g_parameter.sensor_type == 0) {
+#if(IDLE_COMPENSATE)
+									window_open_cached_temp = Average_INT_Temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val;
+#else
 									window_open_cached_temp = Average_INT_Temp;
+#endif
 									window_open_cached_temp += g_parameter.temp_correct_internal;
 							} else {
 									window_open_cached_temp = Average_EXT_Temp;
@@ -971,4 +1062,26 @@ void g_relay_handler(void)
 					Update_Relay = eTRUE;
 			}
 
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Funcation: g_check_power_off_time
+// Description: Calculate shutdown time for temperature compensation
+// Input: 
+// Output: 
+// Date: 2026/06/06
+// Update: 
+//---------------------------------------------------------------------------------------------------------
+uint32_t g_check_power_off_time(void)
+{
+		uint32_t elapsed;
+	
+		elapsed = (rtc_time.Year - g_parameter.backup_rtc.Year) * 525600; 		// One Year 
+		elapsed += (rtc_time.Mon - g_parameter.backup_rtc.Mon) * 43200;				// One Month
+		elapsed += (rtc_time.Date - g_parameter.backup_rtc.Date) * 1440;			// One Date
+		elapsed += (rtc_time.Hour - g_parameter.backup_rtc.Hour) * 60;				// One Hour
+		elapsed += (rtc_time.Min - g_parameter.backup_rtc.Min);
+	
+		return elapsed;
+	
 }

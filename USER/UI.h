@@ -56,6 +56,7 @@ typedef struct{
 		unsigned char  sensor_type;				// 0=Room, 1=Floor
 		unsigned char  power_limit;
 		unsigned char  power_limit_switch;
+		unsigned char  pwm_duty_cycle;
 		unsigned char  temp_diff;
 		unsigned char  comfort_mode;
 		unsigned char  floor_material;
@@ -63,6 +64,11 @@ typedef struct{
 		unsigned char  language;
 		unsigned char  workday_schedule[6][4];
 		unsigned char  holiday_schedule[6][4];
+		rtc_time_t 		 backup_rtc;
+		unsigned char  idle_comp_count;
+		unsigned char  heatting_comp_count;
+		unsigned char  font_size;								// 0=8x16, 1=12x24
+
 }g_parameter_t;
 
 enum
@@ -85,6 +91,7 @@ extern uint8_t schedule_time_edit_min;        // (0-59)
 extern uint8_t schedule_time_edit_temp;       // (0-45)
 extern uint8_t schedule_time_on_off;           //  0=OFF, 1=ON
 extern uint8_t control_adj_menu_scroll;				// 0=show row0-3, 1=show row1-4
+extern uint8_t func_setting_scroll;					// Scroll offset for Function Setting page
 extern uint8_t current_sensor_type;          // 0=Room, 1=Floor (default Room)
 extern float temp_correct_internal;    			 // Internal sensor correct num
 extern float temp_correct_external;					 // External sensor correct num
@@ -117,6 +124,7 @@ extern rtc_time_t temp_rtc;
 //extern uint8_t old_relay_state;
 extern uint8_t power_limit;
 extern uint8_t power_limit_switch;
+extern uint8_t pwm_duty_cycle;
 extern uint8_t comfort_mode;
 extern uint8_t floor_material;
 extern float temp_swing;
@@ -138,6 +146,7 @@ void Draw_Active_Menu(void);
 void Draw_Static_Icons(void);
 void UI_Update(void);
 void Draw_TopBar(uint8_t leave_col, uint8_t edit_col);
+void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc, char *str, uint8_t size);
 void Draw_Heating_Schedule_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Heating_Schedule_Menu_Row(uint8_t row, uint8_t selected);
 void Draw_Heating_Schedule_Prog_Type_Page(uint8_t selected, uint8_t leave_col, uint8_t edit_col);
@@ -190,6 +199,8 @@ void Clear_Number_Area(void);
 void Draw_Window_Open_Confirm_Page(uint8_t selection);
 void Display_Number(float number, uint16_t color, uint8_t show_decimal);
 void Draw_Control_Adj_Power_Limit_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_PWM_Duty_Cycle_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection);
 void Draw_Control_Adj_Power_Limit_Content(uint8_t selection);
 void Draw_Control_Adj_Comfort_Mode_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_Comfort_Mode_Content(uint8_t selection);

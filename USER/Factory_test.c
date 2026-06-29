@@ -270,6 +270,17 @@ void test_relay_cmd(char *param)
 		
 }
 
+void sensor_test_cmd(char *param)
+{
+		if(strcmp(param, "START") == 0){
+				TCMD("RES:SENSOR:OK\n");
+				Factory_testing |= SENSOR_TEST_MASK;
+		}else if(strcmp(param, "STOP") == 0){
+				TCMD("RES:SENSOR:OK\n");
+				Factory_testing ^= SENSOR_TEST_MASK;
+		}
+}
+
 void set_vcc_cmd(char *param)
 {
 		if(strcmp(param, "START") == 0){
@@ -288,6 +299,14 @@ void get_vcc_cmd(void)
 		snprintf(buffer, sizeof(buffer), "%.2f", adc_ctrl.vcc_voltage);
 	
 		TCMD("DATA:VCC:%sV\n", buffer);
+}
+
+void get_temp_cmd(void)
+{
+		char buffer[20];
+		snprintf(buffer, sizeof(buffer), "%.1f,%.1f", Average_INT_Temp, Average_EXT_Temp);
+		TCMD("DATA:TEMP:%s\n", buffer);
+		
 }
 //---------------------------------------------------------------------------------------------------------
 // Function: processCmd
@@ -365,7 +384,7 @@ static void processCmd(void)
     }
 		else if (strcmp(cmd_name, "SENSOR") == 0) {
 				if(Factory_testing & FACTORT_TEST_MASK){
-						
+						sensor_test_cmd(param);
 				}
 		}
 		else if (strcmp(cmd_name, "VCC") == 0) {
@@ -376,7 +395,7 @@ static void processCmd(void)
     else if (strcmp(cmd_name, "GET") == 0) {
         // Handle GET:TEMP or GET:VCC
         if (strcasecmp(param, "TEMP") == 0) {
-            //get_temp_cmd();
+            get_temp_cmd();
         }
         else if (strcasecmp(param, "VCC") == 0) {
             get_vcc_cmd();

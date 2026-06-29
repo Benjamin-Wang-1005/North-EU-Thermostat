@@ -40,7 +40,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Sensor_Calibrate]
 	{
-		[LANG_ENGLISH] = "Sensor Calibrate",
+		[LANG_ENGLISH] = "Sensor Calibration",
 		[LANG_Norwegian] = "Sensorkalibrering",
 	},
 	// [STR_Temperature_Limit]
@@ -155,7 +155,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Temperature_Swing]
 	{
-		[LANG_ENGLISH] = "Temp.Swing",
+		[LANG_ENGLISH] = "Temperature Swing",
 		[LANG_Norwegian] = "Temperaturavvik",
 	},
 	// [STR_Program_Type]
@@ -163,15 +163,30 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "Program Type",
 		[LANG_Norwegian] = "Programtype",
 	},
+	// {STR_Type]
+	{
+		[LANG_ENGLISH] = "Type",
+		[LANG_Norwegian] = "Type",
+	},
 	// [STR_Workday_Setting]
 	{
 		[LANG_ENGLISH] = "Workday Setting",
 		[LANG_Norwegian] = "Innstilling virkedag",
 	},
+	// [STR_Workday]
+	{
+		[LANG_ENGLISH] = "Workday",
+		[LANG_Norwegian] = "Virkedag",
+	},
 	// [STR_Restday_Setting]
 	{
 		[LANG_ENGLISH] = "Restday Setting",
 		[LANG_Norwegian] = "Innstilling fridag",
+	},
+	// [STR_Restday]
+	{
+		[LANG_ENGLISH] = "Restday",
+		[LANG_Norwegian] = "Fridag",
 	},
 	// [STR_Current_Type]
 	{
@@ -195,7 +210,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Leave_Schedule]
 	{
-		[LANG_ENGLISH] = "Leave Schedule",
+		[LANG_ENGLISH] = "Leave",
 		[LANG_Norwegian] = "Forlat tidsplan",
 	},
 	// [STR_Mode]
@@ -270,17 +285,17 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	//},
 	// [STR_Sensor]
 	{
-		[LANG_ENGLISH] = "Sensor",
+		[LANG_ENGLISH] = "Main Sensor",
 		[LANG_Norwegian] = "Sensor",
 	},
 	// [STR_Input_Temperature_Limit]
 	{
-		[LANG_ENGLISH] = "Input Temp.Limit",
+		[LANG_ENGLISH] = "Input Temp. Limit",
 		[LANG_Norwegian] = "Inndata temperaturgrense",
 	},
 	// [STR_Protect_Temperature]
 	{
-		[LANG_ENGLISH] = "Protect Temp.",
+		[LANG_ENGLISH] = "Protect Temperature",
 		[LANG_Norwegian] = "Beskyttelsestemperatur",
 	},
 	// [STR_Child_lock]
@@ -320,7 +335,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Control_Adjustment]
 	{
-		[LANG_ENGLISH] = "Control Adj.",
+		[LANG_ENGLISH] = "Control Adjustment",
 		[LANG_Norwegian] = "Reguleringsjustering",
 	},
 	// [STR_User_Settings]
@@ -333,10 +348,20 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "Manual Mode",
 		[LANG_Norwegian] = "Manuell modus",
 	},
+	// [STR_Manual]
+	{
+		[LANG_ENGLISH] = "Manual",
+		[LANG_Norwegian] = "Manuell",
+	},
 	// [STR_Schedule_Mode]
 	{
 		[LANG_ENGLISH] = "Schedule Mode",
 		[LANG_Norwegian] = "Tidsplanmodus",
+	},
+	// [STR_Schedule]
+	{
+		[LANG_ENGLISH] = "Schedule",
+		[LANG_Norwegian] = "Tidsplan",
 	},
 	// [STR_Enter_Pin_Code]
 	{
@@ -353,10 +378,15 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "Set Clock",
 		[LANG_Norwegian] = "Still inn klokke",
 	},
-	// [STR_Trigger_Temperature_Time]
+	// [STR_Trigger_Temp]
 	{
-		[LANG_ENGLISH] = "Trigger Temp / Time",
-		[LANG_Norwegian] = "Utl\xF8ser temperatur/tid",
+		[LANG_ENGLISH] = "Trigger temp",
+		[LANG_Norwegian] = "Utl�ser temp",
+	},
+	// [STR_And_Time]
+	{
+		[LANG_ENGLISH] = "and time",
+		[LANG_Norwegian] = "og tid",
 	},
 	// [STR_Temperature]
 	{
@@ -398,14 +428,80 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "all saved settings.",
 		[LANG_Norwegian] = "lagrede innstillinger.",
 	},
-	// [STR_Please_Setup_Pin]
+	// [STR_Setup_Pin]
 	{
-		[LANG_ENGLISH] = "Please Setup Pin",
-		[LANG_Norwegian] = "Vennligst opprett PIN",
+		[LANG_ENGLISH] = "Setup Pin",
+		[LANG_Norwegian] = "Opprett PIN",
 	},
-	// [STR_Please_Confirm_Pin]
+	// [STR_Confirm_Pin]
 	{
-		[LANG_ENGLISH] = "Please Confirm Pin",
-		[LANG_Norwegian] = "Vennligst bekreft PIN",
-	}
+		[LANG_ENGLISH] = "Confirm Pin",
+		[LANG_Norwegian] = "Bekreft PIN",
+	},
+	// [STR_OP_Mode]
+	{
+		[LANG_ENGLISH] = "OP Mode",
+		[LANG_Norwegian] = "OP-modus",
+	},
+	// [STR_Schedule]
+	//{
+	//	[LANG_ENGLISH] = "Schedule",
+	//	[LANG_Norwegian] = "Rute",
+	//},
+	// [STR_Adjust]
+	{
+		[LANG_ENGLISH] = "Adjustment",
+		[LANG_Norwegian] = "Innstilling"
+	},
+	// [STR_Setting]
+	{
+		[LANG_ENGLISH] = "Setting",
+		[LANG_Norwegian] = "Innstilling",
+	},
+	// [STR_hysteresis]
+	{
+		[LANG_ENGLISH] = "Hysteresis",
+		[LANG_Norwegian] ="Hysterese",
+	},
+	// [STR_Calibrate]
+	{
+		[LANG_ENGLISH] = "Calibrate",
+		[LANG_Norwegian] = "Kalibrering",
+	},
+	// [STR_Input_Limit]
+	{
+		[LANG_ENGLISH] = "Input Limit",
+		[LANG_Norwegian] = "Inngangsgrense",
+	},
+	// [STR_Sensor_Cal_Short]
+	{
+		[LANG_ENGLISH] = "Sensor Calib.",
+		[LANG_Norwegian] = "Sensor Calib.",
+	},
+
+	// [STR_Keep]
+	{
+		[LANG_ENGLISH] = "Keep",
+		[LANG_Norwegian] = "Behold",
+	},
+	// [STR_State]
+	{
+		[LANG_ENGLISH] = "State",
+		[LANG_Norwegian] = "Status",
+	},
+	// [STR_PWM_Mode]
+	{
+		[LANG_ENGLISH] = "PWM Mode",
+		[LANG_Norwegian] = "PWM-modus",
+	},
+	// [STR_PWM_Duty_Cycle]
+	{
+		[LANG_ENGLISH] = "PWM Duty Cycle",
+		[LANG_Norwegian] = "PWM Duty Cycle",
+	},
+	// [STR_Next]
+	{
+		[LANG_ENGLISH] = "Next",
+		[LANG_Norwegian] = "Neste",
+	},
 };

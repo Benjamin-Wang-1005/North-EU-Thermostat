@@ -30,7 +30,7 @@ void Draw_Main_Page(void);
 
 
 // Global variables
-//float setting_number = 4.0f;     	// ÔO¶¨”µ×Ö£¬³õÊ¼Öµ 4.0
+
 volatile uint8_t	Relay;								// Output power indicator
 volatile uint8_t Schedule_Period;					// Schedule indicator
 uint8_t (*sch_table)[4];
@@ -39,6 +39,7 @@ volatile uint8_t Update_Relay;
 
 //RTC Time Default 2026/01/01 00:00:00
 rtc_time_t rtc_time;
+
 
 // LCD color definitions (if not already defined)
 #ifndef BLUE
@@ -61,7 +62,7 @@ void test_system_tick(void)
 int main(void)
 {
 //	uint8_t key_val;
-
+	uint32_t temp_time;
 	SystemInit();        // Initialize RCC, system clock to 64MHz (HSI/2 * 16 PLL)
 	//SCB->VTOR = 0x08004000;  // Vector table relocated for IAP application area
 	sys_tick_Init();	 // Initialize system tick clock
@@ -70,44 +71,80 @@ int main(void)
 	Backlight_SetDuty(0); 	//close LCM at initial
 	Log_USART_Init();
 	LCD_Init();	         // LCD initialization
-	// Set rotation to 90 degrees
-	LCD_direction(1);
+	// Set rotation to 0 degrees
+	LCD_direction(2);
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);			// Clear screen with white background
 	LOGD("-----------------  Program Start --------------------------\n\r");
 	
 	my_RTC_Init();			 //Read RTC Time
+#if(!SIMULATION)
+	Thermostat_ADC_Init();
+	LOGD("Comp_step:%.2f\r\n", adc_ctrl.idle_comp_step_val);
+#endif
 	
 	if (Flash_Load_Parameter() != FLASH_OK) {
         LOGD("Flash load failed, using default values\r\n");
         golbal_par_init();
+				adc_ctrl.idle_comp_count = 0;
+				adc_ctrl.heating_comp_count = 0;
         if(Flash_Save_Parameter() != FLASH_OK){
 						LOGE("Flash write fail!\r\n");
 				}
         LOGD("Default values saved to Flash\r\n");
    } else {
         LOGD("Parameters loaded from Flash\r\n");
+				
+				if(rtc_rest){
+						adc_ctrl.idle_comp_count = 0;
+						adc_ctrl.heating_comp_count = 0;
+				}else{
+						temp_time = g_check_power_off_time();
+						if(temp_time >= 60){
+								adc_ctrl.idle_comp_count = 0;
+								adc_ctrl.heating_comp_count = 0;
+						}else{
+								if((g_parameter.idle_comp_count <= 60) && (g_parameter.idle_comp_count >= (temp_time))){
+										adc_ctrl.idle_comp_count = g_parameter.idle_comp_count - (temp_time);
+										adc_ctrl.idle_comp_val = adc_ctrl.idle_comp_step_val * adc_ctrl.idle_comp_count;
+								}else{
+										adc_ctrl.idle_comp_count = 0;
+										adc_ctrl.idle_comp_val = 0;
+								}
+								if((g_parameter.heatting_comp_count <= 60) && (g_parameter.heatting_comp_count >= temp_time)){
+										adc_ctrl.heating_comp_count = g_parameter.heatting_comp_count - temp_time;
+										adc_ctrl.heating_comp_val = adc_ctrl.heatting_comp_step_val * adc_ctrl.heating_comp_count;
+								}else{
+										adc_ctrl.heating_comp_count = 0;
+										adc_ctrl.heating_comp_val = 0;
+								}
+						}
+						LOGD("idle_count : %d\r\n",adc_ctrl.idle_comp_count);
+						LOGD("heatting_count : %d\r\n", adc_ctrl.heating_comp_count);
+				}
    }
+	 relay_init();
 	 weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
+	 g_parameter.font_size = 0;			//for test
 	 UI_state = STATE_ACTIVE;
 	 Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
 	 if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
 			 LOGE("Alarm Fail\r\n");
 	 }
 	 Draw_Active_Menu();
-	 relay_init();
+	 
 	 if(rtc_rest){
 				LOGD("RTC Reset!\r\n");
+	 }else{
+			LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);	
 	 }
-		LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);
-		get_schedule_period();
+	 get_schedule_period();
+	  
 		
 	// Initialize ADC and measure VCC voltage
 	if(register_alarm(Min_Update_Alarm, 60000) == 0){
 			LOGE("Alarm Full!\r\n");
 	}
-#if(!SIMULATION)
-	Thermostat_ADC_Init();
-#endif
+
 	
 	// Main loop
 	while(1)
