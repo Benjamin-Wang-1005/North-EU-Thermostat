@@ -156,7 +156,12 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Temperature_Swing]
 	{
 		[LANG_ENGLISH] = "Temperature Swing",
-		[LANG_Norwegian] = "Temperaturavvik",
+		[LANG_Norwegian] = "Temperatur svingning",
+	},
+	// [STR_Temp_Swing]
+	{
+		[LANG_ENGLISH] = "Temp.Swing",
+		[LANG_Norwegian] = "Temp.Svingning",
 	},
 	// [STR_Program_Type]
 	{
@@ -298,6 +303,11 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "Protect Temperature",
 		[LANG_Norwegian] = "Beskyttelsestemperatur",
 	},
+	// [STR_Protect_Temperature_short]
+	{
+		[LANG_ENGLISH] = "Temp.Protect",
+		[LANG_Norwegian] = "Beskyttelses",
+	},
 	// [STR_Child_lock]
 	{
 		[LANG_ENGLISH] = "Child Lock",
@@ -311,17 +321,17 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Set_Time]
 	{
 		[LANG_ENGLISH] = "Set Time",
-		[LANG_Norwegian] = "Still inn tid",
+		[LANG_Norwegian] = "Angi Tid",
 	},
 	// [STR_Set_Backlight]
 	{
 		[LANG_ENGLISH] = "Set Backlight",
-		[LANG_Norwegian] = "Still inn bakgrunnsbelysning",
+		[LANG_Norwegian] = "Angi Baklys",
 	},
 	// [STR_Factory_Reset]
 	{
 		[LANG_ENGLISH] = "Factory Reset",
-		[LANG_Norwegian] = "Fabrikkinnstilling",
+		[LANG_Norwegian] = "Nullstill",
 	},
 	// [STR_Operation_Mode]
 	{
@@ -381,7 +391,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Trigger_Temp]
 	{
 		[LANG_ENGLISH] = "Trigger temp",
-		[LANG_Norwegian] = "Utl�ser temp",
+		[LANG_Norwegian] = "Avtrekker temp",
 	},
 	// [STR_And_Time]
 	{
@@ -413,20 +423,30 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "Reset",
 		[LANG_Norwegian] = "Nullstill",
 	},
-	// [STR_Reset_to_Default]
+	// [STR_Reset_to]
 	{
-		[LANG_ENGLISH] = "Reset to Default?",
-		[LANG_Norwegian] = "Nullstill til fabrikkstandard?",
+		[LANG_ENGLISH] = "Reset to",
+		[LANG_Norwegian] = "Nullstill?",
 	},
-	// [STR_This_will_erase]
+	// [STR_Default]
 	{
-		[LANG_ENGLISH] = "This will erase",
-		[LANG_Norwegian] = "Dette vil slette alle",
+		[LANG_ENGLISH] = "Default?",
+		[LANG_Norwegian] = " ",
 	},
-	// [STR_all_saved_settings]
+	// [STR_This_will]
 	{
-		[LANG_ENGLISH] = "all saved settings.",
-		[LANG_Norwegian] = "lagrede innstillinger.",
+		[LANG_ENGLISH] = "This will",
+		[LANG_Norwegian] = "Dette vil",
+	},
+	// [STR_erase_all]
+	{
+		[LANG_ENGLISH] = "erase all",
+		[LANG_Norwegian] = "slette alle",
+	},
+	// [STR_saved_settings]
+	{
+		[LANG_ENGLISH] = "saved settings",
+		[LANG_Norwegian] = "innstilling."
 	},
 	// [STR_Setup_Pin]
 	{
@@ -437,6 +457,11 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	{
 		[LANG_ENGLISH] = "Confirm Pin",
 		[LANG_Norwegian] = "Bekreft PIN",
+	},
+	// [STR_Set_Date]
+	{
+		[LANG_ENGLISH] = "Set Date",
+		[LANG_Norwegian] = "Angi Dato",
 	},
 	// [STR_OP_Mode]
 	{
@@ -476,7 +501,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Sensor_Cal_Short]
 	{
 		[LANG_ENGLISH] = "Sensor Calib.",
-		[LANG_Norwegian] = "Sensor Calib.",
+		[LANG_Norwegian] = "Kalibrering",
 	},
 
 	// [STR_Keep]
@@ -503,5 +528,60 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	{
 		[LANG_ENGLISH] = "Next",
 		[LANG_Norwegian] = "Neste",
+	},
+	// [STR_PWM_Setting]
+	{
+		[LANG_ENGLISH] = "PWM Setting",
+		[LANG_Norwegian] = "PWM-innstilling",
+	},
+	// [STR_Duty]
+	{
+		[LANG_ENGLISH] = "Duty",
+		[LANG_Norwegian] = "Arbeidssyklus",
+	},
+	// [STR_Duration]
+	{
+		[LANG_ENGLISH] = "Duration",
+		[LANG_Norwegian] = "Varighet",
+	},
+	// [STR_Astro_Time]
+	{
+		[LANG_ENGLISH] = "Astro Time",
+		[LANG_Norwegian] = "Astro-tid",
+	},
+	// [STR_PWM_Duty]
+	{
+		[LANG_ENGLISH] = "PWM Duty",
+		[LANG_Norwegian] = "PWM-drift",
+	},
+	// [STR_Internal]
+	{
+		[LANG_ENGLISH] = "Internal",
+		[LANG_Norwegian] = "Innvendig",
+	},
+	// [STR_External]
+	{
+		[LANG_ENGLISH] = "External",
+		[LANG_Norwegian] = "Utvendig",
+	},
+	// [STR_Sensor_Error]
+	{
+		[LANG_ENGLISH] = "Sensor Error",
+		[LANG_Norwegian] = "Sensorfeil",
+	},
+	// [STR_Astro_Setting]
+	{
+		[LANG_ENGLISH] = "Astro Setting",
+		[LANG_Norwegian] = "Astro-innstilling",
+	},
+	// [STR_Day]
+	{
+		[LANG_ENGLISH] = "Day",
+		[LANG_Norwegian] = "Dag",
+	},
+	// [STR_Night]
+	{
+		[LANG_ENGLISH] = "Night",
+		[LANG_Norwegian] = "Natt",
 	},
 };

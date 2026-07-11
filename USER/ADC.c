@@ -257,31 +257,20 @@ void Thermostat_ADC_Init(void)
 {
 
     GPIO_InitTypeDef GPIO_InitStructure;
-
     ADC_InitTypeDef  ADC_InitStructure;
-
     NVIC_InitTypeDef NVIC_InitStructure;
-
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1 | RCC_APB2Periph_GPIOB, ENABLE);
-
     GPIO_InitStructure.GPIO_Pin  = GPIO_Pin_0 | GPIO_Pin_1;
-
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
-
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
     RCC_ADCCLKConfig(RCC_PCLK2_Div8);
 
     ADC_InitStructure.ADC_Mode               = ADC_Mode_Independent;
-
     ADC_InitStructure.ADC_ScanConvMode       = DISABLE;
-
     ADC_InitStructure.ADC_ContinuousConvMode = DISABLE;
-
     ADC_InitStructure.ADC_ExternalTrigConv   = ADC_ExternalTrigConv_None;
-
     ADC_InitStructure.ADC_DataAlign          = ADC_DataAlign_Right;
-
     ADC_InitStructure.ADC_NbrOfChannel       = 1;
 
     ADC_Init(ADC1, &ADC_InitStructure);
@@ -297,37 +286,27 @@ void Thermostat_ADC_Init(void)
     while (ADC_GetCalibrationStatus(ADC1));
 
     NVIC_InitStructure.NVIC_IRQChannel                   = ADC1_2_IRQn;
-
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-
     NVIC_InitStructure.NVIC_IRQChannelSubPriority        = 1;
-
     NVIC_InitStructure.NVIC_IRQChannelCmd                = ENABLE;
-
     NVIC_Init(&NVIC_InitStructure);
-
     ADC_ITConfig(ADC1, ADC_IT_EOC, ENABLE);
 
     memset(&adc_ctrl, 0, sizeof(adc_ctrl));
 
     adc_ctrl.next_channel    = 8;
-
     adc_ctrl.ch8_log_counter = 0;
-
     adc_ctrl.ch9_log_counter = 0;
-
     adc_ctrl.adc_busy        = 0;
-
     adc_ctrl.last_vcc_tick   = 0;
-
+		adc_ctrl.int_sensor_error = 0;
+		adc_ctrl.ext_sensor_error = 0;
+		
     display_update_call_counter = 0;
-
     display_update_call_target = 1;
-
     display_update_initialized = 0;
 
     Average_INT_Temp = -999.0f;
-
     Average_EXT_Temp = -999.0f;
 
     ADC_Start_VCC();
@@ -340,9 +319,6 @@ void Thermostat_ADC_Init(void)
 		
 		adc_ctrl.idle_comp_step_val = INT_NTC_COMPENSATE / INT_NTC_COMP_STEP;
 		adc_ctrl.heatting_comp_step_val = HEAT_COMPENSATE_VAL / HEAT_COMP_STEP;
-		
-		//adc_ctrl.comp_val = 0;
-		//adc_ctrl.comp_count = 60;
 
 }
 
@@ -566,7 +542,14 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
             if (temperature <= -100.0f)
             {
 								if(UI_state != STATE_FACTORY_TEST){
-										LOGE("ADC CH%d Temperature out of range! Resistance: %.1f\r\n", channel_num, resistance);
+										LOGE("ADC CH%d Temperature out of range! Voltage: %.1f\r\n", channel_num, voltage);
+										if(channel_num == 8){
+												adc_ctrl.int_sensor_error = 1;
+										}else if(channel_num == 9){
+#if(!NO_Power_Board)
+												adc_ctrl.ext_sensor_error = 1;
+#endif
+										}
 								}
             }
             else
@@ -725,7 +708,26 @@ void ADC_Update_Display_Temperature(uint8_t channel){
     uint16_t color;
 
 		uint8_t force_update = 0;
-
+	
+		if(adc_ctrl.int_sensor_error == 1){
+				Clear_Number_Area();
+				LCD_Fill(5, 66, 123, 98, RED);
+				lan_str = LanguageTable[STR_Internal][g_parameter.language];
+				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
+				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
+				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				return;
+		}
+		
+		if(adc_ctrl.ext_sensor_error == 1){
+				Clear_Number_Area();
+				LCD_Fill(5, 66, 123, 98, RED);
+				lan_str = LanguageTable[STR_External][g_parameter.language];
+				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
+				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
+				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				return;
+		}
     // Step 1: Update global display temperature for the requested channel
 
     if(channel == 8)

@@ -27,6 +27,18 @@ PROJECT/TOUCH.uvprojx.bak
 PROJECT/startup_stm32f10x_hd.lst
 PROJECT/TOUCH.map
 
+# IAP Bootloader build objects (new path)
+IAP_Bootloader/Objects/
+IAP_Bootloader.hex
+
+# Production merged firmware
+Production/
+Tools/Production/
+
+# Tools build outputs
+Tools/*.bin
+Tools/*.hex
+
 # Claude configuration
 .claude/
 

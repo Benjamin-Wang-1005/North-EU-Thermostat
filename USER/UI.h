@@ -22,6 +22,7 @@
 
 #define		MAX_SET_TEMP														(45)
 #define 	SIMULATION															(0)
+#define   NO_Power_Board													(1)
 
 
 typedef enum{
@@ -56,7 +57,8 @@ typedef struct{
 		unsigned char  sensor_type;				// 0=Room, 1=Floor
 		unsigned char  power_limit;
 		unsigned char  power_limit_switch;
-		unsigned char  pwm_duty_cycle;
+		//unsigned char  pwm_duty_cycle;
+		//unsigned char  pwm_duration;
 		unsigned char  temp_diff;
 		unsigned char  comfort_mode;
 		unsigned char  floor_material;
@@ -68,8 +70,14 @@ typedef struct{
 		unsigned char  idle_comp_count;
 		unsigned char  heatting_comp_count;
 		unsigned char  font_size;								// 0=8x16, 1=12x24
+		unsigned char  astro_day_hour;
+		unsigned char  astro_day_min;
+		unsigned char  astro_night_hour;
+		unsigned char  astro_night_min;
+		unsigned char  pwm_day_duty;
+		unsigned char  pwm_night_duty;
 
-}g_parameter_t;
+ }g_parameter_t;
 
 enum
 {
@@ -125,6 +133,14 @@ extern rtc_time_t temp_rtc;
 extern uint8_t power_limit;
 extern uint8_t power_limit_switch;
 extern uint8_t pwm_duty_cycle;
+extern uint8_t pwm_duration;
+extern uint8_t pwm_setting_selection;
+extern uint8_t temp_astro_day_hour;
+extern uint8_t temp_astro_day_min;
+extern uint8_t temp_astro_night_hour;
+extern uint8_t temp_astro_night_min;
+extern uint8_t temp_pwm_day_duty;
+extern uint8_t temp_pwm_night_duty;
 extern uint8_t comfort_mode;
 extern uint8_t floor_material;
 extern float temp_swing;
@@ -137,6 +153,7 @@ extern uint8_t pin_digit_index;        // Current digit index (0-3)
 extern uint8_t pin_setup_stage;        // 0=enter PIN, 1=confirm PIN
 extern uint8_t pin_digit_selected;     // Currently selected digit (0-9) for input
 extern char* en_week_texts[7];
+extern char* no_week_texts[7];
 extern const char* lan_str;
 extern uint8_t language_temp;
 
@@ -210,6 +227,16 @@ void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint
 void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection);
 void Draw_User_Setting_Language_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_User_Setting_Language_Choice(uint8_t selection);
+
+// PWM Setting page (Control Adj menu entry)
+void Draw_Control_Adj_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_PWM_Setting_Choices(uint8_t selection);
+void Draw_Control_Adj_PWM_Astro_Time_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_PWM_Astro_Time_Content(uint8_t selection);
+
+// PWM Operation Mode Setting
+void Draw_Operation_Mode_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Operation_Mode_PWM_Setting_Content(uint8_t selection);
 
 // Child Lock PIN functions
 void Draw_Child_Lock_Pin_Page(uint8_t stage);

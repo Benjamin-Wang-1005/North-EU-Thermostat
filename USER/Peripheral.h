@@ -146,6 +146,7 @@ extern uint32_t nop_per_us;
 extern uint8_t weekday;
 extern uint8_t rtc_rest;
 extern cmd_queue_t cmd_queue;
+extern uint8_t pwm_is_daytime;
 
 
 void Key_Scan(void);

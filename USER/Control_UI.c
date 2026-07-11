@@ -459,6 +459,7 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 	uint8_t row_height = 32;
 	char *line1[2] = {"Max Temp.", "Min Temp."};
 	char *line2 = "Protect";
+	char *line2_n = "Beskytte";
 	
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
@@ -466,7 +467,8 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 	// Title: Temp.Protect (hardcoded)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Temp.Protect", 16, 0);
+	lan_str = LanguageTable[STR_Protect_Temperature_short][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 
 	// Separator
 	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
@@ -489,11 +491,15 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 		// Arrow icon (left of text)
 		GUI_DrawMonoIcon16x16(6, row_y[i] + (row_height - 16) / 2, WHITE, (is_sel ? RED : BLACK), Icon16x16_Arrow);
 
-		// Two-line text using Show_FuncSetting_Row_Text (auto split)
+		// Two-line text using direct Show_Str (always single-line strings)
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		Show_FuncSetting_Row_Text(28, row_y[i], text_color, bg_color, line1[i], 16);
-		Show_FuncSetting_Row_Text(28, row_y[i] + 16, text_color, bg_color, line2, 16);
+		Show_Str(28, row_y[i], text_color, bg_color, line1[i], 16, 0);
+		if(g_parameter.language == LANG_ENGLISH){
+				Show_Str(28, row_y[i] + 16, text_color, bg_color, line2, 16, 0);
+		}else if(g_parameter.language == LANG_Norwegian){
+				Show_Str(28, row_y[i] + 16, text_color, bg_color, line2_n, 16, 0);
+		}
 
 		// ON/OFF icon at right side (16x16)
 		onoff = (i == 0) ? g_parameter.temp_protect_max_switch : g_parameter.temp_protect_min_switch;
@@ -895,58 +901,320 @@ void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint
 	Draw_TopBar(leave_col, edit_col);
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Temp.Swing", 16, 0);
+	lan_str = LanguageTable[STR_Temp_Swing][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
 	Draw_Control_Adj_Temp_Swing_Content(selection);
 }
 
 
 // Draw PWM Duty Cycle Page
-// Draw only the content area (value + arrows + Save)
-// Called on UP/DOWN to avoid full screen redraw
+// Draw PWM Duty Cycle content (Day / Night duty editing)
 void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 {
-	uint8_t ten_digi, one_digi;
-	ten_digi = pwm_duty_cycle / 10;
-	one_digi = pwm_duty_cycle % 10;
+		uint8_t is_day = (selection == 1);
+		uint8_t is_night = (selection == 2);
 
-	// Clear only the content area (below separator, keep TopBar/title intact)
+		uint16_t day_color = is_day ? RED : BLACK;
+		uint16_t night_color = is_night ? RED : BLACK;
+		uint8_t duty_val;
+		uint8_t ten_digi, one_digi;
+
+		LCD_Fill(0, 42, lcddev.width, 160, WHITE);
+
+		// Day / Night labels
+		POINT_COLOR = day_color;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_Day][g_parameter.language];
+		Show_Str(12, 44, day_color, WHITE, (char*)lan_str, 16, 0);
+
+		POINT_COLOR = night_color;
+		lan_str = LanguageTable[STR_Night][g_parameter.language];
+		Show_Str(78, 44, night_color, WHITE, (char*)lan_str, 16, 0);
+
+		if(selection == 0) {
+				// TopBar mode — show both values compactly
+				char buf[24];
+				sprintf(buf, "%d%%  /  %d%%",
+						g_parameter.pwm_day_duty,
+						g_parameter.pwm_night_duty);
+				Show_Str(16, 74, BLACK, WHITE, buf, 16, 0);
+				return;
+		}
+
+		// Edit mode — pick which value to display
+		duty_val = is_day ? temp_pwm_day_duty : temp_pwm_night_duty;
+		ten_digi = duty_val / 10;
+		one_digi = duty_val % 10;
+
+		// Value (32x64 font, centered)
+		GUI_DrawBigDigit(32, 63, BLACK, WHITE, '0' + ten_digi, 0);
+		GUI_DrawBigDigit(64, 63, BLACK, WHITE, '0' + one_digi, 0);
+		GUI_DrawMonoIcon16x16(96, 70, BLACK, WHITE, Percent_Icon_16x16);
+
+		// Up/Down arrows (edit mode: selection == 1 or 2)
+		if(selection == 1 || selection == 2) {
+				GUI_DrawMonoIcon16x16(12, 91, WHITE, RED, Icon16x16_Down_Arror);
+				GUI_DrawMonoIcon16x16(100, 91, WHITE, RED, Icon16x16_Up_Arror);
+		} else {
+				LCD_Fill(16, 91, 32, 107, WHITE);
+				LCD_Fill(100, 91, 116, 107, WHITE);
+		}
+
+		// Save button (bottom right)
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
+		if(selection == 3)
+				Show_Str(94, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		else
+				Show_Str(94, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+}
+
+// Draw full PWM Duty Cycle page (TopBar + title + content)
+void Draw_Control_Adj_PWM_Duty_Cycle_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+{
+		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+		Draw_TopBar(leave_col, edit_col);
+
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_PWM_Duty][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+		LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+
+		Draw_Control_Adj_PWM_Duty_Cycle_Content(selection);
+}
+
+// Draw Operation Mode PWM Setting page content (Duty Cycle / Duration)
+void Draw_Operation_Mode_PWM_Setting_Content(uint8_t selection)
+{
+	uint8_t ten_digi, one_digi;
+	uint8_t display_val;
+
+	// Clear content area (below separator, keep TopBar/title intact)
 	LCD_Fill(0, 44, lcddev.width, 130, WHITE);
 
-	// Value (32x64 font)
-	GUI_DrawBigDigit(32, 55, BLACK, WHITE, '0' + ten_digi, 0);
-	GUI_DrawBigDigit(64, 55, BLACK, WHITE, '0' + one_digi, 0);
-	GUI_DrawMonoIcon16x16(96, 62, BLACK, WHITE, Percent_Icon_16x16);
+	// Draw Duty (left) / Duration (right) labels - colored when selected
+	lan_str = LanguageTable[STR_Duty][g_parameter.language];
+	Show_Str(10, 48, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Duration][g_parameter.language];
+	Show_Str(80, 48, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 
-	// Up/Down arrows (edit mode: selection == 1)
-	if(selection == 1) {
-		GUI_DrawMonoIcon16x16(12, 79, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(100, 79, WHITE, RED, Icon16x16_Up_Arror);
+	// Get current value
+	if(selection == 1 || selection == 0 || selection == 3) {
+		display_val = pwm_duty_cycle;
 	} else {
-		LCD_Fill(12, 79, 28, 95, WHITE);
-		LCD_Fill(100, 79, 116, 95, WHITE);
+		display_val = pwm_duration;
+	}
+
+	// Value (32x64 font)
+	ten_digi = display_val / 10;
+	one_digi = display_val % 10;
+	if(display_val >= 10) {
+		GUI_DrawBigDigit(32, 68, BLACK, WHITE, '0' + ten_digi, 0);
+		GUI_DrawBigDigit(64, 68, BLACK, WHITE, '0' + one_digi, 0);
+	} else {
+		GUI_DrawBigDigit(48, 68, BLACK, WHITE, '0' + one_digi, 0);
+	}
+
+	// Unit label
+	if(selection == 1) {
+		GUI_DrawMonoIcon16x16(96, 75, BLACK, WHITE, Percent_Icon_16x16);
+	} else if(selection == 2 || selection == 3) {
+		Show_Str(96, 72, BLACK, WHITE, "H", 16, 0);
+	} else {
+		// In TopBar mode, show Duty Cycle value with % icon
+		GUI_DrawMonoIcon16x16(96, 75, BLACK, WHITE, Percent_Icon_16x16);
+	}
+
+	// Up/Down arrows (edit mode: selection == 1 or 2)
+	if(selection == 1 || selection == 2) {
+		GUI_DrawMonoIcon16x16(12, 100, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(100, 100, WHITE, RED, Icon16x16_Up_Arror);
+	} else {
+		LCD_Fill(12, 100, 28, 116, WHITE);
+		LCD_Fill(100, 100, 116, 116, WHITE);
 	}
 
 	// Save button
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
-	if(selection == 2) {
+	if(selection == 3) {
 		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
 		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
-// Draw full PWM Duty Cycle page (TopBar + title + content)
-// Called only when entering the page
-void Draw_Control_Adj_PWM_Duty_Cycle_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+// Draw full Operation Mode PWM Setting page (TopBar + title + content)
+void Draw_Operation_Mode_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
 
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Duty Cycle", 16, 0);
+	lan_str = LanguageTable[STR_PWM_Setting][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 
-	Draw_Control_Adj_PWM_Duty_Cycle_Content(selection);
+	Draw_Operation_Mode_PWM_Setting_Content(selection);
+}
+
+// Draw Control Adj PWM Setting Page (entry page with 2 options + Next)
+// Modeled after Draw_Control_Adj_Sensor_Choices
+void Draw_Control_Adj_PWM_Setting_Choices(uint8_t selection)
+{
+		uint16_t row_y[2] = {52, 86};  // Option 1=52, Option 2=86
+		uint8_t row_height = 30;
+
+		// Draw Astro Time option (2 lines)
+		LCD_Fill(0, row_y[0], lcddev.width, row_y[0] + row_height, WHITE);
+		if(pwm_setting_selection == 0) {
+				if(selection == 1) {
+						GUI_DrawMonoIcon16x16(12, row_y[0] + (row_height - 16) / 2, WHITE, RED, Icon16x16_Arrow);
+				} else {
+						GUI_DrawMonoIcon16x16(12, row_y[0] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
+				}
+		} else {
+				LCD_Fill(12, row_y[0] + (row_height - 16) / 2, 28, row_y[0] + (row_height - 16) / 2 + 16, WHITE);
+		}
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_Astro_Time][g_parameter.language];
+		Show_Str(34, row_y[0], BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_Setting][g_parameter.language];
+		Show_Str(34, row_y[0] + 16, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+		// Draw PWM Duty option (2 lines)
+		LCD_Fill(0, row_y[1], lcddev.width, row_y[1] + row_height, WHITE);
+		if(pwm_setting_selection == 1) {
+				if(selection == 1) {
+						GUI_DrawMonoIcon16x16(12, row_y[1] + (row_height - 16) / 2, WHITE, RED, Icon16x16_Arrow);
+				} else {
+						GUI_DrawMonoIcon16x16(12, row_y[1] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
+				}
+		} else {
+				LCD_Fill(12, row_y[1] + (row_height - 16) / 2, 28, row_y[1] + (row_height - 16) / 2 + 16, WHITE);
+		}
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_PWM_Duty][g_parameter.language];
+		Show_Str(34, row_y[1], BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_Setting][g_parameter.language];
+		Show_Str(34, row_y[1] + 16, BLACK, WHITE, (char*)lan_str, 16, 0);
+}
+
+void Draw_Control_Adj_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+{
+		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+		Draw_TopBar(leave_col, edit_col);
+
+		// Draw title
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_PWM_Setting][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+		// Draw horizontal separator line
+		LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+
+		Draw_Control_Adj_PWM_Setting_Choices(selection);
+}
+
+// Astro Time Setting sub-page
+void Draw_Control_Adj_PWM_Astro_Time_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+{
+		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+		Draw_TopBar(leave_col, edit_col);
+
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_Astro_Setting][g_parameter.language];
+		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+		// Draw horizontal separator line
+		LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+
+		Draw_Control_Adj_PWM_Astro_Time_Content(selection);
+}
+
+void Draw_Control_Adj_PWM_Astro_Time_Content(uint8_t selection)
+{
+		uint8_t is_day = (selection == 1 || selection == 2);
+		uint8_t is_night = (selection == 3 || selection == 4);
+
+		uint16_t day_color = is_day ? RED : BLACK;
+		uint16_t night_color = is_night ? RED : BLACK;
+		uint16_t hour_color, min_color;
+		uint8_t hour_val, min_val;
+
+		LCD_Fill(0, 42, lcddev.width, 160, WHITE);
+
+		// Day / Night labels
+		POINT_COLOR = day_color;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_Day][g_parameter.language];
+		Show_Str(12, 44, day_color, WHITE, (char*)lan_str, 16, 0);
+
+		POINT_COLOR = night_color;
+		lan_str = LanguageTable[STR_Night][g_parameter.language];
+		Show_Str(78, 44, night_color, WHITE, (char*)lan_str, 16, 0);
+
+		if(selection == 0) {
+				// TopBar mode — show both times in compact format
+				char buf[30];
+				sprintf(buf, "%02d:%02d  /  %02d:%02d",
+						g_parameter.astro_day_hour, g_parameter.astro_day_min,
+						g_parameter.astro_night_hour, g_parameter.astro_night_min);
+				Show_Str(8, 74, BLACK, WHITE, buf, 16, 0);
+				return;
+		}
+
+		// Edit mode — pick which time to display
+		if(is_day) {
+				hour_val = temp_astro_day_hour;
+				min_val = temp_astro_day_min;
+		} else {
+				hour_val = temp_astro_night_hour;
+				min_val = temp_astro_night_min;
+		}
+
+		hour_color = (selection == 1 || selection == 3) ? RED : BLACK;
+		min_color  = (selection == 2 || selection == 4) ? RED : BLACK;
+
+		// Hour arrows
+		if(selection == 1 || selection == 3) {
+				GUI_DrawMonoIcon16x16(32, 68, WHITE, RED, Icon16x16_Up_Arror);
+				GUI_DrawMonoIcon16x16(32, 122, WHITE, RED, Icon16x16_Down_Arror);
+		} else {
+				LCD_Fill(32, 68, 48, 84, WHITE);
+				LCD_Fill(32, 122, 48, 138, WHITE);
+		}
+
+		// Hour digits
+		GUI_DrawBigDigit(24, 86, hour_color, WHITE, '0' + hour_val / 10, 1);
+		GUI_DrawBigDigit(40, 86, hour_color, WHITE, '0' + hour_val % 10, 1);
+
+		// Colon
+		LCD_Fill(65, 101, 67, 103, BLACK);
+		LCD_Fill(65, 107, 67, 109, BLACK);
+
+		// Minute arrows
+		if(selection == 2 || selection == 4) {
+				GUI_DrawMonoIcon16x16(84, 68, WHITE, RED, Icon16x16_Up_Arror);
+				GUI_DrawMonoIcon16x16(84, 122, WHITE, RED, Icon16x16_Down_Arror);
+		} else {
+				LCD_Fill(84, 68, 100, 84, WHITE);
+				LCD_Fill(84, 122, 100, 138, WHITE);
+		}
+
+		// Minute digits
+		GUI_DrawBigDigit(76, 86, min_color, WHITE, '0' + min_val / 10, 1);
+		GUI_DrawBigDigit(92, 86, min_color, WHITE, '0' + min_val % 10, 1);
+
+		// Save button (bottom right)
+		lan_str = LanguageTable[STR_Save][g_parameter.language];
+		if(selection == 5)
+				Show_Str(94, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		else
+				Show_Str(94, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 }

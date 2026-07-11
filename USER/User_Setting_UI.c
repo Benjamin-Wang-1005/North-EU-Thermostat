@@ -57,16 +57,18 @@ void Draw_User_Setting_Menu_Row(uint8_t row, uint8_t selected)
 		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
 	}
 
-	// Draw menu text: single line for short items, two-line for long ones
-	// Items 0(Child Lock), 2(Set Time), 3(Language) = single line
-	// Items 1(Window Function), 4(Backlight), 5(Factory Reset) = two-line
+	// Draw menu text: single line if string fits, two-line auto split otherwise
 	POINT_COLOR = text_color;
 	BACK_COLOR = bg_color;
 	lan_str = LanguageTable[User_Setting_Menu_Items[text_idx].text_id][g_parameter.language];
-	if(text_idx == 0 || text_idx == 2 || text_idx == 3) {
-		Show_Str(30, row_y[row] + (row_height - 16) / 2, text_color, bg_color, (char*)lan_str, 16, 0);
-	} else {
-		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
+	{
+			uint8_t len = 0;
+			while(((char*)lan_str)[len] != 0) len++;
+			if(len <= 12) {
+					Show_Str(30, row_y[row] + (row_height - 16) / 2, text_color, bg_color, (char*)lan_str, 16, 0);
+			} else {
+					Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
+			}
 	}
 }
 
@@ -276,7 +278,8 @@ void Draw_User_Setting_Window_Time_Page(uint8_t selection, uint8_t leave_col, ui
 	// Title: Window Func
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(10, 24, BLACK, WHITE, "Window Func", 16, 0);
+	lan_str = LanguageTable[STR_Window_Function][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 
 	Draw_User_Setting_Window_Time_Content(selection);
@@ -342,7 +345,7 @@ void Draw_User_Setting_SetTime_Page(uint8_t selection, uint8_t leave_col, uint8_
 
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Set_Time][g_parameter.language];
+	lan_str = LanguageTable[STR_Set_Date][g_parameter.language];
 	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 
@@ -414,6 +417,12 @@ void Draw_User_Setting_Setclk_Page(uint8_t selection, uint8_t leave_col, uint8_t
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
 
+	POINT_COLOR = BLACK;
+	BACK_COLOR = WHITE;
+	lan_str = LanguageTable[STR_Set_Time][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+
 	Draw_User_Setting_Setclk_Content(selection);
 }
 
@@ -483,13 +492,22 @@ void Draw_User_Setting_Reset_Page(uint8_t selection, uint8_t leave_col, uint8_t 
 	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
 
 	// "Reset to" / "Default?" (two lines, RED)
-	Show_Str(10, 50, RED, WHITE, "Reset to", 16, 0);
-	Show_Str(10, 66, RED, WHITE, "Default?", 16, 0);
-
+	//Show_Str(10, 50, RED, WHITE, "Reset to", 16, 0);
+	//Show_Str(10, 66, RED, WHITE, "Default?", 16, 0);
+	lan_str = LanguageTable[STR_Reset_to][g_parameter.language];
+  Show_Str(10, 50, RED, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Default][g_parameter.language];
+	Show_Str(10, 66, RED, WHITE, (char*)lan_str, 16, 0);
 	// "This will" / "erase all" / "saved setting" (three lines, BLACK)
-	Show_Str(10, 85, BLACK, WHITE, "This will", 16, 0);
-	Show_Str(10, 101, BLACK, WHITE, "erase all", 16, 0);
-	Show_Str(10, 117, BLACK, WHITE, "saved setting", 16, 0);
+	//Show_Str(10, 85, BLACK, WHITE, "This will", 16, 0);
+	lan_str = LanguageTable[STR_This_will][g_parameter.language];
+	Show_Str(10, 85, BLACK, WHITE, (char*)lan_str, 16, 0);
+	//Show_Str(10, 101, BLACK, WHITE, "erase all", 16, 0);
+	lan_str = LanguageTable[STR_erase_all][g_parameter.language];
+	Show_Str(10, 101, BLACK, WHITE, (char*)lan_str, 16, 0);
+	//Show_Str(10, 117, BLACK, WHITE, "saved setting", 16, 0);
+	lan_str = LanguageTable[STR_saved_settings][g_parameter.language];
+	Show_Str(10, 117, BLACK, WHITE, (char*)lan_str, 16, 0);
 
 	Draw_User_Setting_Reset_Contect(selection);
 }

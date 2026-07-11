@@ -206,11 +206,12 @@ COM_StatusTypeDef Ymodem_Receive(uint32_t *p_size)
 
     flashdestination = APPLICATION_ADDRESS;
 
+    Serial_PutByte(CRC16);
+
     while ((session_done == 0) && (result == COM_OK))
     {
         packets_received = 0;
         file_done = 0;
-        Serial_PutByte(CRC16);
 
         while ((file_done == 0) && (result == COM_OK))
         {

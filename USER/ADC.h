@@ -74,6 +74,8 @@ typedef struct {
     uint8_t  ext_ntc_count;
     uint8_t  int_ntc_valid;
     uint8_t  ext_ntc_valid;
+		uint8_t  int_sensor_error;						//while set to 0, never clear
+		uint8_t  ext_sensor_error;
     volatile float INT_NTC_Table[NTC_BUFFER_SIZE];
     volatile float EXT_NTC_Table[NTC_BUFFER_SIZE];
 } adc_thermostat_t;

@@ -82,6 +82,18 @@ uint8_t power_limit;
 uint8_t power_limit_switch;
 uint8_t comfort_mode;
 uint8_t pwm_duty_cycle = 50;  // PWM duty cycle percentage (10-90)
+uint8_t pwm_duration = 1;  // PWM duration in hours (1-24)
+uint8_t pwm_setting_selection = 0;  // 0=Astro Time, 1=PWM Duty
+
+// Temp variables for editing astro time
+uint8_t temp_astro_day_hour;
+
+// Temp variables for editing PWM duty
+uint8_t temp_pwm_day_duty;
+uint8_t temp_pwm_night_duty;
+uint8_t temp_astro_day_min;
+uint8_t temp_astro_night_hour;
+uint8_t temp_astro_night_min;
 uint8_t floor_material;					// '0'=Wood/Laminate, '1'=Tile/Concrete, '2'=Fast Response
 float temp_swing;
 uint8_t child_lock_flag;
@@ -120,7 +132,7 @@ uint8_t schedule_edit_source = 0;
 const MenuItem_t Control_Adj_Menu_Items[] = {
 	{STR_Sensor, STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
 	{STR_Temperature_Swing, STATE_CONTROL_TEMP_SWING, Draw_Control_Adj_Temp_Swing_Page, NULL},
-	{STR_PWM_Duty_Cycle, STATE_CONTROL_PWM_DUTY_CYCLE, Draw_Control_Adj_PWM_Duty_Cycle_Page, NULL},
+	{STR_PWM_Setting, STATE_CONTROL_ADJ_PWM_SETTING, Draw_Control_Adj_PWM_Setting_Page, NULL},
 	{STR_Power_Limit, STATE_CONTROL_POWER_LIMIT, Draw_Control_Adj_Power_Limit_Page, NULL},
 	{STR_Sensor_Calibrate, STATE_CONTROL_ADJ_TEMP_CORRECT, Draw_Control_Adj_TempCorrect_Page, NULL},
 	{STR_Input_Temperature_Limit, STATE_CONTROL_ADJ_TEMP_LIMIT, Draw_Control_Adj_TempLimit_Page, NULL},
@@ -132,7 +144,7 @@ const uint8_t Control_Adj_Menu_Item_Count = sizeof(Control_Adj_Menu_Items) / siz
 const MenuItem_t Control_Adj_Menu_Items_12x24[] ={
 	{STR_Sensor, STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
 	{STR_hysteresis, STATE_CONTROL_TEMP_SWING, Draw_Control_Adj_Temp_Swing_Page, NULL},
-	{STR_PWM_Duty_Cycle, STATE_CONTROL_PWM_DUTY_CYCLE, Draw_Control_Adj_PWM_Duty_Cycle_Page, NULL},
+	{STR_PWM_Setting, STATE_CONTROL_ADJ_PWM_SETTING, Draw_Control_Adj_PWM_Setting_Page, NULL},
 	{STR_Power_Limit, STATE_CONTROL_POWER_LIMIT, Draw_Control_Adj_Power_Limit_Page, NULL},
 	{STR_Calibrate, STATE_CONTROL_ADJ_TEMP_CORRECT, Draw_Control_Adj_TempCorrect_Page, NULL},
 	{STR_Input_Limit, STATE_CONTROL_ADJ_TEMP_LIMIT, Draw_Control_Adj_TempLimit_Page, NULL},
@@ -510,7 +522,7 @@ void Clear_Number_Area(void)
 	// - decimal digit at x=109
 	// x: 5 to 130 (cover all number elements)
 	// y: 40 to 108 (cover full digit height, avoid clearing Icon6 and Icon8 at the bottom)
-	LCD_Fill(7, 83, 128, 117, WHITE);
+	LCD_Fill(5, 38, 128, 129, WHITE);
 	number_area_dirty = 1;
 }
 
@@ -571,8 +583,8 @@ void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc,
 
 	// font_size=0: 8px per char, available = 128-30 = 98px, max 12 chars
 	if(len <= 10) {
-		// Short enough for one line - center vertically in 32px row
-		Show_Str(x, y + (size - 16) / 2, fc, bc, str, size, 0);
+		// Short enough for one line - center vertically in 2-line space
+		Show_Str(x, y + size / 2, fc, bc, str, size, 0);
 		return;
 	}
 
@@ -582,6 +594,12 @@ void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc,
 			split_pos = i;
 			break;
 		}
+	}
+
+	// No space found and string fits in one line → single line centered
+	if(split_pos == 11 && len <= 12) {
+		Show_Str(x, y + size / 2, fc, bc, str, size, 0);
+		return;
 	}
 
 	// Copy first line (split_pos chars)
@@ -819,14 +837,17 @@ void Draw_Operation_Mode_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t
 
 void Process_Relay_Update(void)
 {
-		if(UI_state == STATE_ACTIVE){
-				update_alarm(Active_Alarm);
-				Draw_Active_Menu();
-				Update_Relay = eFALSE;
-		}else if(UI_state == STATE_SLEEP){
-				Draw_Active_Menu();
-				Update_Relay = eFALSE;
+		if(adc_ctrl.int_sensor_error || adc_ctrl.ext_sensor_error){
+			
+		}else{
+				if(UI_state == STATE_ACTIVE){
+						update_alarm(Active_Alarm);
+						Draw_Active_Menu();
+				}else if(UI_state == STATE_SLEEP){
+						Draw_Active_Menu();
+				}
 		}
+		Update_Relay = eFALSE;
 		if(Relay == RELAY_ON){
 				LOGD("Relay ON\r\n");
 		}else{
@@ -852,6 +873,17 @@ void UI_Update(void)
 
 	if(key.key_active == 0){
 			return;
+	}
+	
+	if(adc_ctrl.int_sensor_error || adc_ctrl.ext_sensor_error){
+			if((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP)){
+					key.key_val = NONKEY;
+					key.key_active = 0;
+					if(key.key_press != DOUBLEKEY){
+							key.key_press = 0;
+					}
+					return;
+			}
 	}
 
 	if(UI_state == STATE_ACTIVE)
@@ -945,8 +977,12 @@ void UI_Update(void)
 						POINT_COLOR = BLACK;
 						BACK_COLOR = WHITE;
 						//lan_str = LanguageTable[STR_Enter_Pin_Code][g_parameter.language];
-						//Show_Str(10, 10, BLACK, WHITE, "Enter Pin Code", 16, 0);
-						Show_Str(10, 10, BLACK, WHITE, (char*)LanguageTable[STR_Enter_Pin_Code][g_parameter.language], 16, 0);
+						if(g_parameter.language == LANG_ENGLISH){
+								Show_Str(10, 10, BLACK, WHITE, "Enter Pin Code", 16, 0);
+						}else if(g_parameter.language == LANG_Norwegian){
+								Show_Str(10, 10, BLACK, WHITE, "Tast inn", 16, 0);
+								Show_Str(10, 26, BLACK, WHITE, "PIN-kode", 16, 0);
+						}
 						Draw_Pin_Input_Box(pin_code_input, pin_digit_index);
 						Draw_Pin_Digit_Selector(pin_digit_selected);
 				}else{
@@ -1206,9 +1242,9 @@ void UI_Update(void)
 				{
 					if(edit_icon_color)  // Edit Icon is red
 					{
-						// Enter menu scorl, Edit/Leave both black, Sensor selected
+						// Enter menu scroll, Edit/Leave both black, highlight current mode
 						Top_Bar_Active = 0;
-						item_selection = 1;
+						item_selection = operation_mode + 1;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
 						Draw_Operation_Mode_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
@@ -1261,16 +1297,16 @@ void UI_Update(void)
 				}
 				else if(item_selection == 4){
 					if(key.key_val == ENTERKEY){
+							g_parameter.operation_mode = operation_mode;
+							if(Flash_Save_Parameter() != FLASH_OK){
+									LOGE("Flash write fail!\r\n");
+							}
 							UI_state = STATE_FUNC_SETTING;
 							func_setting_scroll = 0;  // Reset scroll
 							Top_Bar_Active = 0;
 							item_selection = 1;
 							leave_icon_color = 0;
 							edit_icon_color = 0;
-							g_parameter.operation_mode = operation_mode;
-							if(Flash_Save_Parameter() != FLASH_OK){
-									LOGE("Flash write fail!\r\n");
-							}
 							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 							Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					}else if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
@@ -1281,6 +1317,7 @@ void UI_Update(void)
 					}						
 				}
 	}
+
 	else if(UI_state == STATE_HEATING_SCHEDULE_MENU)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
@@ -1965,83 +2002,294 @@ void UI_Update(void)
 								temp_swing = g_parameter.temp_swing;
 								Draw_Control_Adj_Temp_Swing_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
-						else if(UI_state == STATE_CONTROL_PWM_DUTY_CYCLE){
-								pwm_duty_cycle = g_parameter.pwm_duty_cycle;
-								Draw_Control_Adj_PWM_Duty_Cycle_Page(item_selection, leave_icon_color, edit_icon_color);
+						else if(UI_state == STATE_CONTROL_ADJ_PWM_SETTING){
+								pwm_setting_selection = 0;
+								Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
 					}
 				}
 			}
 	}
-		else if(UI_state == STATE_CONTROL_PWM_DUTY_CYCLE)
+
+		else if(UI_state == STATE_CONTROL_ADJ_PWM_SETTING)
 	{
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-					if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				{
+					Update_TopBar();
+				}
+				else if(key.key_val == ENTERKEY)  // Enter key pressed
+				{
+					if(edit_icon_color)  // Edit Icon is red
 					{
-						Update_TopBar();
+						// Enter option selection mode
+						Top_Bar_Active = 0;
+						edit_icon_color = 0;
+						leave_icon_color = 0;
+						item_selection = 1;
+						pwm_setting_selection = 0;  // Default to Astro Time
+						Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else if(key.key_val == ENTERKEY)  // Enter key pressed
+					else  // Leave Icon is red
 					{
-						if(edit_icon_color)  // Edit Icon is red
-						{
-							Top_Bar_Active = 0;
-							item_selection = 1;
+						UI_state = STATE_CONTROL_ADJ_MENU;
+						Top_Bar_Active = 0;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_PWM_SETTING);
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}
+			}
+			else if(item_selection == 1)  // Option selection mode
+			{
+				if(key.key_val == DOWNKEY){  // Down key - next option
+					if(pwm_setting_selection < 1){
+						pwm_setting_selection++;
+						Draw_Control_Adj_PWM_Setting_Choices(item_selection);
+					}
+				}else if(key.key_val == UPKEY){  // Up key - prev option or TopBar
+					if(pwm_setting_selection > 0){
+						pwm_setting_selection--;
+						Draw_Control_Adj_PWM_Setting_Choices(item_selection);
+					}else{  // At first option, go back to TopBar
+						Top_Bar_Active = 1;
+						edit_icon_color = 0;
+						leave_icon_color = 1;
+						item_selection = 0;
+						Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}else if(key.key_val == ENTERKEY){  // Enter - go directly to selected page
+					if(pwm_setting_selection == 0){
+							UI_state = STATE_CONTROL_ADJ_PWM_ASTRO_TIME;
+							Top_Bar_Active = 1;
+							item_selection = 0;
 							leave_icon_color = 0;
-							edit_icon_color = 0;
-							pwm_duty_cycle = g_parameter.pwm_duty_cycle;
-							Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
-						}
-						else  // Leave Icon is red
-						{
-							UI_state = STATE_CONTROL_ADJ_MENU;
-							Top_Bar_Active = 0;
-							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_PWM_DUTY_CYCLE);
-							leave_icon_color = 0;
-							edit_icon_color = 0;
+							edit_icon_color = 1;
 							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-							Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-						}
-					}
-			}
-			else if(item_selection == 1)
-			{
-					if(key.key_val == UPKEY){  // Up key - increase
-							if(pwm_duty_cycle < 90){
-									pwm_duty_cycle += 10;
-									Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
-							}
-					}else if(key.key_val == DOWNKEY){  // Down key - decrease
-							if(pwm_duty_cycle > 10){
-									pwm_duty_cycle -= 10;
-									Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
-							}
-					}else if(key.key_val == ENTERKEY){  // Enter - go to Save
-							item_selection = 2;
-							Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
-					}
-			}
-			else if(item_selection == 2)  // Save mode
-			{
-					if(key.key_val == ENTERKEY){
-							g_parameter.pwm_duty_cycle = pwm_duty_cycle;
-							UI_state = STATE_CONTROL_ADJ_MENU;
-							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_PWM_DUTY_CYCLE);
-							Top_Bar_Active = 0;
+							Draw_Control_Adj_PWM_Astro_Time_Page(item_selection, leave_icon_color, edit_icon_color);
+					}else{
+							UI_state = STATE_CONTROL_ADJ_PWM_DUTY;
+							Top_Bar_Active = 1;
+							item_selection = 0;
 							leave_icon_color = 0;
-							edit_icon_color = 0;
+							edit_icon_color = 1;
+							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+							Draw_Control_Adj_PWM_Duty_Cycle_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}
+			}	
+	}
+
+		else if(UI_state == STATE_CONTROL_ADJ_PWM_ASTRO_TIME)
+	{
+			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
+			{
+				if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+				{
+					Update_TopBar();
+				}
+				else if(key.key_val == ENTERKEY)
+				{
+					if(edit_icon_color)  // Edit Icon is red → enter edit mode
+					{
+						temp_astro_day_hour = g_parameter.astro_day_hour;
+						temp_astro_day_min = g_parameter.astro_day_min;
+						temp_astro_night_hour = g_parameter.astro_night_hour;
+						temp_astro_night_min = g_parameter.astro_night_min;
+
+						Top_Bar_Active = 0;
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						Draw_Control_Adj_PWM_Astro_Time_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+					else  // Leave Icon is red → go back (no changes)
+					{
+						UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
+						Top_Bar_Active = 0;
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						pwm_setting_selection = 0;
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}
+			}
+			else if(item_selection == 1){  // Day Hour
+					if(key.key_val == DOWNKEY){
+							if(temp_astro_day_hour > 0){
+									temp_astro_day_hour--;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == UPKEY){
+							if(temp_astro_day_hour < 23){
+									temp_astro_day_hour++;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == ENTERKEY){
+							item_selection = 2;
+							Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+					}
+			}else if(item_selection == 2){  // Day Minute
+					if(key.key_val == DOWNKEY){
+							if(temp_astro_day_min > 0){
+									temp_astro_day_min--;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == UPKEY){
+							if(temp_astro_day_min < 59){
+									temp_astro_day_min++;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == ENTERKEY){
+							item_selection = 3;
+							Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+					}
+			}else if(item_selection == 3){  // Night Hour
+					if(key.key_val == DOWNKEY){
+							if(temp_astro_night_hour > 0){
+									temp_astro_night_hour--;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == UPKEY){
+							if(temp_astro_night_hour < 23){
+									temp_astro_night_hour++;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == ENTERKEY){
+							item_selection = 4;
+							Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+					}
+			}else if(item_selection == 4){  // Night Minute
+					if(key.key_val == DOWNKEY){
+							if(temp_astro_night_min > 0){
+									temp_astro_night_min--;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == UPKEY){
+							if(temp_astro_night_min < 59){
+									temp_astro_night_min++;
+									Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+							}
+					}else if(key.key_val == ENTERKEY){
+							item_selection = 5;
+							Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+					}
+			}else if(item_selection == 5){  // Save button
+					if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
+							item_selection = 4;
+							Draw_Control_Adj_PWM_Astro_Time_Content(item_selection);
+					}else if(key.key_val == ENTERKEY){
+							g_parameter.astro_day_hour = temp_astro_day_hour;
+							g_parameter.astro_day_min = temp_astro_day_min;
+							g_parameter.astro_night_hour = temp_astro_night_hour;
+							g_parameter.astro_night_min = temp_astro_night_min;
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-							Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}else if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
+							UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
+							Top_Bar_Active = 0;
 							item_selection = 1;
-							Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+							leave_icon_color = 0;
+							edit_icon_color = 0;
+							pwm_setting_selection = 0;
+							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+							Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
 			}
 	}
-else if(UI_state == STATE_CONTROL_ADJ_SENSOR)
+
+		else if(UI_state == STATE_CONTROL_ADJ_PWM_DUTY)
+	{
+			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
+			{
+				if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+				{
+					Update_TopBar();
+				}
+				else if(key.key_val == ENTERKEY)
+				{
+					if(edit_icon_color)  // Edit Icon is red → enter edit mode
+					{
+						temp_pwm_day_duty = g_parameter.pwm_day_duty;
+						temp_pwm_night_duty = g_parameter.pwm_night_duty;
+
+						Top_Bar_Active = 0;
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						Draw_Control_Adj_PWM_Duty_Cycle_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+					else  // Leave Icon is red → go back (no changes)
+					{
+						UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
+						Top_Bar_Active = 0;
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						pwm_setting_selection = 1;
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}
+			}
+			else if(item_selection == 1){  // Day duty
+					if(key.key_val == DOWNKEY){
+							if(temp_pwm_day_duty > 10){
+									temp_pwm_day_duty -= 10;
+									Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+							}
+					}else if(key.key_val == UPKEY){
+							if(temp_pwm_day_duty < 90){
+									temp_pwm_day_duty += 10;
+									Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+							}
+					}else if(key.key_val == ENTERKEY){
+							item_selection = 2;
+							Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+					}
+			}else if(item_selection == 2){  // Night duty
+					if(key.key_val == DOWNKEY){
+							if(temp_pwm_night_duty > 10){
+									temp_pwm_night_duty -= 10;
+									Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+							}
+					}else if(key.key_val == UPKEY){
+							if(temp_pwm_night_duty < 90){
+									temp_pwm_night_duty += 10;
+									Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+							}
+					}else if(key.key_val == ENTERKEY){
+							item_selection = 3;
+							Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+					}
+			}else if(item_selection == 3){  // Save button
+					if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
+							item_selection = 2;
+							Draw_Control_Adj_PWM_Duty_Cycle_Content(item_selection);
+					}else if(key.key_val == ENTERKEY){
+							g_parameter.pwm_day_duty = temp_pwm_day_duty;
+							g_parameter.pwm_night_duty = temp_pwm_night_duty;
+							if(Flash_Save_Parameter() != FLASH_OK){
+									LOGE("Flash write fail!\r\n");
+							}
+							UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
+							Top_Bar_Active = 0;
+							item_selection = 1;
+							leave_icon_color = 0;
+							edit_icon_color = 0;
+							pwm_setting_selection = 1;
+							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+							Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+			}
+	}
+
+		else if(UI_state == STATE_CONTROL_ADJ_SENSOR)
 	{
 			
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
@@ -2723,8 +2971,8 @@ else if(item_selection == 3)
 				if(key.key_val == UPKEY){		//Up key
 						if(power_on_state == 1){	//go back to Top Bar
 								Top_Bar_Active = 1;
-								leave_icon_color = 0;
-								edit_icon_color = 1;
+								leave_icon_color = 1;
+								edit_icon_color = 0;
 								item_selection = 0;
 								Draw_Control_Adj_Power_On_State_Page(item_selection, leave_icon_color, edit_icon_color);
 						}else{

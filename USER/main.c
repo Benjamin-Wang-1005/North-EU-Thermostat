@@ -77,9 +77,13 @@ int main(void)
 	LOGD("-----------------  Program Start --------------------------\n\r");
 	
 	my_RTC_Init();			 //Read RTC Time
+
 #if(!SIMULATION)
 	Thermostat_ADC_Init();
 	LOGD("Comp_step:%.2f\r\n", adc_ctrl.idle_comp_step_val);
+#else
+	adc_ctrl.int_ntc_valid = 1;
+	adc_ctrl.ext_ntc_valid = 1;
 #endif
 	
 	if (Flash_Load_Parameter() != FLASH_OK) {
@@ -123,6 +127,15 @@ int main(void)
 				}
    }
 	 relay_init();
+
+	 // Initialize PWM day/night state from current RTC time
+	 {
+			 uint16_t now_min = rtc_time.Hour * 60 + rtc_time.Min;
+			 uint16_t day_start = g_parameter.astro_day_hour * 60 + g_parameter.astro_day_min;
+			 uint16_t night_start = g_parameter.astro_night_hour * 60 + g_parameter.astro_night_min;
+			 pwm_is_daytime = (now_min >= day_start && now_min < night_start) ? 1 : 0;
+	 }
+
 	 weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 	 g_parameter.font_size = 0;			//for test
 	 UI_state = STATE_ACTIVE;
@@ -157,7 +170,7 @@ int main(void)
 		}
 
 #if(!SIMULATION)		
-		Thermostat_Update();
+		Thermostat_Update();					//ADC Update
 #endif
 		
 		g_relay_handler();

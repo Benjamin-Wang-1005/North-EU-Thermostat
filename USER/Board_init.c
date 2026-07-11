@@ -184,7 +184,14 @@ void golbal_par_init(void)
 		g_parameter.font_size = 0;									//size 8x16
 		g_parameter.idle_comp_count = 0;									//Reset temperature compensation
 		g_parameter.heatting_comp_count = 0;	
-		g_parameter.pwm_duty_cycle = 50;						
+		//g_parameter.pwm_duty_cycle = 50;						
+		//g_parameter.pwm_duration = 1;								
+		g_parameter.astro_day_hour = 5;
+		g_parameter.astro_day_min = 30;
+		g_parameter.astro_night_hour = 18;
+		g_parameter.astro_night_min = 0;
+		g_parameter.pwm_day_duty = 50;
+		g_parameter.pwm_night_duty = 50;
 		memcpy(g_parameter.workday_schedule, workday_schedule, sizeof(workday_schedule));
 		memcpy(g_parameter.holiday_schedule, holiday_schedule, sizeof(holiday_schedule));
 		

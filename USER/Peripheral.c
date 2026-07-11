@@ -19,13 +19,14 @@
 
 #include "Thermostat.h"
 
-#define EVB_BOARD										(0)
 
 #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
 	
 //#define CMD_PREFIX          				"[CMD]"
 //#define CMD_PREFIX_LEN      				(5)
 #define DOUBLE_PRESS_COUNT						(250)
+
+#define EVB_BOARD											(0)
 	
 volatile uint32_t time_tick = 0;  // Must be volatile to prevent compiler optimization
 struct_key_t key;
@@ -624,6 +625,15 @@ void l_process_alarm_source(alarm_source_t source)
 				
 				case Min_Update_Alarm:
 						update_alarm(Min_Update_Alarm);
+
+						// Update Day/Night status for PWM mode
+						{
+								uint16_t now_min = rtc_time.Hour * 60 + rtc_time.Min;
+								uint16_t day_start = g_parameter.astro_day_hour * 60 + g_parameter.astro_day_min;
+								uint16_t night_start = g_parameter.astro_night_hour * 60 + g_parameter.astro_night_min;
+								pwm_is_daytime = (now_min >= day_start && now_min < night_start) ? 1 : 0;
+						}
+
 						if(adc_ctrl.idle_comp_count < INT_NTC_COMP_STEP){
 								adc_ctrl.idle_comp_count++;
 								adc_ctrl.idle_comp_val = adc_ctrl.idle_comp_step_val * adc_ctrl.idle_comp_count;
@@ -655,7 +665,19 @@ void l_process_alarm_source(alarm_source_t source)
 								if((rtc_time.Hour == 0) && (rtc_time.Min == 1)){
 										weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 										LCD_Fill(84, 5, 128, 37, WHITE);
-										Show_Str(84, 5, BLACK, WHITE, en_week_texts[weekday], 32, 1);
+										if((weekday == 5) || (weekday == 6)){
+												if(g_parameter.language == LANG_ENGLISH){
+														Show_Str(84, 5, RED, WHITE, en_week_texts[weekday], 32, 1);
+												}else if(g_parameter.language == LANG_Norwegian){
+														Show_Str(84, 5, RED, WHITE, no_week_texts[weekday], 32, 1);
+												}
+										}else{
+												if(g_parameter.language == LANG_ENGLISH){
+														Show_Str(84, 5, BLUE, WHITE, en_week_texts[weekday], 32, 1);
+												}else if(g_parameter.language == LANG_Norwegian){
+														Show_Str(84, 5, BLUE, WHITE, no_week_texts[weekday], 32, 1);
+												}
+										}
 								}
 								//Update Schedule Period
 								if(g_parameter.operation_mode == 1){
@@ -668,9 +690,9 @@ void l_process_alarm_source(alarm_source_t source)
 								weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 								LCD_Fill(132, 106, 160, 120, WHITE);
 								if((weekday == 5) || (weekday == 6)){
-										Show_Str(132, 106, RED, WHITE, week_texts[weekday], 16, 0);
+										Show_Str(132, 106, RED, WHITE, en_week_texts[weekday], 16, 0);
 								}else{
-										Show_Str(132, 106, BLUE, WHITE, week_texts[weekday], 16, 0);
+										Show_Str(132, 106, BLUE, WHITE, en_week_texts[weekday], 16, 0);
 								}
 #endif
 						}
@@ -784,6 +806,12 @@ void get_schedule_period(void)
 volatile uint16_t heating_count = 0;          // Consecutive ON ticks (500ms each)
 volatile uint16_t power_off_count = 0;         // Ticks spent in forced-OFF period
 volatile uint8_t power_limit_trigger = 0;      // 1 = currently in forced-OFF period
+
+// PWM Mode variables
+static uint8_t pwm_initialized = 0;
+static uint32_t pwm_start_tick = 0;
+uint8_t pwm_is_daytime = 0;  // 1=Day duty, 0=Night duty (updated every minute)
+
 void relay_update(float temp)
 {
 		if(g_parameter.operation_mode == 0){			//Manual Mode
@@ -809,12 +837,38 @@ void relay_update(float temp)
 					}else{																			//Thermostat is off
 							Relay = RELAY_OFF;
 							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
-							heating_count = 0;
+	heating_count = 0;
 					}
 		}
 	
 }
 
+void handle_pwm_relay(void)
+{
+		uint32_t cycle_ms = 1200000;  // 20 minutes = 1,200,000 ms
+		uint32_t elapsed, pos_in_cycle, on_ms;
+		uint8_t duty;
+
+		duty = pwm_is_daytime ? g_parameter.pwm_day_duty : g_parameter.pwm_night_duty;
+
+		if(!pwm_initialized){
+				pwm_start_tick = time_tick;
+				pwm_initialized = 1;
+		}
+
+		// 20-minute PWM cycle
+		elapsed = time_tick - pwm_start_tick;
+		pos_in_cycle = elapsed % cycle_ms;
+		on_ms = cycle_ms * duty / 100;
+
+		if(pos_in_cycle < on_ms){
+				Relay = RELAY_ON;
+				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
+		}else{
+				Relay = RELAY_OFF;
+				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+		}
+}
 
 void check_temp_set(float temp)
 {
@@ -908,8 +962,31 @@ void g_relay_handler(void)
 				return;
 		}
 		local_tick = time_tick;
+
+		if(Factory_testing != 0){
+				return;
+		}
+
 		old_relay_state = Relay;
 
+		//Phase 1 : wait dual sensor read data
+		if(adc_ctrl.int_ntc_valid == 0 || adc_ctrl.ext_ntc_valid == 0){
+				return;
+		}
+		
+		//Phase 2: Persistent error → Set Relay to default value
+		if(adc_ctrl.int_sensor_error || adc_ctrl.ext_sensor_error) {
+				if(g_parameter.power_on_state == 2){				//Relay OFF
+						Relay = RELAY_OFF;
+						GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+				}
+				if(g_parameter.power_on_state == 3){				//Relay ON
+						Relay = RELAY_ON;
+						GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);			//Open relay
+				}
+				return;
+		}
+		
 		// Detect window function on/off transition
 		if(last_window_fun_state != g_parameter.window_fun){
 				last_window_fun_state = g_parameter.window_fun;
@@ -928,6 +1005,10 @@ void g_relay_handler(void)
 						temp = Average_INT_Temp;
 #endif
 						temp += g_parameter.temp_correct_internal;
+						if(Average_EXT_Temp > -900){
+								ext_temp = Average_EXT_Temp;
+								ext_temp += g_parameter.temp_correct_external;
+						}
 				}else{
 						return;
 				}
@@ -943,6 +1024,7 @@ void g_relay_handler(void)
 #endif
 #if(SIMULATION)
 		temp = disp_fack_temp + g_parameter.temp_correct_internal;
+		ext_temp = temp;
 #else
 		
 #endif
@@ -1010,9 +1092,13 @@ void g_relay_handler(void)
 			}
 
 			if(!protect_triggered){
-					if(!(g_parameter.window_fun == 1 && window_fun_triggered == 1)){
+					if(g_parameter.operation_mode == 2){
+							handle_pwm_relay();
+					}else{
+							if(!(g_parameter.window_fun == 1 && window_fun_triggered == 1)){
 								check_temp_set(temp);
-						}
+							}
+					}
 			}
 			
 			
