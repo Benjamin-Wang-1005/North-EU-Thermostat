@@ -180,7 +180,8 @@ void golbal_par_init(void)
 		g_parameter.window_fun = 0;
 		g_parameter.window_fun_temp = 5;
 		g_parameter.window_fun_time = 30;
-		g_parameter.language = 0;										//English
+		g_parameter.adaptive_start = 0;								//OFF
+	g_parameter.language = 0;										//English
 		g_parameter.font_size = 0;									//size 8x16
 		g_parameter.idle_comp_count = 0;									//Reset temperature compensation
 		g_parameter.heatting_comp_count = 0;	

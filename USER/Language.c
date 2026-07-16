@@ -245,13 +245,13 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Cancel_Detect]
 	{
-		[LANG_ENGLISH] = "Cancel Detect",
-		[LANG_Norwegian] = "Avbryt deteksjon",
+		[LANG_ENGLISH] = "Cancel",
+		[LANG_Norwegian] = "Avbryt",
 	},
 	// [STR_Reset_Detect]
 	{
-		[LANG_ENGLISH] = "Reset Detect",
-		[LANG_Norwegian] = "Nullstill deteksjon",
+		[LANG_ENGLISH] = "Reset",
+		[LANG_Norwegian] = "Nullstill",
 	},
 	// [STR_FRI]
 	//{
@@ -583,5 +583,15 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	{
 		[LANG_ENGLISH] = "Night",
 		[LANG_Norwegian] = "Natt",
+	},
+	// [STR_Adaptive_Start]
+	{
+		[LANG_ENGLISH] = "Adaptive Start",
+		[LANG_Norwegian] = "Adaptiv start",
+	},
+	// [STR_Adaptive]
+	{
+		[LANG_ENGLISH] = "Adaptive",
+		[LANG_Norwegian] = "Adaptiv",
 	},
 };

@@ -98,6 +98,7 @@ uint8_t floor_material;					// '0'=Wood/Laminate, '1'=Tile/Concrete, '2'=Fast Re
 float temp_swing;
 uint8_t child_lock_flag;
 uint8_t language_temp;
+uint8_t adaptive_start;
 
 char* en_week_texts[7] = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}; 
 char* no_week_texts[7] = {"MAN", "TIR", "ONS", "TOR", "FRE", "L\xD8R", "S\xD8N"};
@@ -158,6 +159,7 @@ const MenuItem_t User_Setting_Menu_Items[] = {
 	{STR_Window_Function, STATE_USER_SETTING_WINDOW_FUN, Draw_User_Setting_Window_Fun_Page, NULL},
 	{STR_Set_Time, STATE_USER_SETTING_SET_TIME, Draw_User_Setting_SetTime_Page, NULL},
 	{STR_Language, STATE_USER_SETTING_LANGUAGE, Draw_User_Setting_Language_Page, NULL},
+	{STR_Adaptive_Start, STATE_USER_SETTING_ADAPTIVE_START, Draw_User_Setting_Adaptive_Start_Page, NULL},
 	{STR_Set_Backlight, STATE_USER_SETTING_BACKLIGHT, Draw_User_Setting_Backlight_Page, NULL},
 	{STR_Factory_Reset, STATE_USER_SETTING_RESET, Draw_User_Setting_Reset_Page, NULL},
 };
@@ -348,7 +350,7 @@ void Draw_Static_Icons(void)
 	
 	//Draw weekday
 	//LCD_Fill(136, 106, 160, 120, WHITE);
-	if((weekday == 5) || (weekday == 6)){
+	if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
 			if(g_parameter.language == LANG_ENGLISH){
 					Show_Str(84, 5, RED, WHITE, en_week_texts[weekday], 32, 1);
 			}else if(g_parameter.language == LANG_Norwegian){
@@ -891,6 +893,15 @@ void UI_Update(void)
 			// Active state: handle key presses
 			if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
 			{
+				// Do not allow set-temperature mode until the selected sensor has a valid reading.
+				// Before then the Active page displays "--" and Average_*_Temp remains below -99.
+				if(((g_parameter.sensor_type == 0) && (Average_INT_Temp <= -99.0f)) ||
+					 ((g_parameter.sensor_type != 0) && (Average_EXT_Temp <= -99.0f)))
+				{
+					// Ignore Up/Down while the temperature is not ready.
+				}
+				else
+				{
 				// If Manu Icon is red, change it back to black first
 				if(icon6_red_state)
 				{
@@ -925,6 +936,7 @@ void UI_Update(void)
 				}
 				
 				//delay_ms(100);  // Debounce
+				}
 			}
 			else if(key.key_val == ENTERKEY)  // Enter key pressed
 			{
@@ -1285,13 +1297,33 @@ void UI_Update(void)
 						}else if(key.key_val == ENTERKEY){		//Enter key
 								if(item_selection == 1){
 										operation_mode = 0;
+										item_selection = 4;
+										Draw_Operation_Mode_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 								}else if(item_selection == 2){
-										operation_mode = 1;
+										if(RTC_IsConfigured()){
+												operation_mode = 1;
+												item_selection = 4;
+												Draw_Operation_Mode_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+										}else{
+												// RTC not configured - redirect to Set Time page
+												UI_state = STATE_USER_SETTING_SET_TIME;
+												Top_Bar_Active = 1;
+												item_selection = 0;
+												leave_icon_color = 0;
+												edit_icon_color = 1;
+												temp_rtc.Year = rtc_time.Year;
+												temp_rtc.Mon = rtc_time.Mon;
+												temp_rtc.Date = rtc_time.Date;
+												temp_rtc.Hour = rtc_time.Hour;
+												temp_rtc.Min = rtc_time.Min;
+												LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+												Draw_User_Setting_SetTime_Page(item_selection, leave_icon_color, edit_icon_color);
+										}
 								}else if(item_selection == 3){
 										operation_mode = 2;
+										item_selection = 4;
+										Draw_Operation_Mode_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 								}
-								item_selection = 4;
-								Draw_Operation_Mode_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 								//delay_ms(100);
 						}
 				}
@@ -3181,6 +3213,15 @@ else if(item_selection == 3)
 							language_temp = g_parameter.language;
 							Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
+						else if(UI_state == STATE_USER_SETTING_ADAPTIVE_START)
+						{
+							Top_Bar_Active = 1;
+							item_selection = 0;
+							leave_icon_color = 0;
+							edit_icon_color = 1;
+							adaptive_start = g_parameter.adaptive_start;
+							Draw_User_Setting_Adaptive_Start_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
 					}
 				}
 			}
@@ -4236,6 +4277,79 @@ else if(item_selection == 3)
 					}
 			}	
 			
+	}
+	else if(UI_state == STATE_USER_SETTING_ADAPTIVE_START)
+	{
+		if(Top_Bar_Active)
+			{
+				if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+				{
+					Update_TopBar();
+				}
+				else if(key.key_val == ENTERKEY)
+				{
+					if(edit_icon_color)
+					{
+						Top_Bar_Active = 0;
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+						Draw_User_Setting_Adaptive_Start_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+					else
+					{
+						UI_state = STATE_USER_SETTING_MENU;
+						Top_Bar_Active = 0;
+						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_ADAPTIVE_START);
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}
+			}
+			else if((item_selection == 1) || (item_selection == 2))
+			{
+				if(key.key_val == DOWNKEY){
+					if(item_selection == 1){
+						item_selection = 2;
+						Draw_User_Setting_Adaptive_Start_Choice(item_selection);
+					}
+				}else if(key.key_val == UPKEY){
+					if(item_selection == 2){
+						item_selection = 1;
+						Draw_User_Setting_Adaptive_Start_Choice(item_selection);
+					}else if(item_selection == 1){
+						Top_Bar_Active = 1;
+						item_selection = 0;
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_User_Setting_Adaptive_Start_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}else if(key.key_val == ENTERKEY){
+					adaptive_start = (item_selection == 1) ? 0 : 1;
+					item_selection = 3;
+					Draw_User_Setting_Adaptive_Start_Page(item_selection, leave_icon_color, edit_icon_color);
+				}
+			}else if(item_selection == 3){
+				if(key.key_val == ENTERKEY){
+					g_parameter.adaptive_start = adaptive_start;
+					UI_state = STATE_USER_SETTING_MENU;
+					Top_Bar_Active = 0;
+					item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_ADAPTIVE_START);
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					if(Flash_Save_Parameter() != FLASH_OK){
+						LOGE("Flash write fail!\r\n");
+					}
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+				}else if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
+					item_selection = adaptive_start + 1;
+					Draw_User_Setting_Adaptive_Start_Page(item_selection, leave_icon_color, edit_icon_color);
+				}
+			}
 	}
 
 	key.key_val = NONKEY;

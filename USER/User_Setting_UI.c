@@ -665,3 +665,56 @@ void Draw_User_Setting_Language_Page(uint8_t selection, uint8_t leave_col, uint8
 		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
+
+void Draw_User_Setting_Adaptive_Start_Choice(uint8_t selection)
+{
+	uint16_t row_y[] = {50, 78};
+	uint8_t i;
+
+	for(i = 0; i < 2; i++) {
+		LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + 24, WHITE);
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		if(i == 0) {
+			lan_str = LanguageTable[STR_OFF][g_parameter.language];
+			Show_Str(34, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
+		} else {
+			lan_str = LanguageTable[STR_ON][g_parameter.language];
+			Show_Str(34, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
+		}
+		uint8_t show_arrow = 0;
+		uint16_t arrow_bg = BLACK;
+		if((selection == 0) || (selection == 3)){
+			if(adaptive_start == i) show_arrow = 1;
+		}else if((i + 1) == selection) {
+			show_arrow = 1;
+			arrow_bg = RED;
+		}
+		if(show_arrow) {
+			GUI_DrawMonoIcon16x16(12, row_y[i] + 4, WHITE, arrow_bg, Icon16x16_Arrow);
+		} else {
+			LCD_Fill(12, row_y[i] + 4, 28, row_y[i] + 20, WHITE);
+		}
+	}
+}
+
+void Draw_User_Setting_Adaptive_Start_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+{
+	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+	Draw_TopBar(leave_col, edit_col);
+
+	POINT_COLOR = BLACK;
+	BACK_COLOR = WHITE;
+	lan_str = LanguageTable[STR_Adaptive][g_parameter.language];
+	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
+
+	Draw_User_Setting_Adaptive_Start_Choice(selection);
+
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
+	if(selection == 3){
+		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+	}else{
+		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+	}
+}

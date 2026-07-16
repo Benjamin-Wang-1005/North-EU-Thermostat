@@ -141,6 +141,8 @@ typedef enum {
 	STR_Astro_Setting,
 	STR_Day,
 	STR_Night,
+	STR_Adaptive_Start,
+	STR_Adaptive,
 	STR_MAX,
  
 } StringID_t;

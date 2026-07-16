@@ -665,7 +665,7 @@ void l_process_alarm_source(alarm_source_t source)
 								if((rtc_time.Hour == 0) && (rtc_time.Min == 1)){
 										weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 										LCD_Fill(84, 5, 128, 37, WHITE);
-										if((weekday == 5) || (weekday == 6)){
+										if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
 												if(g_parameter.language == LANG_ENGLISH){
 														Show_Str(84, 5, RED, WHITE, en_week_texts[weekday], 32, 1);
 												}else if(g_parameter.language == LANG_Norwegian){
@@ -689,7 +689,7 @@ void l_process_alarm_source(alarm_source_t source)
 #if(SIMULATION)
 								weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 								LCD_Fill(132, 106, 160, 120, WHITE);
-								if((weekday == 5) || (weekday == 6)){
+								if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
 										Show_Str(132, 106, RED, WHITE, en_week_texts[weekday], 16, 0);
 								}else{
 										Show_Str(132, 106, BLUE, WHITE, en_week_texts[weekday], 16, 0);

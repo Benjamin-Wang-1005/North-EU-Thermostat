@@ -76,6 +76,7 @@ typedef struct{
 		unsigned char  astro_night_min;
 		unsigned char  pwm_day_duty;
 		unsigned char  pwm_night_duty;
+		unsigned char  adaptive_start;
 
  }g_parameter_t;
 
@@ -156,6 +157,7 @@ extern char* en_week_texts[7];
 extern char* no_week_texts[7];
 extern const char* lan_str;
 extern uint8_t language_temp;
+extern uint8_t adaptive_start;
 
 extern float	disp_fack_temp;
 
@@ -227,6 +229,8 @@ void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint
 void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection);
 void Draw_User_Setting_Language_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_User_Setting_Language_Choice(uint8_t selection);
+void Draw_User_Setting_Adaptive_Start_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_User_Setting_Adaptive_Start_Choice(uint8_t selection);
 
 // PWM Setting page (Control Adj menu entry)
 void Draw_Control_Adj_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
