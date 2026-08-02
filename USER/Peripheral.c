@@ -551,6 +551,7 @@ void delete_alarm(alarm_source_t source)
 //---------------------------------------------------------------------------------------------------------
 void l_process_alarm_source(alarm_source_t source)
 {
+		uint8_t period;
 		const uint8_t *icons[6] = {P1_Icon_24x24, P2_Icon_24x24, P3_Icon_24x24, P4_Icon_24x24, P5_Icon_24x24, P6_Icon_24x24};
 		switch(source){
 				case Active_Alarm:
@@ -560,8 +561,11 @@ void l_process_alarm_source(alarm_source_t source)
 								icon6_red_state = 0;
 							GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, Menu_Icon_24x24);  // Draw black Manu Icon
 						}
+						// Window-open alert must stay visible: ignore sleep timeout, keep full backlight
+						if(UI_state == STATE_WINDOW_OPEN_DETECTED){
+								Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
 						// If in Leave Schedule Confirm state, go to Active first (then Active will timeout to Sleep naturally)
-						if(UI_state == STATE_LEAVE_SCHEDULE_CONFIRM){
+						}else if(UI_state == STATE_LEAVE_SCHEDULE_CONFIRM){
 								UI_state = STATE_ACTIVE;
 								if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
 										LOGE("Alarm Full!\r\n");
@@ -626,6 +630,12 @@ void l_process_alarm_source(alarm_source_t source)
 				case Min_Update_Alarm:
 						update_alarm(Min_Update_Alarm);
 
+						// Adaptive Start: evaluate preheat decision every minute
+						adaptive_start_minute_task();
+
+						// Adaptive Start: per-minute CSV status log (experiment)
+						adaptive_start_log_status();
+
 						// Update Day/Night status for PWM mode
 						{
 								uint16_t now_min = rtc_time.Hour * 60 + rtc_time.Min;
@@ -667,23 +677,27 @@ void l_process_alarm_source(alarm_source_t source)
 										LCD_Fill(84, 5, 128, 37, WHITE);
 										if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
 												if(g_parameter.language == LANG_ENGLISH){
-														Show_Str(84, 5, RED, WHITE, en_week_texts[weekday], 32, 1);
+														Show_Str(86, 16, RED, WHITE, en_week_texts[weekday], 32, 1);
 												}else if(g_parameter.language == LANG_Norwegian){
-														Show_Str(84, 5, RED, WHITE, no_week_texts[weekday], 32, 1);
+														Show_Str(86, 16, RED, WHITE, no_week_texts[weekday], 32, 1);
 												}
 										}else{
 												if(g_parameter.language == LANG_ENGLISH){
-														Show_Str(84, 5, BLUE, WHITE, en_week_texts[weekday], 32, 1);
+														Show_Str(86, 16, BLUE, WHITE, en_week_texts[weekday], 32, 1);
 												}else if(g_parameter.language == LANG_Norwegian){
-														Show_Str(84, 5, BLUE, WHITE, no_week_texts[weekday], 32, 1);
+														Show_Str(86, 16, BLUE, WHITE, no_week_texts[weekday], 32, 1);
 												}
 										}
 								}
 								//Update Schedule Period
 								if(g_parameter.operation_mode == 1){
+										period = Schedule_Period;
 										get_schedule_period();
 										LCD_Fill(28, 131, 52, 155, WHITE);
-										GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, icons[Schedule_Period]);	
+										GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, icons[Schedule_Period]);
+										if(period != Schedule_Period){
+												LOGD("Schedule Period : %d\r\n", Schedule_Period);
+										}
 								}
 								//LOGD("Min Alarm time out\r\n");
 #if(SIMULATION)
@@ -762,6 +776,11 @@ void get_schedule_period(void)
 		uint8_t (*sched_ptr)[4];
 		uint32_t current_min, sch_min;
 	
+		// Default to workday schedule: prevents wild-pointer HardFault
+		// if current_prog_type holds an invalid value (e.g. corrupted Flash)
+		sched_ptr = g_parameter.workday_schedule;
+		sch_table = sched_ptr;
+
 		if(g_parameter.current_prog_type == 0){
 								if(weekday < 5){
 										sched_ptr = g_parameter.workday_schedule;
@@ -818,26 +837,47 @@ void relay_update(float temp)
 					if(g_parameter.setting_number <= temp){
 							Relay = RELAY_OFF;
 							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+							g_parameter.relay_staty = Relay;
 							heating_count = 0;
 					}else if(temp < (g_parameter.setting_number - g_parameter.temp_swing)){
 							Relay = RELAY_ON;
 							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
+							g_parameter.relay_staty = Relay;
 					}
 		}else{																		//Program Mode
+					float target_temp;
+					uint8_t period_on;
+
 					get_schedule_period();								//Get time period and schedule table
-					if(sch_table[Schedule_Period][3] == 1){			//Thermostat is on
-							if(sch_table[Schedule_Period][2] <= temp){
+
+					// Override target temperature during adaptive preheat
+					if (adaptive_start_is_active())
+					{
+							target_temp = adaptive_start_get_target();
+							period_on = 1;
+					}
+					else
+					{
+							target_temp = (float)(sch_table[Schedule_Period][2]);
+							period_on = sch_table[Schedule_Period][3];
+					}
+
+					if(period_on){			//Thermostat is on
+							if(target_temp <= temp){
 									Relay = RELAY_OFF;
 									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+									g_parameter.relay_staty = Relay;
 									heating_count = 0;
-							}else if(temp < (sch_table[Schedule_Period][2] - g_parameter.temp_swing)){
+							}else if(temp < (target_temp - g_parameter.temp_swing)){
 									Relay = RELAY_ON;
 									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
+									g_parameter.relay_staty = Relay;
 							}
 					}else{																			//Thermostat is off
 							Relay = RELAY_OFF;
 							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
-	heating_count = 0;
+							g_parameter.relay_staty = Relay;
+							heating_count = 0;
 					}
 		}
 	
@@ -846,28 +886,40 @@ void relay_update(float temp)
 void handle_pwm_relay(void)
 {
 		uint32_t cycle_ms = 1200000;  // 20 minutes = 1,200,000 ms
-		uint32_t elapsed, pos_in_cycle, on_ms;
+		uint32_t on_ms;
 		uint8_t duty;
+		static uint32_t pwm_cycle_pos = 0;	// Position within current cycle (ms)
 
 		duty = pwm_is_daytime ? g_parameter.pwm_day_duty : g_parameter.pwm_night_duty;
 
 		if(!pwm_initialized){
+				pwm_cycle_pos = 0;
 				pwm_start_tick = time_tick;
 				pwm_initialized = 1;
+		} else {
+				// Advance cycle position by time elapsed since last call
+				uint32_t now = time_tick;
+				uint32_t delta = now - pwm_start_tick;
+				if(delta > 0){
+						pwm_cycle_pos += delta;
+						// Keep position within a single cycle window
+						if(pwm_cycle_pos >= cycle_ms){
+								pwm_cycle_pos %= cycle_ms;
+						}
+						pwm_start_tick = now;
+				}
 		}
 
-		// 20-minute PWM cycle
-		elapsed = time_tick - pwm_start_tick;
-		pos_in_cycle = elapsed % cycle_ms;
 		on_ms = cycle_ms * duty / 100;
 
-		if(pos_in_cycle < on_ms){
+		if(pwm_cycle_pos < on_ms){
 				Relay = RELAY_ON;
 				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
 		}else{
 				Relay = RELAY_OFF;
 				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
 		}
+		g_parameter.relay_staty = Relay;
 }
 
 void check_temp_set(float temp)
@@ -892,6 +944,7 @@ void check_temp_set(float temp)
 					power_off_count++;
 					Relay = RELAY_OFF;
 					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+					g_parameter.relay_staty = Relay;
 					
 					if(power_off_count >= off_limit){
 							// Forced OFF period complete: reset, let normal control resume
@@ -911,6 +964,7 @@ void check_temp_set(float temp)
 									power_off_count = 0;
 									Relay = RELAY_OFF;
 									GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+									g_parameter.relay_staty = Relay;
 							}
 					}else{
 							// Relay OFF due to temperature: reset counter
@@ -932,6 +986,9 @@ void window_function_reset(void)
 		memset((void*)window_fun_temp_buffer, 0, sizeof(window_fun_temp_buffer));
 		window_fun_buffer_count = 0;
 		window_fun_buffer_index = 0;
+		memset((void*)window_fun_buffer_a, 0, sizeof(window_fun_buffer_a));
+		window_fun_buffer_a_count = 0;
+		window_fun_b_divider = 0;
 		window_fun_int_updated = 0;
 		window_fun_ext_updated = 0;
 		window_fun_triggered = 0;
@@ -953,10 +1010,12 @@ void g_relay_handler(void)
 		//float display_temp;
 		uint8_t old_relay_state;
 		static uint32_t local_tick;
-		uint8_t protect_triggered = 0;
+		uint8_t protect_high_triggered = 0;
+		uint8_t protect_low_triggered = 0;
 		static uint8_t last_window_fun_state = 0xFF;
 		static uint8_t window_open_flash_cnt = 0;
 		static float window_open_cached_temp = 0.0f;
+		static uint8_t alert_backlight_active = 0;		// 1 = backlight currently forced by alert (QA Spec 5.2)
 
 		if(0 == g_clock_time_exceed(local_tick, 500)){
 				return;
@@ -970,19 +1029,30 @@ void g_relay_handler(void)
 		old_relay_state = Relay;
 
 		//Phase 1 : wait dual sensor read data
+#if(NO_Power_Board)
+		if(adc_ctrl.int_ntc_valid == 0){
+				return;
+		}
+#else
 		if(adc_ctrl.int_ntc_valid == 0 || adc_ctrl.ext_ntc_valid == 0){
 				return;
 		}
+#endif
 		
 		//Phase 2: Persistent error → Set Relay to default value
 		if(adc_ctrl.int_sensor_error || adc_ctrl.ext_sensor_error) {
+				// QA Spec 5.2: sensor error forces full backlight
+				Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+				alert_backlight_active = 1;
 				if(g_parameter.power_on_state == 2){				//Relay OFF
 						Relay = RELAY_OFF;
 						GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+						g_parameter.relay_staty = Relay;
 				}
 				if(g_parameter.power_on_state == 3){				//Relay ON
 						Relay = RELAY_ON;
 						GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);			//Open relay
+						g_parameter.relay_staty = Relay;
 				}
 				return;
 		}
@@ -999,11 +1069,14 @@ void g_relay_handler(void)
 #if(!SIMULATION)
 		if(g_parameter.sensor_type == 0){			//Room temp
 				if(Average_INT_Temp > -900){
-#if(IDLE_COMPENSATE)
+#if(IDLE_COMPENSATE && HEAT_COMPENSATE)
 						temp = Average_INT_Temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val;
+#elif(IDLE_COMPENSATE)
+						temp = Average_INT_Temp - adc_ctrl.idle_comp_val;
 #else
 						temp = Average_INT_Temp;
 #endif
+
 						temp += g_parameter.temp_correct_internal;
 						if(Average_EXT_Temp > -900){
 								ext_temp = Average_EXT_Temp;
@@ -1029,91 +1102,173 @@ void g_relay_handler(void)
 		
 #endif
 
-			// Window function monitoring: record on each Average_*_Temp update
+			// Window function monitoring: always watch INT (room air) sensor -
+			// open-window = room temp drop; floor sensor reacts too slowly
 			if(g_parameter.window_fun == 1 && window_fun_triggered == 0){
-					uint8_t new_temp_ready = 0;
-					if(g_parameter.sensor_type == 0 && window_fun_int_updated){
-							window_fun_int_updated = 0;
-							new_temp_ready = 1;
-					}else if(g_parameter.sensor_type == 1 && window_fun_ext_updated){
-							window_fun_ext_updated = 0;
-							new_temp_ready = 1;
+				uint8_t new_temp_ready = 0;
+				float win_temp = temp;
+				if(window_fun_int_updated){
+					window_fun_int_updated = 0;
+					#if(!SIMULATION)
+					if(adc_ctrl.int_ntc_valid > 0){
+						uint8_t newest_idx = (adc_ctrl.int_ntc_count + NTC_BUFFER_SIZE - 1) % NTC_BUFFER_SIZE;
+						win_temp = adc_ctrl.INT_NTC_Table[newest_idx];	// instantaneous, not 16-sample avg
+						#if(IDLE_COMPENSATE && HEAT_COMPENSATE)
+						win_temp -= adc_ctrl.idle_comp_val + adc_ctrl.heating_comp_val;
+						#elif(IDLE_COMPENSATE)
+						win_temp -= adc_ctrl.idle_comp_val;
+						#endif
+						win_temp += g_parameter.temp_correct_internal;
+						new_temp_ready = 1;
 					}
+					#else
+					new_temp_ready = 1;
+					#endif
+				}
 
 					if(new_temp_ready){
 							uint8_t compare_count;
 							uint8_t i;
+							uint8_t triggered_now = 0;
+							float avg_a;
 
-							window_fun_temp_buffer[window_fun_buffer_index] = temp;
-							window_fun_buffer_index = (window_fun_buffer_index + 1) % 60;
-							if(window_fun_buffer_count < 60){
+							// Put new sample into Buffer A (sliding window: keep newest 16, ~1 min)
+							if(window_fun_buffer_a_count >= 16){
+								for(i = 0; i < 15; i++){
+									window_fun_buffer_a[i] = window_fun_buffer_a[i+1];
+								}
+								window_fun_buffer_a_count = 15;
+							}
+							window_fun_buffer_a[window_fun_buffer_a_count] = win_temp;
+							window_fun_buffer_a_count++;
+							
+							// Every 16 samples (~1 min): push Buffer A average into Buffer B
+							window_fun_b_divider++;
+							if(window_fun_b_divider >= 16){
+								window_fun_b_divider = 0;
+								avg_a = 0.0f;
+								for(i = 0; i < window_fun_buffer_a_count; i++){
+									avg_a += window_fun_buffer_a[i];
+								}
+								avg_a /= window_fun_buffer_a_count;
+								window_fun_temp_buffer[window_fun_buffer_index] = avg_a;
+								window_fun_buffer_index = (window_fun_buffer_index + 1) % 60;
+								if(window_fun_buffer_count < 60){
 									window_fun_buffer_count++;
+								}
 							}
 
-							// Compare new temp against all previous records in the window
-							compare_count = g_parameter.window_fun_time;
-							if(window_fun_buffer_count - 1 < compare_count){
-									compare_count = window_fun_buffer_count - 1;
-							}
-							for(i = 0; i < compare_count; i++){
-									uint8_t check_idx = (window_fun_buffer_index + 60 - 2 - i + 60) % 60;
-									float temp_drop = window_fun_temp_buffer[check_idx] - temp;
+							// Check 1: newest sample vs all previous samples in Buffer A (fast drop within ~1 min)
+							for(i = 0; i < window_fun_buffer_a_count - 1; i++){
+									float temp_drop = window_fun_buffer_a[i] - win_temp;
 									if(temp_drop > g_parameter.window_fun_temp){
-											window_fun_triggered = 1;
-											window_open_cached_temp = temp;
-											LOGD("Window function triggered! Drop: %.1f C\r\n", temp_drop);
-											UI_state = STATE_WINDOW_OPEN_DETECTED;
-											LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-											Draw_Active_Menu();
+											triggered_now = 1;
+											LOGD("Window function triggered (Buffer A)! Drop: %.1f C\r\n", temp_drop);
 											break;
 									}
-						}
+							}
+
+							// Check 2: Buffer A average vs Buffer B history (each entry ~= 1 minute)
+							if(triggered_now == 0){
+									avg_a = 0.0f;
+									for(i = 0; i < window_fun_buffer_a_count; i++){
+											avg_a += window_fun_buffer_a[i];
+									}
+									avg_a /= window_fun_buffer_a_count;
+
+									compare_count = g_parameter.window_fun_time;
+									if(window_fun_buffer_count < compare_count){
+											compare_count = window_fun_buffer_count;
+									}
+									for(i = 0; i < compare_count; i++){
+											uint8_t check_idx = (window_fun_buffer_index + 60 - 1 - i) % 60;
+											float temp_drop = window_fun_temp_buffer[check_idx] - avg_a;
+											if(temp_drop > g_parameter.window_fun_temp){
+													triggered_now = 1;
+													LOGD("Window function triggered (Buffer B)! Drop: %.1f C\r\n", temp_drop);
+													break;
+											}
+									}
+							}
+
+							if(triggered_now){
+									window_fun_triggered = 1;
+									window_open_cached_temp = win_temp;
+									UI_state = STATE_WINDOW_OPEN_DETECTED;
+									Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+									Draw_Active_Menu();
+							}
 					}
 			}
 
 			if(g_parameter.temp_protect_max_switch == 1 && ext_temp >= g_parameter.temp_protect_max){
 					Relay = RELAY_OFF;
 					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
-					protect_triggered = 1;
+					protect_high_triggered = 1;
+					g_parameter.relay_staty = Relay;
 			}else{
 					if(g_parameter.temp_protect_max_switch == 1 && (ext_temp < g_parameter.temp_protect_max - g_parameter.temp_swing)){
-							protect_triggered = 0;
+							protect_high_triggered = 0;
 					}
 			}
 
 			if(g_parameter.temp_protect_min_switch == 1 && ext_temp <= g_parameter.temp_protect_min){
 					Relay = RELAY_ON;
 					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
-					protect_triggered = 1;
+					g_parameter.relay_staty = Relay;
+					protect_low_triggered = 1;
 			}else{
 					if(g_parameter.temp_protect_min_switch == 1 && (ext_temp > g_parameter.temp_protect_min + g_parameter.temp_swing)){
-							protect_triggered = 0;
+							protect_low_triggered = 0;
 					}
 			}
 
-			if(!protect_triggered){
-					if(g_parameter.operation_mode == 2){
-							handle_pwm_relay();
+			if(!protect_high_triggered && !protect_low_triggered){
+					if(g_parameter.window_fun == 1 && window_fun_triggered == 1){
+							// Window open detected: suspend heating in ALL modes (incl. PWM)
+							Relay = RELAY_OFF;
+							GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+							g_parameter.relay_staty = Relay;
 					}else{
-							if(!(g_parameter.window_fun == 1 && window_fun_triggered == 1)){
-								check_temp_set(temp);
+							if(g_parameter.operation_mode == 2){
+									handle_pwm_relay();
+							}else{
+									check_temp_set(temp);
 							}
 					}
 			}
 			
 			
 
-			// Window open detected: flash pattern RED -> blank -> BLACK -> blank (each 500ms)
+			// QA Spec 5.2: overheat/frost protection forces full backlight; restore on clear
+		if(protect_high_triggered || protect_low_triggered){
+				alert_backlight_active = 1;
+				Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+		}else if(alert_backlight_active){
+				alert_backlight_active = 0;		// Alert cleared: restore backlight for current UI state
+				if(UI_state == STATE_SLEEP){
+						Backlight_SetDuty(g_parameter.sleep_backlight_duty);
+				}else{
+						Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+				}
+		}
+		
+		// Window open detected: flash pattern RED -> blank -> BLACK -> blank (each 500ms)
 			// Update cached temperature when ADC signals new average temp is ready
 			if(UI_state == STATE_WINDOW_OPEN_DETECTED){
+					Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
 					if(display_update_throttle_trigger){
 							display_update_throttle_trigger = 0;
 							if(g_parameter.sensor_type == 0) {
-#if(IDLE_COMPENSATE)
+#if(IDLE_COMPENSATE && HEAT_COMPENSATE)
 									window_open_cached_temp = Average_INT_Temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val;
+#elif(IDLE_COMPENSATE)
+									window_open_cached_temp = Average_INT_Temp - adc_ctrl.idle_comp_val;
 #else
 									window_open_cached_temp = Average_INT_Temp;
 #endif
+
 									window_open_cached_temp += g_parameter.temp_correct_internal;
 							} else {
 									window_open_cached_temp = Average_EXT_Temp;

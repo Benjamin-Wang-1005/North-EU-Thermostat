@@ -261,13 +261,17 @@ void test_relay_cmd(char *param)
 				Factory_testing ^= RELAY_TEST_MASK;
 				Relay = RELAY_OFF;
 				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+				g_parameter.relay_staty = Relay;
 		}else if(strcmp(param, "ON") == 0){
 				TCMD("RES:RELAY:ON\n");
 				Relay = RELAY_ON;
 				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);
+				g_parameter.relay_staty = Relay;
 		}else if(strcmp(param, "OFF") == 0){
 				TCMD("RES:RELAY:OFF\n");
 				Relay = RELAY_OFF;
+				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
+				g_parameter.relay_staty = Relay;
 		}
 		
 }

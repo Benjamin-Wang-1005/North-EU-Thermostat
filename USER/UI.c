@@ -68,6 +68,9 @@ uint8_t window_fun_temp = 10;
 uint8_t window_fun_time = 30;
 uint8_t window_fun_triggered = 0;
 float window_fun_temp_buffer[60];
+float window_fun_buffer_a[16];		// Buffer A: raw samples every 3.6s, 16 samples ~= 1 minute
+uint8_t window_fun_buffer_a_count = 0;
+uint8_t window_fun_b_divider = 0;		// samples since last Buffer B push (16 = ~1 min)
 uint8_t window_fun_buffer_count = 0;
 uint8_t window_fun_buffer_index = 0;
 volatile uint8_t window_fun_int_updated = 0;
@@ -80,7 +83,6 @@ uint8_t main_display_digi = Display_Room_Temp;
 //uint8_t old_relay_state;
 uint8_t power_limit;
 uint8_t power_limit_switch;
-uint8_t comfort_mode;
 uint8_t pwm_duty_cycle = 50;  // PWM duty cycle percentage (10-90)
 uint8_t pwm_duration = 1;  // PWM duration in hours (1-24)
 uint8_t pwm_setting_selection = 0;  // 0=Astro Time, 1=PWM Duty
@@ -94,11 +96,11 @@ uint8_t temp_pwm_night_duty;
 uint8_t temp_astro_day_min;
 uint8_t temp_astro_night_hour;
 uint8_t temp_astro_night_min;
-uint8_t floor_material;					// '0'=Wood/Laminate, '1'=Tile/Concrete, '2'=Fast Response
 float temp_swing;
 uint8_t child_lock_flag;
 uint8_t language_temp;
 uint8_t adaptive_start;
+uint8_t set_time_from_boot = 0;	// 1 = Set Time entered from boot RTC-loss redirect (QA 5.3)
 
 char* en_week_texts[7] = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}; 
 char* no_week_texts[7] = {"MAN", "TIR", "ONS", "TOR", "FRE", "L\xD8R", "S\xD8N"};
@@ -232,13 +234,8 @@ void Draw_Active_Menu(void)
 		// Initial display: 4.0 in BLACK (no blinking)
 		if(main_display_digi == Display_Room_Temp){
 				
-				if(g_parameter.sensor_type == 0) {  // Room (Internal)
-						display_temp = Average_INT_Temp;
-						display_temp += g_parameter.temp_correct_internal;
-				} else {  // Floor (External)
-						display_temp = Average_EXT_Temp;
-						display_temp += g_parameter.temp_correct_external;
-				}
+				// Single source: use the value published by the ADC throttle update
+				display_temp = current_display_temp;
 #if(SIMULATION)
 				display_temp = disp_fack_temp + g_parameter.temp_correct_internal;
 				if(Relay == RELAY_OFF){
@@ -352,15 +349,15 @@ void Draw_Static_Icons(void)
 	//LCD_Fill(136, 106, 160, 120, WHITE);
 	if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
 			if(g_parameter.language == LANG_ENGLISH){
-					Show_Str(84, 5, RED, WHITE, en_week_texts[weekday], 32, 1);
+					Show_Str(86, 16, RED, WHITE, en_week_texts[weekday], 32, 1);
 			}else if(g_parameter.language == LANG_Norwegian){
-					Show_Str(84, 5, RED, WHITE, no_week_texts[weekday], 32, 1);
+					Show_Str(86, 16, RED, WHITE, no_week_texts[weekday], 32, 1);
 			}
 	}else{
 			if(g_parameter.language == LANG_ENGLISH){
-					Show_Str(84, 5, BLUE, WHITE, en_week_texts[weekday], 32, 1);
+					Show_Str(86, 16, BLUE, WHITE, en_week_texts[weekday], 32, 1);
 			}else if(g_parameter.language == LANG_Norwegian){
-					Show_Str(84, 5, BLUE, WHITE, no_week_texts[weekday], 32, 1);
+					Show_Str(86, 16, BLUE, WHITE, no_week_texts[weekday], 32, 1);
 			}
 	}
 	
@@ -378,7 +375,7 @@ void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 	static int prev_integer_part = -999;
 	static int prev_decimal_part = -999;
 	static uint8_t prev_has_tens = 0xFF;
-	static uint8_t prev_is_negative = 0xFF;
+	static uint8_t prev_is_negative = 0;
 
 	int integer_part;
 	int decimal_part;
@@ -391,6 +388,9 @@ void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 	uint8_t color_changed = 0;
 	uint8_t tens_changed = 0;
 	uint8_t sign_changed = 0;
+
+	// Round to 0.1 before splitting digits (matches printf %.1f, round half away from zero)
+	number = (float)((int)(number * 10.0f + (number >= 0 ? 0.5f : -0.5f))) / 10.0f;
 
 	// Check if negative
 	if(number < 0)
@@ -446,19 +446,13 @@ void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 	// Update integer part if needed
 	if(force_redraw || color_changed || integer_changed || tens_changed || sign_changed)
 	{
-		// Handle sign
-		if(is_negative)
+		// Clear old minus sign BEFORE digit drawing (so clearing cannot damage the new digit)
+		if(!is_negative && prev_is_negative)
 		{
-			if(has_tens)
-				LCD_Fill(7, 83, 23, 87, color);
+			if(prev_has_tens)
+				LCD_Fill(7, 83, 23, 87, WHITE);   // Clear two-digit minus
 			else
-				LCD_Fill(39, 83, 55, 87, color);
-		}
-		else
-		{
-			// Clear minus sign area
-			if(prev_is_negative)
-				LCD_Fill(39, 83, 55, 87, WHITE);
+				LCD_Fill(33, 83, 48, 87, WHITE);  // Clear single-digit minus
 		}
 
 		// Draw digits with per-digit clear-draw
@@ -473,12 +467,19 @@ void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 		}
 		else
 		{
-			// Single digit - need to clear tens area if previously had tens
-			if(prev_has_tens)
-			{
-				LCD_Fill(23, 53, 55, 117, WHITE);   // Clear tens digit area
-			}
-			GUI_DrawBigDigit(23, 53, color, WHITE, '0' + digit2, 0);  // Draw ones
+			// Single digit - clear both areas and draw in ones position
+			LCD_Fill(23, 53, 55, 117, WHITE);   // Clear tens digit area
+			LCD_Fill(55, 53, 87, 117, WHITE);   // Clear ones digit area
+			GUI_DrawBigDigit(55, 53, color, WHITE, '0' + digit2, 0);  // Draw ones at x=55
+		}
+
+		// Draw new minus sign AFTER digit drawing (so the sign is on top, no flash)
+		if(is_negative)
+		{
+			if(has_tens)
+				LCD_Fill(7, 83, 23, 87, color);
+			else
+				LCD_Fill(33, 83, 48, 87, color);
 		}
 	}
 
@@ -486,20 +487,20 @@ void Display_Number(float number, uint16_t color, uint8_t show_decimal)
 	if(show_decimal && (force_redraw || color_changed || decimal_changed))
 	{
 		// Clear decimal digit area
-		LCD_Fill(87, 85, 128, 117, WHITE);
+		LCD_Fill(87, 83, 128, 117, WHITE);
 
 		// Draw decimal point (circular dot) at fixed position
 		//LCD_Fill(96, 94, 100, 98, color);
-		LCD_Fill(89, 111, 93, 115, color);
+		LCD_Fill(89, 109, 93, 113, color);
 		//LCD_Fill(95, 95, 101, 97, color);
-		LCD_Fill(88, 112, 94, 114, color);
+		LCD_Fill(88, 110, 94, 112, color);
 		//LCD_Fill(96, 99, 100, 99, color);
-		LCD_Fill(89, 116, 93, 116, color);
+		LCD_Fill(89, 114, 93, 114, color);
 		//LCD_Fill(96, 93, 100, 93, color);
-		LCD_Fill(89, 110, 93, 110, color);
+		LCD_Fill(89, 108, 93, 108, color);
 
 		// Draw decimal digit using smaller font (16x32)
-		GUI_DrawBigDigit(99, 85, color, WHITE, '0' + decimal_part, 1);
+		GUI_DrawBigDigit(99, 83, color, WHITE, '0' + decimal_part, 1);
 	}
 
 	// Save state
@@ -612,10 +613,10 @@ void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc,
 	i = split_pos;
 	while(str[i] == ' ') i++;
 
-	// Copy second line
+	// Copy second line (clamped to buffer size: prevents stack overflow)
 	{
 		uint8_t j = 0;
-		while(str[i] != 0) buf2[j++] = str[i++];
+		while((str[i] != 0) && (j < (uint8_t)(sizeof(buf2) - 1))) buf2[j++] = str[i++];
 		buf2[j] = 0;
 	}
 
@@ -629,26 +630,11 @@ void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc,
 // selected: 1=selected (red bg), 0=not selected
 void Draw_Function_Setting_Edit_Row(uint8_t row, uint8_t selected)
 {
-	uint16_t row_y[4];  // Y positions for display rows (max 4)
+	uint16_t row_y[4] = {27, 59, 91, 123};
 	uint16_t text_color, bg_color;
-	uint8_t row_height;
-	uint8_t visible_rows;
+	uint8_t row_height = 32;
+	uint8_t visible_rows = 4;
 	uint8_t text_idx = func_setting_scroll + row;
-
-	if(g_parameter.font_size == 0){
-		row_y[0] = 27;
-		row_y[1] = 59;
-		row_y[2] = 91;
-		row_y[3] = 123;
-		row_height = 32;
-		visible_rows = 4;
-	}else if(g_parameter.font_size == 1){
-		row_y[0] = 28;
-		row_y[1] = 58;
-		row_y[2] = 88;
-		row_height = 30;
-		visible_rows = 3;
-	}
 
 	// Bounds check
 	if(text_idx >= 4) return;
@@ -657,12 +643,10 @@ void Draw_Function_Setting_Edit_Row(uint8_t row, uint8_t selected)
 	if(selected) {
 		text_color = WHITE;
 		bg_color = RED;
-		// Draw red background
 		LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + row_height, RED);
 	} else {
 		text_color = BLACK;
 		bg_color = WHITE;
-		// Clear background to white
 		LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + row_height, WHITE);
 	}
 
@@ -671,46 +655,26 @@ void Draw_Function_Setting_Edit_Row(uint8_t row, uint8_t selected)
 		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, text_color, bg_color, OP_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		if(g_parameter.font_size == 0){
-			lan_str = LanguageTable[STR_Operation_Mode][g_parameter.language];
-			Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-		}else if(g_parameter.font_size == 1){
-			lan_str = LanguageTable[STR_OP_Mode][g_parameter.language];
-			Show_Str(30, row_y[row] + (row_height - 24) / 2, text_color, bg_color, (char*)lan_str, 24, 1);
-		}
+		lan_str = LanguageTable[STR_Operation_Mode][g_parameter.language];
+		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 	} else if(text_idx == 1) {
 		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Schedule_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		if(g_parameter.font_size == 0){
-			lan_str = LanguageTable[STR_Heating_Schedule][g_parameter.language];
-			Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-		}else if(g_parameter.font_size == 1){
-			lan_str = LanguageTable[STR_Schedule][g_parameter.language];
-			Show_Str(30, row_y[row] + (row_height - 24) / 2, text_color, bg_color, (char*)lan_str, 24, 1);
-		}
+		lan_str = LanguageTable[STR_Heating_Schedule][g_parameter.language];
+		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 	} else if(text_idx == 2) {
 		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Control_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		if(g_parameter.font_size == 0){
-			lan_str = LanguageTable[STR_Control_Adjustment][g_parameter.language];
-			Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-		}else if(g_parameter.font_size == 1){
-			lan_str = LanguageTable[STR_Adjust][g_parameter.language];
-			Show_Str(30, row_y[row] + (row_height - 24) / 2, text_color, bg_color, (char*)lan_str, 24, 1);
-		}
+		lan_str = LanguageTable[STR_Control_Adjustment][g_parameter.language];
+		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 	} else if(text_idx == 3) {
 		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, text_color, bg_color, User_Icon_16x16);
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		if(g_parameter.font_size == 0){
-			lan_str = LanguageTable[STR_User_Settings][g_parameter.language];
-			Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-		}else if(g_parameter.font_size == 1){
-			lan_str = LanguageTable[STR_Setting][g_parameter.language];
-			Show_Str(30, row_y[row] + (row_height - 24) / 2, text_color, bg_color, (char*)lan_str, 24, 1);
-		}
+		lan_str = LanguageTable[STR_User_Settings][g_parameter.language];
+		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 	}
 }
 
@@ -728,11 +692,7 @@ void Draw_Function_Setting_Page(uint8_t selection, uint8_t Leave_col, uint8_t Ed
 	uint8_t visible_rows;
 	uint8_t max_scroll;
 
-	if(g_parameter.font_size == 0){
-		visible_rows = 4;
-	}else if(g_parameter.font_size == 1){
-		visible_rows = 3;
-	}
+	visible_rows = 4;
 	max_scroll = (4 > visible_rows) ? (4 - visible_rows) : 0;
 
 	// Auto-adjust scroll so that selected item is visible
@@ -775,7 +735,7 @@ void Draw_Function_Setting_Page(uint8_t selection, uint8_t Leave_col, uint8_t Ed
 
 void Draw_Opeaation_Mode_Choices(uint8_t selection)
 {
-		uint16_t row_y[] = {48, 78, 108};  // Y for Manual, Schedule, PWM
+	uint16_t row_y[] = {48, 82, 112};  // Y for Manual, Schedule, PWM
 	uint8_t row_height = 26;
 	uint8_t i;
 	
@@ -792,8 +752,8 @@ void Draw_Opeaation_Mode_Choices(uint8_t selection)
 			Show_FuncSetting_Row_Text(34, row_y[i], BLACK, WHITE, (char*)LanguageTable[STR_PWM_Mode][g_parameter.language], 16);
 		}
 		
-		// Arrow icon: centered for multi-line, aligned to top for single-line
-		uint8_t arrow_y = (i == 2) ? row_y[i] : row_y[i] + (row_height - 16) / 2;
+		// Arrow icon: vertically centered in the row
+		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
 		if((selection == 0) || (selection == 4)){
 				if(operation_mode == i){
 						GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);
@@ -867,6 +827,18 @@ void Process_Relay_Update(void)
 //---------------------------------------------------------------------------------------------------------
 
 
+// Helper: get max days in a month (year=2000+offset)
+static uint8_t get_max_days(uint8_t mon, uint8_t year)
+{
+    if(mon == 2){
+        return ((year % 4) == 0) ? 29 : 28;
+    }
+    if(mon == 4 || mon == 6 || mon == 9 || mon == 11){
+        return 30;
+    }
+    return 31;
+}
+
 void UI_Update(void)
 {
 
@@ -895,12 +867,14 @@ void UI_Update(void)
 			{
 				// Do not allow set-temperature mode until the selected sensor has a valid reading.
 				// Before then the Active page displays "--" and Average_*_Temp remains below -99.
+#if(!SIMULATION)
 				if(((g_parameter.sensor_type == 0) && (Average_INT_Temp <= -99.0f)) ||
 					 ((g_parameter.sensor_type != 0) && (Average_EXT_Temp <= -99.0f)))
 				{
 					// Ignore Up/Down while the temperature is not ready.
 				}
 				else
+#endif
 				{
 				// If Manu Icon is red, change it back to black first
 				if(icon6_red_state)
@@ -988,13 +962,8 @@ void UI_Update(void)
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						POINT_COLOR = BLACK;
 						BACK_COLOR = WHITE;
-						//lan_str = LanguageTable[STR_Enter_Pin_Code][g_parameter.language];
-						if(g_parameter.language == LANG_ENGLISH){
-								Show_Str(10, 10, BLACK, WHITE, "Enter Pin Code", 16, 0);
-						}else if(g_parameter.language == LANG_Norwegian){
-								Show_Str(10, 10, BLACK, WHITE, "Tast inn", 16, 0);
-								Show_Str(10, 26, BLACK, WHITE, "PIN-kode", 16, 0);
-						}
+						lan_str = LanguageTable[STR_Enter_Pin_Code][g_parameter.language];
+						Show_Str(10, 10, BLACK, WHITE, (char*)lan_str, 16, 0);
 						Draw_Pin_Input_Box(pin_code_input, pin_digit_index);
 						Draw_Pin_Digit_Selector(pin_digit_selected);
 				}else{
@@ -1058,6 +1027,7 @@ void UI_Update(void)
 				// Exit Setting state immediately, return to Active
 				UI_state = STATE_ACTIVE;
 				g_parameter.setting_number = temp_int;
+				LOGD("Set Temp:%d\r\n", g_parameter.setting_number);
 				delete_alarm(Setting_Digi_Alarm);
 				// Display final number with decimal in BLACK
 				main_display_digi = Display_Room_Temp;
@@ -1300,6 +1270,7 @@ void UI_Update(void)
 										item_selection = 4;
 										Draw_Operation_Mode_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 								}else if(item_selection == 2){
+										
 										if(RTC_IsConfigured()){
 												operation_mode = 1;
 												item_selection = 4;
@@ -1330,6 +1301,7 @@ void UI_Update(void)
 				else if(item_selection == 4){
 					if(key.key_val == ENTERKEY){
 							g_parameter.operation_mode = operation_mode;
+							LOGD("Operation Mode: %d\r\n", g_parameter.operation_mode);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -1528,6 +1500,7 @@ void UI_Update(void)
 					edit_icon_color = 0;
 					item_selection = 1;
 					g_parameter.current_prog_type = current_prog_type; // Save selection
+					LOGD("Program Type: %d\r\n", g_parameter.current_prog_type);
 					if(Flash_Save_Parameter() != FLASH_OK){
 							LOGE("Flash write fail!\r\n");
 					}
@@ -1822,7 +1795,7 @@ void UI_Update(void)
 				}
 				else if(key.key_val == DOWNKEY)  // Down key - decrease temperature
 				{
-					if(schedule_time_edit_temp > g_parameter.temp_limit_min) schedule_time_edit_temp--;
+					if((schedule_time_edit_temp > 0) && (schedule_time_edit_temp > g_parameter.temp_limit_min)) schedule_time_edit_temp--;  // Schedule temp lower limit: 0C (uint8_t, no negative)
 					// Only update temperature digits
 					Draw_Schedule_Time_Setting_TempDigits();
 					
@@ -1855,15 +1828,22 @@ void UI_Update(void)
 			{
 				if(key.key_val == ENTERKEY)  // Enter key pressed
 				{
+					uint8_t idx = schedule_time_setting_period - 1;
+					uint8_t (*sched_ptr)[4] = schedule_edit_source ? g_parameter.holiday_schedule : g_parameter.workday_schedule;
 					// Save settings to array (P1~P6 index 0~5, Workday or Restday)
 					{
-						uint8_t idx = schedule_time_setting_period - 1;
-						uint8_t (*sched_ptr)[4] = schedule_edit_source ? g_parameter.holiday_schedule : g_parameter.workday_schedule;
+						
 						sched_ptr[idx][0] = schedule_time_edit_hour;
 						sched_ptr[idx][1] = schedule_time_edit_min;
 						sched_ptr[idx][2] = schedule_time_edit_temp;
 						sched_ptr[idx][3] = schedule_time_on_off;
 					}
+					if(sched_ptr == g_parameter.workday_schedule){
+							LOGD("Set wordday Schedule\r\n");
+					}else{
+							LOGD("Set holiday Schedule\r\n");
+					}
+					LOGD("H:%d M:%d T:%d Switch:%d\r\n", sched_ptr[idx][0], sched_ptr[idx][1], sched_ptr[idx][2], sched_ptr[idx][3]);
 					if(Flash_Save_Parameter() != FLASH_OK){
 							LOGE("Flash write fail!\r\n");
 					}
@@ -2220,6 +2200,7 @@ void UI_Update(void)
 							g_parameter.astro_day_min = temp_astro_day_min;
 							g_parameter.astro_night_hour = temp_astro_night_hour;
 							g_parameter.astro_night_min = temp_astro_night_min;
+							LOGD("Astro Day_h:%d  Day_m:%d  Night_h:%d  Night_m:%d\r\n",temp_astro_day_hour, temp_astro_day_min, temp_astro_night_hour, temp_astro_night_min);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -2306,6 +2287,7 @@ void UI_Update(void)
 					}else if(key.key_val == ENTERKEY){
 							g_parameter.pwm_day_duty = temp_pwm_day_duty;
 							g_parameter.pwm_night_duty = temp_pwm_night_duty;
+							LOGD("PWM day_duty:%d  PWM night_duty:%d\r\n",temp_pwm_day_duty, temp_pwm_night_duty);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -2406,6 +2388,7 @@ void UI_Update(void)
 					edit_icon_color = 0;
 					item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_SENSOR);
 					g_parameter.sensor_type = current_sensor_type;  // 0=Room, 1=Floor
+					LOGD("Sensor Type:%d\r\n",current_sensor_type);
 					if(Flash_Save_Parameter() != FLASH_OK){
 							LOGE("Flash write fail!\r\n");
 					}
@@ -2493,6 +2476,7 @@ void UI_Update(void)
 				leave_icon_color = 0;
 				edit_icon_color = 0;
 				g_parameter.temp_swing = temp_swing;
+				LOGD("Temp swing:%.1f\r\n",temp_swing);
 				if(Flash_Save_Parameter() != FLASH_OK)
 				{
 					LOGE("Flash write fail!\r\n");
@@ -2594,6 +2578,7 @@ void UI_Update(void)
 							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_CORRECT);
 							g_parameter.temp_correct_internal = temp_correct_internal;
 							g_parameter.temp_correct_external = temp_correct_external;
+							LOGD("Temp correct int:%.1f  ext:%.1f\r\n",temp_correct_internal, temp_correct_external);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -2696,6 +2681,7 @@ void UI_Update(void)
 							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_LIMIT);
 							g_parameter.temp_limit_max = temp_limit_max;
 							g_parameter.temp_limit_min = temp_limit_min;
+							LOGD("Temp limit Max:%d  Min:%d\r\n", temp_limit_max, temp_limit_min);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -2866,6 +2852,7 @@ else if(item_selection == 3)
 						item_selection = 1;
 						g_parameter.temp_protect_max = temp_protect_max;
 						g_parameter.temp_protect_max_switch = temp_protect_max_switch;
+						LOGD("Temp protect max_switch:%d  max_val:%d\r\n", temp_protect_max_switch, temp_protect_max);
 						if(Flash_Save_Parameter() != FLASH_OK){
 								LOGE("Flash write fail!\r\n");
 						}
@@ -2954,6 +2941,7 @@ else if(item_selection == 3)
 						item_selection = 2;
 						g_parameter.temp_protect_min = temp_protect_min;
 						g_parameter.temp_protect_min_switch = temp_protect_min_switch;
+						LOGD("Temp protect min_switch:%d  min_val:%d\r\n",temp_protect_min_switch, temp_protect_min);
 						if(Flash_Save_Parameter() != FLASH_OK){
 								LOGE("Flash write fail!\r\n");
 						}
@@ -3029,6 +3017,7 @@ else if(item_selection == 3)
 						edit_icon_color = 0;
 						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_POWER_ON_STATE);
 						g_parameter.power_on_state = power_on_state;
+						LOGD("Power on state:%d\r\n", power_on_state);
 						if(Flash_Save_Parameter() != FLASH_OK){
 								LOGE("Flash write fail!\r\n");
 						}
@@ -3194,16 +3183,6 @@ else if(item_selection == 3)
 							edit_icon_color = 1;
 							Draw_User_Setting_Reset_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
-						else if(UI_state == STATE_USER_SETTING_COMFORT_MODE)
-						{
-							Top_Bar_Active = 1;
-							item_selection = 0;
-							leave_icon_color = 0;
-							edit_icon_color = 1;
-							comfort_mode = g_parameter.comfort_mode;
-							floor_material = g_parameter.floor_material;
-							Draw_Control_Adj_Comfort_Mode_Page(item_selection, leave_icon_color, edit_icon_color);
-						}
 						else if(UI_state == STATE_USER_SETTING_LANGUAGE)
 						{
 							Top_Bar_Active = 1;
@@ -3307,6 +3286,7 @@ else if(item_selection == 3)
 									item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_CHILD_LOCK);
 									leave_icon_color = 0;
 									edit_icon_color = 0;
+									LOGD("Child lock off\r\n");
 									if(Flash_Save_Parameter() != FLASH_OK){
 											LOGE("Flash write fail!\r\n");
 									}
@@ -3371,6 +3351,7 @@ else if(item_selection == 3)
 									leave_icon_color = 0;
 									edit_icon_color = 0;
 									g_parameter.window_fun = window_fun;
+									LOGD("Window fun:%d\r\n", window_fun);
 									if(Flash_Save_Parameter() != FLASH_OK){
 											LOGE("Flash write fail!\r\n");
 									}
@@ -3466,6 +3447,7 @@ else if(item_selection == 3)
 							g_parameter.window_fun = window_fun;
 							g_parameter.window_fun_temp = window_fun_temp;
 							g_parameter.window_fun_time = window_fun_time;
+							LOGD("Window fun:%d  temp:%d  time:%d\r\n",window_fun, window_fun_temp, window_fun_time);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -3497,8 +3479,8 @@ else if(item_selection == 3)
 					}
 					else  // Leave Icon is red
 					{
-						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
+						set_time_from_boot = 0;	// Leave without saving: cancel boot redirect
 						Top_Bar_Active = 0;
 						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_SET_TIME);
 						leave_icon_color = 0;
@@ -3524,50 +3506,33 @@ else if(item_selection == 3)
 							Draw_User_Setting_SetTime_Content(item_selection);
 					}
 			}else if(item_selection == 2){
-					if(key.key_val == DOWNKEY){		//Down key
-							if(temp_rtc.Mon > 1){
-									temp_rtc.Mon--;
-									Draw_User_Setting_SetTime_Content(item_selection);
-							}
-					}else if(key.key_val == UPKEY){		//Up key
-							if(temp_rtc.Mon < 12){
-									temp_rtc.Mon++;
-									Draw_User_Setting_SetTime_Content(item_selection);
-							}
-					}else if(key.key_val == ENTERKEY){		//Enter key
+					if(key.key_val == DOWNKEY){
+							temp_rtc.Mon = (temp_rtc.Mon <= 1) ? 12 : (temp_rtc.Mon - 1);
+							Draw_User_Setting_SetTime_Content(item_selection);
+					}else if(key.key_val == UPKEY){
+							temp_rtc.Mon = (temp_rtc.Mon >= 12) ? 1 : (temp_rtc.Mon + 1);
+							Draw_User_Setting_SetTime_Content(item_selection);
+					}else if(key.key_val == ENTERKEY){
 							item_selection = 3;
 							Draw_User_Setting_SetTime_Content(item_selection);
 					}
 			}else if(item_selection == 3){
-					if(key.key_val == DOWNKEY){		//Down key
+					if(key.key_val == DOWNKEY){
 							if(temp_rtc.Date > 1){
 									temp_rtc.Date--;
-									Draw_User_Setting_SetTime_Content(item_selection);
+							}else{
+									temp_rtc.Date = get_max_days(temp_rtc.Mon, temp_rtc.Year);
 							}
-					}else if(key.key_val == UPKEY){		//Up key
-							if((temp_rtc.Mon == 1) || (temp_rtc.Mon == 3) || (temp_rtc.Mon == 5) || (temp_rtc.Mon == 7) || (temp_rtc.Mon == 8) || (temp_rtc.Mon == 10) || (temp_rtc.Mon == 12)){
-									if(temp_rtc.Date < 31){
-											temp_rtc.Date++;
-											Draw_User_Setting_SetTime_Content(item_selection);
-									}
-							}else if((temp_rtc.Mon == 4) || (temp_rtc.Mon == 6) || (temp_rtc.Mon == 9) || (temp_rtc.Mon == 11)){
-									if(temp_rtc.Date < 30){
-											temp_rtc.Date++;
-											Draw_User_Setting_SetTime_Content(item_selection);
-									}
-							}else if(temp_rtc.Mon == 2){
-									if((temp_rtc.Year%4) == 0){
-											if(temp_rtc.Date < 29){
-													temp_rtc.Date++;
-											}
-									}else{
-											if(temp_rtc.Date < 28){
-													temp_rtc.Date++;
-											}
-									}
-									Draw_User_Setting_SetTime_Content(item_selection);
+							Draw_User_Setting_SetTime_Content(item_selection);
+					}else if(key.key_val == UPKEY){
+							uint8_t max_day = get_max_days(temp_rtc.Mon, temp_rtc.Year);
+							if(temp_rtc.Date < max_day){
+									temp_rtc.Date++;
+							}else{
+									temp_rtc.Date = 1;
 							}
-					}else if(key.key_val == ENTERKEY){		//Enter key
+							Draw_User_Setting_SetTime_Content(item_selection);
+					}else if(key.key_val == ENTERKEY){
 							item_selection = 4;
 							Draw_User_Setting_SetTime_Content(item_selection);
 					}
@@ -3575,9 +3540,7 @@ else if(item_selection == 3)
 					if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
 							item_selection = 1;
 							Draw_User_Setting_SetTime_Content(item_selection);
-							//lan_str = LanguageTable[STR_Set_Clock][g_parameter.language];
-							//Show_Str(87, 108, BLACK, WHITE, "Set Clock", 16, 0);
-							Show_Str(87, 108, BLACK, WHITE, (char*)LanguageTable[STR_Set_Clock][g_parameter.language], 16, 0);
+							//Show_Str(87, 108, BLACK, WHITE, (char*)LanguageTable[STR_Set_Clock][g_parameter.language], 16, 0);
 					}else if(key.key_val == ENTERKEY){
 							UI_state = STATE_USER_SETTING_SET_CLK;
 							Top_Bar_Active = 1;
@@ -3621,32 +3584,24 @@ else if(item_selection == 3)
 					
 				}
 			}else if(item_selection == 1){
-					if(key.key_val == DOWNKEY){		//Down key
-							if(temp_rtc.Hour > 0){
-									temp_rtc.Hour--;
-									Draw_User_Setting_Setclk_Content(item_selection);
-							}
-					}else if(key.key_val == UPKEY){		//Up key
-							if(temp_rtc.Hour < 23){
-									temp_rtc.Hour++;
-									Draw_User_Setting_Setclk_Content(item_selection);
-							}
-					}else if(key.key_val == ENTERKEY){		//Enter key
+					if(key.key_val == DOWNKEY){
+							temp_rtc.Hour = (temp_rtc.Hour <= 0) ? 23 : (temp_rtc.Hour - 1);
+							Draw_User_Setting_Setclk_Content(item_selection);
+					}else if(key.key_val == UPKEY){
+							temp_rtc.Hour = (temp_rtc.Hour >= 23) ? 0 : (temp_rtc.Hour + 1);
+							Draw_User_Setting_Setclk_Content(item_selection);
+					}else if(key.key_val == ENTERKEY){
 							item_selection = 2;
 							Draw_User_Setting_Setclk_Content(item_selection);
 					}
 			}else if(item_selection == 2){
-					if(key.key_val == DOWNKEY){		//Down key
-							if(temp_rtc.Min > 0){
-									temp_rtc.Min--;
-									Draw_User_Setting_Setclk_Content(item_selection);
-							}
-					}else if(key.key_val == UPKEY){		//Up key
-							if(temp_rtc.Min < 60){
-									temp_rtc.Min++;
-									Draw_User_Setting_Setclk_Content(item_selection);
-							}
-					}else if(key.key_val == ENTERKEY){		//Enter key
+					if(key.key_val == DOWNKEY){
+							temp_rtc.Min = (temp_rtc.Min <= 0) ? 59 : (temp_rtc.Min - 1);
+							Draw_User_Setting_Setclk_Content(item_selection);
+					}else if(key.key_val == UPKEY){
+							temp_rtc.Min = (temp_rtc.Min >= 59) ? 0 : (temp_rtc.Min + 1);
+							Draw_User_Setting_Setclk_Content(item_selection);
+					}else if(key.key_val == ENTERKEY){
 							item_selection = 3;
 							Draw_User_Setting_Setclk_Content(item_selection);
 					}
@@ -3655,21 +3610,34 @@ else if(item_selection == 3)
 							item_selection = 1;
 							Draw_User_Setting_Setclk_Content(item_selection);
 					}else if(key.key_val == ENTERKEY){
-							UI_state = STATE_USER_SETTING_MENU;
-							Top_Bar_Active = 0;
-							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_SET_TIME);
-							leave_icon_color = 0;
-							edit_icon_color = 0;
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-							Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-							rtc_time.Year = temp_rtc.Year;
-							rtc_time.Mon = temp_rtc.Mon;
-							rtc_time.Date = temp_rtc.Date;
-							rtc_time.Hour = temp_rtc.Hour;
-							rtc_time.Min = temp_rtc.Min;
-							rtc_time.Sec = 0;
-							RTC_SetTime(&rtc_time);
-							weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
+								rtc_time.Year = temp_rtc.Year;
+								rtc_time.Mon = temp_rtc.Mon;
+								rtc_time.Date = temp_rtc.Date;
+								rtc_time.Hour = temp_rtc.Hour;
+								rtc_time.Min = temp_rtc.Min;
+								rtc_time.Sec = 0;
+								RTC_SetTime(&rtc_time);
+								rtc_empty = 0;		// Time is valid now (QA Spec 5.3)
+								weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
+								if(set_time_from_boot){
+									set_time_from_boot = 0;
+									UI_state = STATE_ACTIVE;
+									Top_Bar_Active = 0;
+									item_selection = 0;
+									leave_icon_color = 0;
+									edit_icon_color = 0;
+									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+									get_schedule_period();		// Time changed: re-evaluate schedule period
+									Draw_Active_Menu();
+								}else{
+									UI_state = STATE_USER_SETTING_MENU;
+									Top_Bar_Active = 0;
+									item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_SET_TIME);
+									leave_icon_color = 0;
+									edit_icon_color = 0;
+									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+									Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+								}
 					}
 			}
 	}
@@ -3712,7 +3680,7 @@ else if(item_selection == 3)
 									Draw_User_Setting_Backlight_Content(item_selection);
 							}
 					}else if(key.key_val == UPKEY){		//Up key
-							if(sleep_backlight_duty < 50){
+							if(sleep_backlight_duty < 70){		//QA Spec 5.2: sleep backlight 0~70%
 									sleep_backlight_duty += 10;
 									Draw_User_Setting_Backlight_Content(item_selection);
 							}
@@ -3732,6 +3700,7 @@ else if(item_selection == 3)
 							leave_icon_color = 0;
 							edit_icon_color = 0;
 							g_parameter.sleep_backlight_duty = sleep_backlight_duty;
+							LOGD("Backlight:%d\r\n", sleep_backlight_duty);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -3786,6 +3755,7 @@ else if(item_selection == 3)
 							leave_icon_color = 0;
 							edit_icon_color = 0;
 							golbal_par_init();			//Set golbal parameter to defaul value
+							LOGD("Factory Reset!\r\n");
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -3964,6 +3934,7 @@ else if(item_selection == 3)
 				// Cancel Window Open Detect
 				delete_alarm(Setting_Menu_Alarm);
 				g_parameter.window_fun = 0;
+				LOGD("Window fun:0\r\n");
 				if(Flash_Save_Parameter() != FLASH_OK){
 					LOGE("Flash write fail!\r\n");
 				}
@@ -4047,6 +4018,7 @@ else if(item_selection == 3)
 							edit_icon_color = 0;
 							g_parameter.power_limit = power_limit;
 							g_parameter.power_limit_switch = power_limit_switch;
+							LOGD("Power limit sw:%d  val:%d\r\n", power_limit_switch, power_limit);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -4055,147 +4027,6 @@ else if(item_selection == 3)
 					}
 			}
 		
-	}
-	else if(UI_state == STATE_USER_SETTING_COMFORT_MODE)
-	{
-			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
-			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
-				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						// Enter Backlight edit mode
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						Draw_TopBar(leave_icon_color, edit_icon_color);
-						Draw_Control_Adj_Comfort_Mode_Content(item_selection);
-					}
-					else  // Leave Icon is red
-					{
-						// Go back to Function Setting Edit mode with cursor on Control Adj
-						UI_state = STATE_USER_SETTING_MENU;
-						Top_Bar_Active = 0;
-						item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_COMFORT_MODE);
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					//delay_ms(100);
-				}
-		}else if(item_selection ==1){
-				if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
-					comfort_mode = (comfort_mode == 1) ? 0 : 1;
-				}else if(key.key_val == ENTERKEY){
-						item_selection = 2;
-				}
-				Draw_Control_Adj_Comfort_Mode_Content(item_selection);
-		}else if(item_selection == 2){
-				if(comfort_mode == 0){
-						if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
-								item_selection = 1;
-								Draw_Control_Adj_Comfort_Mode_Content(item_selection);
-						}else if(key.key_val == ENTERKEY){
-								UI_state = STATE_USER_SETTING_MENU;
-								item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_COMFORT_MODE);
-								Top_Bar_Active = 0;
-								leave_icon_color = 0;
-								edit_icon_color = 0;
-								g_parameter.comfort_mode = comfort_mode;
-								if(Flash_Save_Parameter() != FLASH_OK){
-										LOGE("Flash write fail!\r\n");
-								}
-								LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-								Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-						}
-				}else if(comfort_mode == 1){
-						UI_state = STATE_USER_SETTING_COMFORT_MODE_SETTING;
-						item_selection = 0;
-						Top_Bar_Active = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 1;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_Comfort_Mode_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-				}
-		}
-	}
-	else if(UI_state == STATE_USER_SETTING_COMFORT_MODE_SETTING)
-	{
-			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
-			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
-				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						// Enter Backlight edit mode
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						Draw_TopBar(leave_icon_color, edit_icon_color);
-						Draw_Control_Adj_Comfort_Mode_Setting_Content(item_selection);
-					}
-					else  // Leave Icon is red
-					{
-						// Go back to Function Setting Edit mode with cursor on Control Adj
-						UI_state = STATE_USER_SETTING_COMFORT_MODE;
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_Comfort_Mode_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					//delay_ms(100);
-				}
-			}else if(item_selection == 1){
-					if(key.key_val == DOWNKEY){
-							if(floor_material < 2){
-									floor_material++;
-							}
-					}else if(key.key_val == UPKEY){
-							if(floor_material > 0){
-									floor_material--;
-							}else{
-									Top_Bar_Active = 1;
-									leave_icon_color = 1;
-									edit_icon_color = 0;
-									item_selection = 0;
-									Draw_Control_Adj_Comfort_Mode_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-							}
-					}else if(key.key_val == ENTERKEY){
-							item_selection = 2;
-					}
-					Draw_Control_Adj_Comfort_Mode_Setting_Content(item_selection);
-			}else if(item_selection == 2){
-					if((key.key_val == UPKEY) || (key.key_val == DOWNKEY)){
-							item_selection = 1;
-							Draw_Control_Adj_Comfort_Mode_Setting_Content(item_selection);
-					}else if(key.key_val == ENTERKEY){
-							UI_state = STATE_USER_SETTING_MENU;
-							Top_Bar_Active = 0;
-							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_COMFORT_MODE);
-							leave_icon_color = 0;
-							edit_icon_color = 0;
-							g_parameter.comfort_mode = comfort_mode;
-							g_parameter.floor_material = floor_material;
-							if(Flash_Save_Parameter() != FLASH_OK){
-									LOGE("Flash write fail!\r\n");
-							}
-							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-							Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-			}
 	}
 	else if(UI_state == STATE_USER_SETTING_LANGUAGE)
 	{
@@ -4265,6 +4096,7 @@ else if(item_selection == 3)
 							item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_LANGUAGE);
 							leave_icon_color = 0;
 							edit_icon_color = 0;
+							LOGD("Language:%d\r\n", language_temp);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
 							}
@@ -4340,6 +4172,7 @@ else if(item_selection == 3)
 					item_selection = Find_User_Setting_Menu_Index(STATE_USER_SETTING_ADAPTIVE_START);
 					leave_icon_color = 0;
 					edit_icon_color = 0;
+					LOGD("Adaptive start:%d\r\n", adaptive_start);
 					if(Flash_Save_Parameter() != FLASH_OK){
 						LOGE("Flash write fail!\r\n");
 					}
@@ -4411,6 +4244,7 @@ void Handle_Pin_Input(uint8_t key_val)
 					for(i = 0; i < 4; i++){
 						g_parameter.pin_code[i] = pin_code_input[i];
 					}
+					LOGD("Pin:%d%d%d%d\r\n",pin_code_input[0], pin_code_input[1], pin_code_input[2], pin_code_input[3]);
 					if(Flash_Save_Parameter() != FLASH_OK){
 						LOGE("Flash write fail!\r\n");
 					}

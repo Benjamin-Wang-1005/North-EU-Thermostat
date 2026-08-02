@@ -133,8 +133,9 @@ uint8_t RTC_Init(void)
         // Wait until last write operation on RTC registers has finished
         RTC_WaitForLastTask();
         
-        // Mark RTC as configured
-        BKP_WriteBackupRegister(BKP_DR1, 0xA5A5);
+        // NOTE: do NOT write the configured magic here.
+        // 0xA5A5 is written by RTC_SetTime() only, so RTC_IsConfigured()
+        // means "time has been explicitly set", not "RTC HW initialized".
     }
     else
     {
@@ -334,6 +335,9 @@ uint8_t RTC_SetTime(rtc_time_t *time)
     // Set RTC counter
     RTC_SetCounter(counter);
     RTC_WaitForLastTask();
+
+    // Time explicitly set: mark RTC as configured
+    BKP_WriteBackupRegister(BKP_DR1, 0xA5A5);
     
     return RTC_OK;
 }

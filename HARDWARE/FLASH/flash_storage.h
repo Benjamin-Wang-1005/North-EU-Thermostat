@@ -34,6 +34,9 @@
 // Magic number for data validation
 #define FLASH_STORAGE_MAGIC     0xA5A5A5A5
 
+// Old struct size before r_mild/r_cold were added (version 1 -> version 2)
+#define FLASH_PARAM_VERSION_1_SIZE   (sizeof(g_parameter_t) - sizeof(float) * 2)
+
 // Error codes
 typedef enum {
     FLASH_OK = 0,

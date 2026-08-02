@@ -46,7 +46,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Temperature_Limit]
 	{
 		[LANG_ENGLISH] = "Temp.Limit",
-		[LANG_Norwegian] = "Temperaturgrense",
+		[LANG_Norwegian] = "Temp.grense",
 	},
 	// [STR_Max]
 	{
@@ -60,18 +60,18 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Max_Temperature_Protect]
 	{
-		[LANG_ENGLISH] = "Max Temp.Protect",
-		[LANG_Norwegian] = "Maks temperaturbeskyttelse",
+		[LANG_ENGLISH] = "Max Temp.Prot",
+		[LANG_Norwegian] = "Maks tempvern",
 	},
 	// [STR_Min_Temperature_Protect]
 	{
-		[LANG_ENGLISH] = "Min Temp.Protect",
-		[LANG_Norwegian] = "Min temperaturbeskyttelse",
+		[LANG_ENGLISH] = "Min Temp.Prot",
+		[LANG_Norwegian] = "Min tempvern",
 	},
 	// [STR_Power_On_State]
 	{
 		[LANG_ENGLISH] = "Power On State",
-		[LANG_Norwegian] = "Status ved oppstart",
+		[LANG_Norwegian] = "Ved oppstart",
 	},
 	// [STR_Keep_State]
 	{
@@ -103,11 +103,6 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "ON",
 		[LANG_Norwegian] = "P\xC5",
 	},
-	// [STR_Set_Floor_Material]
-	{
-		[LANG_ENGLISH] = "Set Floor Material",
-		[LANG_Norwegian] = "Velg gulvmateriale",
-	},
 	// [STR_Language]
 	{
 		[LANG_ENGLISH] = "Language",
@@ -127,31 +122,6 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	{
 		[LANG_ENGLISH] = "Norwegian",
 		[LANG_Norwegian] = "norsk",
-	},
-	// [STR_Comfort_Mode]
-	{
-		[LANG_ENGLISH] = "Comfort Mode",
-		[LANG_Norwegian] = "Komfortmodus",
-	},
-	// [STR_Wood_Laminate]
-	{
-		[LANG_ENGLISH] = "Wood/Laminate",
-		[LANG_Norwegian] = "Tre/Laminat",
-	},
-	// [STR_Tile_Concrete]
-	{
-		[LANG_ENGLISH] = "Tile/Concrete",
-		[LANG_Norwegian] = "Flis/Betong",
-	},
-	// [STR_Fast_Response]
-	{
-		[LANG_ENGLISH] = "Fast Response",
-		[LANG_Norwegian] = "Rask respons",
-	},
-	// [STR_Floor_Type]
-	{
-		[LANG_ENGLISH] = "Floor Type",
-		[LANG_Norwegian] = "Gulvtype",
 	},
 	// [STR_Temperature_Swing]
 	{
@@ -216,7 +186,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Leave_Schedule]
 	{
 		[LANG_ENGLISH] = "Leave",
-		[LANG_Norwegian] = "Forlat tidsplan",
+		[LANG_Norwegian] = "Forlat",
 	},
 	// [STR_Mode]
 	{
@@ -296,7 +266,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Input_Temperature_Limit]
 	{
 		[LANG_ENGLISH] = "Input Temp. Limit",
-		[LANG_Norwegian] = "Inndata temperaturgrense",
+		[LANG_Norwegian] = "Inndata temp.grense",
 	},
 	// [STR_Protect_Temperature]
 	{
@@ -376,7 +346,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Enter_Pin_Code]
 	{
 		[LANG_ENGLISH] = "Enter Pin Code",
-		[LANG_Norwegian] = "Tast inn PIN-kode",
+		[LANG_Norwegian] = "Tast PIN-kode",
 	},
 	// [STR_User_Setting]
 	{
@@ -532,7 +502,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_PWM_Setting]
 	{
 		[LANG_ENGLISH] = "PWM Setting",
-		[LANG_Norwegian] = "PWM-innstilling",
+		[LANG_Norwegian] = "PWM-innst.",
 	},
 	// [STR_Duty]
 	{
@@ -572,7 +542,7 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	// [STR_Astro_Setting]
 	{
 		[LANG_ENGLISH] = "Astro Setting",
-		[LANG_Norwegian] = "Astro-innstilling",
+		[LANG_Norwegian] = "Astro-innst.",
 	},
 	// [STR_Day]
 	{
@@ -593,5 +563,10 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	{
 		[LANG_ENGLISH] = "Adaptive",
 		[LANG_Norwegian] = "Adaptiv",
+	},
+	// [STR_Hour]
+	{
+		[LANG_ENGLISH] = "Hour",
+		[LANG_Norwegian] = "Time",
 	},
 };

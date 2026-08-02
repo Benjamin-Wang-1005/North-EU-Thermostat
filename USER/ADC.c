@@ -38,7 +38,7 @@
 
 static const uint32_t EXT_NTC_table[] =
 
-{ 92250, 87100, 82270, 77740, 73480, 69490, 65730, 62190, 58870, 55750,
+{ 97840, 92250, 87100, 82270, 77740, 73480, 69490, 65730, 62190, 58870, 55750,
 
 	52800, 50030, 47430, 44970, 42650, 40470, 38410, 36460, 34630, 32900,
 
@@ -60,7 +60,7 @@ static const uint32_t EXT_NTC_table[] =
 
 static const uint32_t INT_NTC_table[] =
 
-{	64440, 61420, 58570, 55870, 53310, 50880, 48590, 46410, 44350, 42390,
+{	67640, 64440, 61420, 58570, 55870, 53310, 50880, 48590, 46410, 44350, 42390,
 
 	40500, 38700, 37000, 35380, 33850, 32390, 31000, 29690, 28400, 27250,
 
@@ -99,8 +99,10 @@ adc_thermostat_t adc_ctrl;
 volatile float Average_INT_Temp = -999.0f;
 
 volatile float Average_EXT_Temp = -999.0f;
+volatile float current_display_temp = -999.0f;	// last value painted by ADC throttle update (single source for all redraws)
 
 volatile uint8_t display_update_throttle_trigger = 0;
+volatile uint8_t display_refresh_request = 0;	// 1 = external request: drop stale avg history and refresh display ASAP
 
 static uint8_t adc_current_channel = 0;
 
@@ -442,7 +444,7 @@ static float ntc_lookup(float resistance, const uint32_t *ntc_table)
 
         {
 
-            float temp = (float)(-19 + i);
+            float temp = (float)(-20 + i);
 
             float frac = ((float)ntc_table[i] - resistance) / (float)(ntc_table[i] - ntc_table[i + 1]);
 
@@ -542,7 +544,11 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
             if (temperature <= -100.0f)
             {
 								if(UI_state != STATE_FACTORY_TEST){
+#if(!NO_Power_Board)
 										LOGE("ADC CH%d Temperature out of range! Voltage: %.1f\r\n", channel_num, voltage);
+#else
+										LOGD("Idle Comp , %.2f\r\n", adc_ctrl.idle_comp_val);
+#endif
 										if(channel_num == 8){
 												adc_ctrl.int_sensor_error = 1;
 										}else if(channel_num == 9){
@@ -550,6 +556,8 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
 												adc_ctrl.ext_sensor_error = 1;
 #endif
 										}
+											// Draw error screen immediately: sync with the 100% backlight alert (QA 5.2)
+											ADC_Update_Display_Temperature(channel_num);
 								}
             }
             else
@@ -566,14 +574,33 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
                 }
 
 								if(UI_state != STATE_FACTORY_TEST){
+#if(IDLE_COMPENSATE && HEAT_COMPENSATE)
+										if(channel_num == 8){
+												LOGD("%s ,%.2f \r\n", prt, temperature - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val);
+												int_temp = temperature - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val;
+										}else if(channel_num == 9){
+												LOGD("%s ,%.2f \r\n", prt, temperature);
+												LOGD("Diff ,%.2f \r\n", int_temp - temperature);
+										}
+#elif(IDLE_COMPENSATE)
+										if(channel_num == 8){
+												LOGD("%s ,%.2f \r\n", prt, temperature - adc_ctrl.idle_comp_val);
+												int_temp = temperature - adc_ctrl.idle_comp_val;
+										}else if(channel_num == 9){
+												LOGD("%s ,%.2f \r\n", prt, temperature);
+												LOGD("Diff ,%.2f \r\n", int_temp - temperature);
+										}
+#else
 										LOGD("%s ,%.2f \r\n", prt, temperature);
 										if(channel_num == 8){
 												int_temp = temperature;
 										}else if(channel_num == 9){
-											  LOGD("Diff ,%.2f \r\n", int_temp - temperature - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val);
-												LOGD("Idle Comp , %.2f\r\n", adc_ctrl.idle_comp_val);
-												LOGD("Heating Comp, %2f\r\n", adc_ctrl.heating_comp_val);
+												LOGD("Diff ,%.2f \r\n", int_temp - temperature);
 										}
+#endif
+										//LOGD("Heating Comp, %.2f\r\n", adc_ctrl.heating_comp_val);
+										//LOGD("Average_EXT_Temp, %.2f\r\n", Average_EXT_Temp);
+										
 								}
                 ADC_Update_Display_Temperature(channel_num);
             }
@@ -700,14 +727,33 @@ void Thermostat_Update(void)
 void ADC_Update_Display_Temperature(uint8_t channel){
 
     float sum;
-
     uint8_t i;
-
     float display_temp;
-
     uint16_t color;
-
 		uint8_t force_update = 0;
+
+		// Circular buffer for averaging multiple Average_INT_Temp / Average_EXT_Temp readings
+		#define DISPLAY_AVG_BUFFER_SIZE  16
+		static float display_avg_buf[DISPLAY_AVG_BUFFER_SIZE];
+		static uint8_t display_avg_idx = 0;
+		static uint8_t display_avg_count = 0;
+		static uint8_t prev_sensor_type = 0xFF;
+
+		// Reset buffer when sensor type changes (new sensor = new temperature scale)
+		if(prev_sensor_type != g_parameter.sensor_type){
+				prev_sensor_type = g_parameter.sensor_type;
+				display_avg_idx = 0;
+				display_avg_count = 0;
+		}
+
+		// External request (e.g. leaving Window-Open): drop stale history, refresh ASAP
+		if(display_refresh_request){
+				display_refresh_request = 0;
+				display_avg_idx = 0;
+				display_avg_count = 0;
+				display_update_call_counter = 0;
+				display_update_call_target = 1;
+		}
 	
 		if(adc_ctrl.int_sensor_error == 1){
 				Clear_Number_Area();
@@ -731,227 +777,152 @@ void ADC_Update_Display_Temperature(uint8_t channel){
     // Step 1: Update global display temperature for the requested channel
 
     if(channel == 8)
-
     {
-
         if(adc_ctrl.int_ntc_valid > 0)
-
         {
-
             sum = 0.0f;
-
             for(i = 0; i < adc_ctrl.int_ntc_valid; i++)
-
             {
-
                 sum += adc_ctrl.INT_NTC_Table[i];
-
             }
-
             Average_INT_Temp = sum / (float)adc_ctrl.int_ntc_valid;
 
+						if(g_parameter.sensor_type == 0){
+								display_avg_buf[display_avg_idx] = Average_INT_Temp;
+								display_avg_idx = (display_avg_idx + 1) % DISPLAY_AVG_BUFFER_SIZE;
+								if(display_avg_count < DISPLAY_AVG_BUFFER_SIZE) display_avg_count++;
+						}
         }
-
 				window_fun_int_updated = 1;
-
     }
-
     else if(channel == 9)
-
     {
-
         if(adc_ctrl.ext_ntc_valid > 0)
-
         {
-
             sum = 0.0f;
-
             for(i = 0; i < adc_ctrl.ext_ntc_valid; i++)
-
             {
-
                 sum += adc_ctrl.EXT_NTC_Table[i];
-
             }
-
             Average_EXT_Temp = sum / (float)adc_ctrl.ext_ntc_valid;
 
+						if(g_parameter.sensor_type == 1){
+								display_avg_buf[display_avg_idx] = Average_EXT_Temp;
+								display_avg_idx = (display_avg_idx + 1) % DISPLAY_AVG_BUFFER_SIZE;
+								if(display_avg_count < DISPLAY_AVG_BUFFER_SIZE) display_avg_count++;
+						}
         }
-
 				window_fun_ext_updated = 1;
-
     }
 
     // Signal window function that new average temperature is ready
-
-    //if(channel == 8)
-
-    //{
-
-    //    window_fun_int_updated = 1;
-
-    //}
-
-    //else if(channel == 9)
-
-    //{
-
-    //    window_fun_ext_updated = 1;
-
-    //}
-
-    // Step 2: Check display update call counter (gradual interval lengthening)
-
-    // Each call to this function represents approximately 3.6 seconds.
-
-    
-
     if((channel == 8) && (adc_ctrl.int_ntc_valid == 1))
-
     {
-
         force_update = 1;
-
     }
-
     else if((channel == 9) && (adc_ctrl.ext_ntc_valid == 1))
-
     {
-
         force_update = 1;
-
     }
 
     if((display_update_initialized == 0) || force_update)
-
     {
-
         // First temperature calculated: initialize and update display immediately
-
         display_update_initialized = 1;
-
         display_update_call_counter = 0;
-
     }
-
     else
-
     {
-
         display_update_call_counter++;
-
         if(display_update_call_counter < display_update_call_target)
-
         {
-
             // Not enough calls yet to update display
-
             return;
 
         }
-
     }
 
     // Step 3: Display update call target reached
-
     display_update_call_counter = 0;
-
     display_update_throttle_trigger = 1;  // Signal window flash to update cached temp
 
     // Step 4: Increase call target for next time (gradual lengthening: 1,2,3...16 calls ~= 3.6s,7.2s,10.8s...57.6s)
-
     if(display_update_call_target < DISPLAY_UPDATE_CALL_TARGET_MAX)
-
     {
-
         display_update_call_target++;
-
     }
 
-    // Step 5: Only update LCD when UI_state is ACTIVE or SLEEP
-
-    if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP))
-
+    // Compute sliding window average from the circular buffer
+    float avg_sensor_temp = 0.0f;
+    if(display_avg_count > 0)
     {
-
-        return;
-
+        float total = 0.0f;
+        uint8_t start_idx = (display_avg_count >= DISPLAY_AVG_BUFFER_SIZE) ? display_avg_idx : 0;
+        for(i = 0; i < display_avg_count; i++)
+        {
+            total += display_avg_buf[(start_idx + i) % DISPLAY_AVG_BUFFER_SIZE];
+        }
+        avg_sensor_temp = total / (float)display_avg_count;
     }
-
-    // Step 6: Only update when main display is showing room temperature
-
-    if(main_display_digi != Display_Room_Temp)
-
+    else
     {
-
-        return;
-
+        avg_sensor_temp = (g_parameter.sensor_type == 0) ? Average_INT_Temp : Average_EXT_Temp;
     }
 
     // Step 7: Select temperature based on sensor_type
-
     if(g_parameter.sensor_type == 0)
-
     {
-
         // Room (Internal)
-#if(IDLE_COMPENSATE)
-        display_temp = Average_INT_Temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val;
+#if(IDLE_COMPENSATE && HEAT_COMPENSATE)
+        display_temp = avg_sensor_temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val;
+#elif(IDLE_COMPENSATE)
+				display_temp = avg_sensor_temp - adc_ctrl.idle_comp_val;
 #else
-				display_temp = Average_INT_Temp;
+				display_temp = avg_sensor_temp;
 #endif
 				display_temp += g_parameter.temp_correct_internal;
-
-				//LOGD("Avg_INT_Temp : %.2f\r\n", display_temp);
-
+    }
+    else
+    {
+        // Floor (External)
+        display_temp = avg_sensor_temp;
+				display_temp += g_parameter.temp_correct_external;
     }
 
-    else
+    // Publish for Draw_Active_Menu redraws (BEFORE state check so it stays
+    // fresh even during WINDOW_OPEN_DETECTED etc.)
+    current_display_temp = display_temp;
 
+    // Step 5: Only update LCD when UI_state is ACTIVE or SLEEP
+    if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP))
     {
+        return;
+    }
 
-        // Floor (External)
-
-        display_temp = Average_EXT_Temp;
-
-				display_temp += g_parameter.temp_correct_external;
-
+    // Step 6: Only update when main display is showing room temperature
+    if(main_display_digi != Display_Room_Temp)
+    {
+        return;
     }
 
     // Step 8: Update LCD temperature display
-
     if(display_temp > -99)
-
     {
-
         if(Relay == RELAY_OFF)
-
         {
-
             color = BLACK;
-
         }
-
         else
-
         {
-
             color = RED;
-
         }
-
         Display_Number(display_temp, color, 1);
-
         GUI_DrawMonoIcon24x24(93, 53, BLACK, WHITE, Celsius_Icon_24x24);
-
+				//LOGD("DSP Temp,%.1f\r\n", display_temp);
     }
-
     else
-
     {
-
         // Temperature not ready yet: draw two horizontal lines
-
         //LCD_Fill(24, 74, 51, 78, BLACK);
 				LCD_Fill(23, 87, 53, 91, BLACK);
         //LCD_Fill(60, 74, 91, 78, BLACK);

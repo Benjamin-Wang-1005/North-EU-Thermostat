@@ -464,6 +464,11 @@
               <FileType>1</FileType>
               <FilePath>..\USER\Language.c</FilePath>
             </File>
+            <File>
+              <FileName>Adaptive_Start.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\USER\Adaptive_Start.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

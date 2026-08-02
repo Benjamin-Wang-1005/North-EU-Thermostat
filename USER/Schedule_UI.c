@@ -230,7 +230,7 @@ void Draw_Schedule_Edit_Row(uint8_t row, uint8_t period_idx, uint8_t selected)
 	uint8_t row_height = 32;
 	uint16_t text_color, bg_color;
 	char time_str[6];
-	char temp_str[3];
+	char temp_str[4];
 	char period_name[3];
 
 	if(selected) {

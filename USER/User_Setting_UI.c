@@ -367,7 +367,7 @@ void Draw_User_Setting_Setclk_Content(uint8_t selection)
 	// Hour label (y=46)
 	POINT_COLOR = hour_color;
 	BACK_COLOR = WHITE;
-	Show_Str(22, 46, hour_color, WHITE, "Hour", 16, 0);
+	Show_Str(22, 46, hour_color, WHITE, (char*)LanguageTable[STR_Hour][g_parameter.language], 16, 0);
 
 	// Hour arrows (y=58, centered between digits x=32)
 	if(selection == 1) {
@@ -388,7 +388,7 @@ void Draw_User_Setting_Setclk_Content(uint8_t selection)
 
 	// Min label (y=46)
 	POINT_COLOR = min_color;
-	Show_Str(78, 46, min_color, WHITE, "Min", 16, 0);
+	Show_Str(78, 46, min_color, WHITE, (char*)LanguageTable[STR_Min][g_parameter.language], 16, 0);
 
 	// Min arrows (y=58, centered between digits x=84)
 	if(selection == 2) {

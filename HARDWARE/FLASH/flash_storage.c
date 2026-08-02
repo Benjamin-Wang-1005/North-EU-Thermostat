@@ -20,6 +20,7 @@
 
 #include "flash_storage.h"
 #include "Thermostat.h"
+#include "Language.h"
 #include <string.h>
 
 // External global parameter structure
@@ -129,7 +130,7 @@ flash_status_t Flash_Save_Parameter(void)
     
     // Prepare header
     header.magic = FLASH_STORAGE_MAGIC;
-    header.version = 1;
+    header.version = 2;
     header.size = sizeof(g_parameter_t);
     header.checksum = Calculate_Checksum((uint8_t *)&g_parameter, sizeof(g_parameter_t));
     
@@ -180,6 +181,97 @@ flash_status_t Flash_Save_Parameter(void)
 }
 
 //---------------------------------------------------------------------------------------------------------
+// Function: Clamp_Parameter_Ranges
+// Description: Sanity-clamp g_parameter fields loaded from Flash.
+//      Flash data may pass checksum yet contain out-of-range values
+//      (old firmware variants, partial writes). Index-type fields can
+//      otherwise cause HardFaults (e.g. LanguageTable out-of-bounds).
+//      Fallback values match golbal_par_init() defaults in Board_init.c.
+//---------------------------------------------------------------------------------------------------------
+static void Clamp_Parameter_Ranges(void)
+{
+    uint8_t i, j;
+    // Default schedule entries - keep in sync with Board_init.c
+    static const uint8_t default_workday[6][4] = {
+        {5, 30, 20, 1}, {8, 30, 20, 1}, {10, 30, 20, 1},
+        {12, 30, 20, 1}, {18, 30, 20, 1}, {21, 30, 20, 1}
+    };
+    static const uint8_t default_holiday[6][4] = {
+        {7, 0, 20, 1}, {9, 0, 20, 1}, {12, 0, 20, 1},
+        {14, 0, 20, 1}, {18, 0, 20, 1}, {22, 0, 20, 1}
+    };
+
+    //--- Group 1: index/enum fields (out-of-range can crash or draw garbage) ---
+    if (g_parameter.language >= LANG_MAX)        g_parameter.language = 0;
+    if (g_parameter.current_prog_type > 2)       g_parameter.current_prog_type = 0;
+    if (g_parameter.operation_mode > 2)          g_parameter.operation_mode = 0;
+    if (g_parameter.sensor_type > 1)             g_parameter.sensor_type = 0;
+    if (g_parameter.power_on_state < 1 ||
+        g_parameter.power_on_state > 3)          g_parameter.power_on_state = 2;
+    if (g_parameter.floor_material > 2)          g_parameter.floor_material = 1;
+    if (g_parameter.comfort_mode > 1)            g_parameter.comfort_mode = 0;
+    if (g_parameter.font_size > 1)               g_parameter.font_size = 0;
+
+    //--- Group 2: boolean switches (invalid -> safe state) ---
+    if (g_parameter.child_lock > 1)              g_parameter.child_lock = 0;
+    if (g_parameter.window_fun > 1)              g_parameter.window_fun = 0;
+    if (g_parameter.adaptive_start > 1)          g_parameter.adaptive_start = 0;
+    if (g_parameter.power_limit_switch > 1)      g_parameter.power_limit_switch = 0;
+    if (g_parameter.temp_protect_max_switch > 1) g_parameter.temp_protect_max_switch = 0;
+    if (g_parameter.temp_protect_min_switch > 1) g_parameter.temp_protect_min_switch = 1; // frost protection default ON
+
+    //--- Group 3: ranged numeric fields (aligned with UI limits) ---
+    if (g_parameter.window_fun_time < 5 || g_parameter.window_fun_time > 60)
+        g_parameter.window_fun_time = 30;
+    if (g_parameter.window_fun_temp < 3 || g_parameter.window_fun_temp > 20)
+        g_parameter.window_fun_temp = 5;
+    if (g_parameter.sleep_backlight_duty > 70)
+        g_parameter.sleep_backlight_duty = 20;
+    if (g_parameter.power_limit < 1 || g_parameter.power_limit > 30)
+        g_parameter.power_limit = 6;
+    if (g_parameter.pwm_day_duty < 10 || g_parameter.pwm_day_duty > 90)
+        g_parameter.pwm_day_duty = 50;
+    if (g_parameter.pwm_night_duty < 10 || g_parameter.pwm_night_duty > 90)
+        g_parameter.pwm_night_duty = 50;
+    if (g_parameter.temp_swing < 0.5f || g_parameter.temp_swing > 3.0f)
+        g_parameter.temp_swing = 1.0f;
+    if (g_parameter.temp_limit_max < 20 || g_parameter.temp_limit_max > DEVICE_OPERATION_TEMPERATURE_MAX)
+        g_parameter.temp_limit_max = INPUT_TEMPERATURE_MAX_DEFAULT;
+    if (g_parameter.temp_limit_min < (DEVICE_OPERATION_TEMPERATURE_MIN + 5) || g_parameter.temp_limit_min > 10)
+        g_parameter.temp_limit_min = INPUT_TEMPERATURE_MIN_DEFAULT;
+    if (g_parameter.temp_protect_max < MIN_TEMP_HIGH_TEMP_PROTECT || g_parameter.temp_protect_max > DEVICE_OPERATION_TEMPERATURE_MAX)
+        g_parameter.temp_protect_max = DEVICE_PROTECT_TEMP_MAX_DEFAULT;
+    if (g_parameter.temp_protect_min < DEVICE_OPERATION_TEMPERATURE_MIN || g_parameter.temp_protect_min > MAX_TEMP_LOW_TEMP_PROTECT)
+        g_parameter.temp_protect_min = DEVICE_PROTECT_TEMP_MIN_DEFAULT;
+    if (g_parameter.astro_day_hour > 23)   g_parameter.astro_day_hour = 5;
+    if (g_parameter.astro_day_min > 59)    g_parameter.astro_day_min = 30;
+    if (g_parameter.astro_night_hour > 23) g_parameter.astro_night_hour = 18;
+    if (g_parameter.astro_night_min > 59)  g_parameter.astro_night_min = 0;
+    if (g_parameter.r_mild <= 0.001f || g_parameter.r_mild > 1.0f)
+        g_parameter.r_mild = AS_DEFAULT_R_MILD;
+    if (g_parameter.r_cold <= 0.001f || g_parameter.r_cold > 1.0f)
+        g_parameter.r_cold = AS_DEFAULT_R_COLD;
+
+    //--- Group 4: schedule entries (restore whole entry if any field invalid) ---
+    for (i = 0; i < 6; i++) {
+        if (g_parameter.workday_schedule[i][0] > 23 || g_parameter.workday_schedule[i][1] > 59 ||
+            g_parameter.workday_schedule[i][2] > 70 || g_parameter.workday_schedule[i][3] > 1) {
+            for (j = 0; j < 4; j++) g_parameter.workday_schedule[i][j] = default_workday[i][j];
+        }
+        if (g_parameter.holiday_schedule[i][0] > 23 || g_parameter.holiday_schedule[i][1] > 59 ||
+            g_parameter.holiday_schedule[i][2] > 70 || g_parameter.holiday_schedule[i][3] > 1) {
+            for (j = 0; j < 4; j++) g_parameter.holiday_schedule[i][j] = default_holiday[i][j];
+        }
+    }
+
+    //--- Group 5: dependent clamp (must run after temp limits are fixed) ---
+    if (g_parameter.setting_number < g_parameter.temp_limit_min)
+        g_parameter.setting_number = g_parameter.temp_limit_min;
+    if (g_parameter.setting_number > g_parameter.temp_limit_max)
+        g_parameter.setting_number = g_parameter.temp_limit_max;
+}
+
+//---------------------------------------------------------------------------------------------------------
 // Function: Flash_Load_Parameter
 // Description: Load g_parameter structure from Flash
 //      - Reads from the last page of Flash (0x0803F800)
@@ -196,6 +288,7 @@ flash_status_t Flash_Load_Parameter(void)
     uint32_t word_count;
     uint32_t checksum;
 		uint32_t i;
+		uint8_t is_old_version = 0;
     
     // Read header
     header = (storage_header_t *)FLASH_STORAGE_ADDRESS;
@@ -205,16 +298,20 @@ flash_status_t Flash_Load_Parameter(void)
         return FLASH_ERROR_INVALID_DATA;
     }
     
-    // Validate size
-    if (header->size != sizeof(g_parameter_t)) {
+    // Validate size - accept current or legacy version 1 size
+    if (header->size == sizeof(g_parameter_t)) {
+        is_old_version = 0;
+    } else if (header->size == FLASH_PARAM_VERSION_1_SIZE) {
+        is_old_version = 1;
+    } else {
         return FLASH_ERROR_INVALID_DATA;
     }
     
     // Read g_parameter data
     read_address = FLASH_STORAGE_ADDRESS + sizeof(storage_header_t);
     data_ptr = (uint32_t *)&g_parameter;
-    data_size = sizeof(g_parameter_t);
-    word_count = (data_size + 3) / 4;  // Round up to nearest 4 bytes
+    data_size = is_old_version ? FLASH_PARAM_VERSION_1_SIZE : sizeof(g_parameter_t);
+    word_count = (data_size + 3) / 4;
     
     for (i = 0; i < word_count; i++) {
         *data_ptr = *(volatile uint32_t *)read_address;
@@ -222,11 +319,20 @@ flash_status_t Flash_Load_Parameter(void)
         read_address += 4;
     }
     
-    // Verify checksum
-    checksum = Calculate_Checksum((uint8_t *)&g_parameter, sizeof(g_parameter_t));
+    // Verify checksum (using the stored data size)
+    checksum = Calculate_Checksum((uint8_t *)&g_parameter, data_size);
     if (checksum != header->checksum) {
         return FLASH_ERROR_INVALID_DATA;
     }
+    
+    // If loading legacy data, initialize new fields to defaults
+    if (is_old_version) {
+        g_parameter.r_mild = AS_DEFAULT_R_MILD;
+        g_parameter.r_cold = AS_DEFAULT_R_COLD;
+    }
+
+    // Clamp field ranges (defense against out-of-range Flash data)
+    Clamp_Parameter_Ranges();
     
     return FLASH_OK;
 }

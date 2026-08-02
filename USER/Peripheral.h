@@ -24,7 +24,7 @@
 #define		MAX_ALARM_NUMBER							(5)
 #define		ACTIVE_ALIVE_TIME							(20000)						//20 sec
 #define		DIGI_UPDATE_TIME							(10000)						//10 sec
-#define		SETTING_UPDATE_TIME						(20000)						//20 sec
+#define		SETTING_UPDATE_TIME						(10000)						//10 sec (QA Spec 2.1)
 //#define		FACTORY_KEY_TEST_TIME					(20000)						//20 sec
 #define		Upkey_Mask										(1)
 #define		Downkey_Mask									(2)
@@ -144,7 +144,8 @@ extern volatile uint32_t time_tick;
 extern struct_key_t key;
 extern uint32_t nop_per_us;
 extern uint8_t weekday;
-extern uint8_t rtc_rest;
+extern uint8_t rtc_empty;
+extern uint8_t rtc_reset;
 extern cmd_queue_t cmd_queue;
 extern uint8_t pwm_is_daytime;
 

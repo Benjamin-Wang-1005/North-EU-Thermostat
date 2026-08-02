@@ -53,15 +53,15 @@ typedef struct{
 		unsigned char  pin_code[4];  // 4-digit PIN code for child lock
 		unsigned char  current_prog_type;
 		unsigned char  relay_staty;
-		unsigned char  operation_mode;
+		unsigned char  operation_mode;		// 0=Manual Mode, 1=Schedule Mode, 2=PWM Mode
 		unsigned char  sensor_type;				// 0=Room, 1=Floor
 		unsigned char  power_limit;
 		unsigned char  power_limit_switch;
 		//unsigned char  pwm_duty_cycle;
 		//unsigned char  pwm_duration;
 		unsigned char  temp_diff;
-		unsigned char  comfort_mode;
-		unsigned char  floor_material;
+		unsigned char  comfort_mode;				// reserved: Comfort Mode removed (Flash layout kept)
+		unsigned char  floor_material;				// reserved: Comfort Mode removed (Flash layout kept)
 		unsigned char  rtc_set_flag;
 		unsigned char  language;
 		unsigned char  workday_schedule[6][4];
@@ -77,6 +77,8 @@ typedef struct{
 		unsigned char  pwm_day_duty;
 		unsigned char  pwm_night_duty;
 		unsigned char  adaptive_start;
+		float  r_mild;       // Adaptive Start rate-of-rise for mild zone (>= 16C)
+		float  r_cold;       // Adaptive Start rate-of-rise for cold zone (< 16C)
 
  }g_parameter_t;
 
@@ -93,6 +95,9 @@ extern uint8_t	Top_Bar_Active;
 extern uint8_t schedule_edit_scroll;
 extern uint8_t schedule_edit_source;
 extern uint8_t item_selection;
+extern uint8_t set_time_from_boot;
+extern uint8_t leave_icon_color;
+extern uint8_t edit_icon_color;
 //extern uint8_t schedule_settings[6][4];
 //extern uint8_t schedule_settings_restday[6][4];
 extern uint8_t schedule_time_edit_hour;        // (0-23)
@@ -122,6 +127,9 @@ extern uint8_t window_fun_triggered;
 extern uint8_t window_open_confirm_selection;
 extern uint8_t window_open_flash_state;
 extern float window_fun_temp_buffer[60];
+extern float window_fun_buffer_a[16];
+extern uint8_t window_fun_buffer_a_count;
+extern uint8_t window_fun_b_divider;
 extern uint8_t window_fun_buffer_count;
 extern uint8_t window_fun_buffer_index;
 extern volatile uint8_t window_fun_int_updated;
@@ -142,8 +150,6 @@ extern uint8_t temp_astro_night_hour;
 extern uint8_t temp_astro_night_min;
 extern uint8_t temp_pwm_day_duty;
 extern uint8_t temp_pwm_night_duty;
-extern uint8_t comfort_mode;
-extern uint8_t floor_material;
 extern float temp_swing;
 extern uint8_t child_lock_flag;
 
@@ -221,10 +227,6 @@ void Draw_Control_Adj_Power_Limit_Page(uint8_t selection, uint8_t leave_col, uin
 void Draw_Control_Adj_PWM_Duty_Cycle_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection);
 void Draw_Control_Adj_Power_Limit_Content(uint8_t selection);
-void Draw_Control_Adj_Comfort_Mode_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
-void Draw_Control_Adj_Comfort_Mode_Content(uint8_t selection);
-void Draw_Control_Adj_Comfort_Mode_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
-void Draw_Control_Adj_Comfort_Mode_Setting_Content(uint8_t selection);
 void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection);
 void Draw_User_Setting_Language_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);

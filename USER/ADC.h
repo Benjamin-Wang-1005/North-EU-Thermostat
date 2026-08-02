@@ -33,7 +33,7 @@
 #define NTC_BUFFER_SIZE					16
 #define ADC_AVG_BUFFER_SIZE     18
 #define INT_NTC_COMPENSATE			1.75f
-#define INT_NTC_COMP_STEP				60								//Thermostat increase 1.75C at 60 min
+#define INT_NTC_COMP_STEP				40								//Thermostat increase 1.75C at 40 min
 #define IDLE_COMPENSATE					1
 #define HEAT_COMPENSATE_VAL			6.5f
 #define HEAT_COMP_STEP					40
@@ -104,7 +104,9 @@ extern adc_thermostat_t adc_ctrl;
 extern adc_thermostat_t adc_ctrl;
 extern volatile float Average_INT_Temp;
 extern volatile float Average_EXT_Temp;
+extern volatile float current_display_temp;
 extern volatile uint8_t display_update_throttle_trigger;  // Set when throttle counter triggers (same rhythm as ACTIVE display update)
+extern volatile uint8_t display_refresh_request;
 
 
 

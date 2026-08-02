@@ -68,10 +68,10 @@ enum{
 		STATE_USER_SETTING_WINDOW_TIME,
 		STATE_USER_SETTING_SET_TIME,
 		STATE_USER_SETTING_SET_CLK,
-		STATE_USER_SETTING_COMFORT_MODE,
+		//STATE_USER_SETTING_COMFORT_MODE,
 		STATE_USER_SETTING_LANGUAGE,
 		STATE_USER_SETTING_ADAPTIVE_START,
-		STATE_USER_SETTING_COMFORT_MODE_SETTING,
+		//STATE_USER_SETTING_COMFORT_MODE_SETTING,
 		STATE_USER_SETTING_BACKLIGHT,
 		STATE_USER_SETTING_RESET,
 		
@@ -138,11 +138,11 @@ extern const uint8_t User_Setting_Menu_Item_Count;
 #define STATE_LEAVE_SCHEDULE_CONFIRM 29 */
 
 // Thermostat Temperature Limit Define
-#define INPUT_TEMPERATURE_MAX_DEFAULT 50
+#define INPUT_TEMPERATURE_MAX_DEFAULT 55
 #define INPUT_TEMPERATURE_MIN_DEFAULT 0
 #define DEVICE_OPERATION_TEMPERATURE_MAX 70
 #define DEVICE_OPERATION_TEMPERATURE_MIN -20
-#define DEVICE_PROTECT_TEMP_MAX_DEFAULT 60
+#define DEVICE_PROTECT_TEMP_MAX_DEFAULT 55
 #define DEVICE_PROTECT_TEMP_MIN_DEFAULT 4
 #define MIN_TEMP_HIGH_TEMP_PROTECT 30
 #define MAX_TEMP_LOW_TEMP_PROTECT 10
@@ -175,6 +175,7 @@ typedef enum
 #include "rtc_driver.h"
 #include "flash_storage.h"
 #include "Language.h"
+#include "Adaptive_Start.h"
 
 #define			u8					uint8_t
 #define			u16					uint16_t
@@ -221,6 +222,7 @@ void sys_tick_Init(void);
 void golbal_par_init(void);
 void relay_init(void);
 void Thermostat_Update(void);
+void g_check_rtc(void);
 
 extern float setting_number;
 extern rtc_time_t rtc_time;

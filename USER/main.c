@@ -77,7 +77,7 @@ int main(void)
 	LOGD("-----------------  Program Start --------------------------\n\r");
 	
 	my_RTC_Init();			 //Read RTC Time
-
+	
 #if(!SIMULATION)
 	Thermostat_ADC_Init();
 	LOGD("Comp_step:%.2f\r\n", adc_ctrl.idle_comp_step_val);
@@ -86,35 +86,38 @@ int main(void)
 	adc_ctrl.ext_ntc_valid = 1;
 #endif
 	
-	if (Flash_Load_Parameter() != FLASH_OK) {
-        LOGD("Flash load failed, using default values\r\n");
-        golbal_par_init();
-				adc_ctrl.idle_comp_count = 0;
-				adc_ctrl.heating_comp_count = 0;
-        if(Flash_Save_Parameter() != FLASH_OK){
-						LOGE("Flash write fail!\r\n");
-				}
-        LOGD("Default values saved to Flash\r\n");
-   } else {
+	flash_status_t flash_status = Flash_Load_Parameter();
+	if (flash_status != FLASH_OK) {
+				LOGD("Flash load failed, retrying after 500ms\r\n");
+				my_delay_ms(500);
+				flash_status = Flash_Load_Parameter();
+	}
+
+	if (flash_status == FLASH_OK) {
         LOGD("Parameters loaded from Flash\r\n");
-				
-				if(rtc_rest){
+				g_check_rtc();
+				if(rtc_empty || rtc_reset){
 						adc_ctrl.idle_comp_count = 0;
 						adc_ctrl.heating_comp_count = 0;
 				}else{
 						temp_time = g_check_power_off_time();
-						if(temp_time >= 60){
+						if(temp_time >= INT_NTC_COMP_STEP){
 								adc_ctrl.idle_comp_count = 0;
-								adc_ctrl.heating_comp_count = 0;
+								adc_ctrl.idle_comp_val = 0;
 						}else{
-								if((g_parameter.idle_comp_count <= 60) && (g_parameter.idle_comp_count >= (temp_time))){
+								if((g_parameter.idle_comp_count <= INT_NTC_COMP_STEP) && (g_parameter.idle_comp_count >= (temp_time))){
 										adc_ctrl.idle_comp_count = g_parameter.idle_comp_count - (temp_time);
 										adc_ctrl.idle_comp_val = adc_ctrl.idle_comp_step_val * adc_ctrl.idle_comp_count;
 								}else{
 										adc_ctrl.idle_comp_count = 0;
 										adc_ctrl.idle_comp_val = 0;
 								}
-								if((g_parameter.heatting_comp_count <= 60) && (g_parameter.heatting_comp_count >= temp_time)){
+						}
+						if(temp_time >= HEAT_COMP_STEP){
+								adc_ctrl.heating_comp_count = 0;
+								adc_ctrl.heating_comp_val = 0;
+						}else{
+								if((g_parameter.heatting_comp_count <= HEAT_COMP_STEP) && (g_parameter.heatting_comp_count >= temp_time)){
 										adc_ctrl.heating_comp_count = g_parameter.heatting_comp_count - temp_time;
 										adc_ctrl.heating_comp_val = adc_ctrl.heatting_comp_step_val * adc_ctrl.heating_comp_count;
 								}else{
@@ -125,7 +128,17 @@ int main(void)
 						LOGD("idle_count : %d\r\n",adc_ctrl.idle_comp_count);
 						LOGD("heatting_count : %d\r\n", adc_ctrl.heating_comp_count);
 				}
+   } else {
+        LOGD("Flash load failed, using default values\r\n");
+        golbal_par_init();
+				adc_ctrl.idle_comp_count = 0;
+				adc_ctrl.heating_comp_count = 0;
+        if(Flash_Save_Parameter() != FLASH_OK){
+						LOGE("Flash write fail!\r\n");
+				}
+        LOGD("Default values saved to Flash\r\n");
    }
+	 //LOGD("Power_ON_State %d\r\n", g_parameter.power_on_state);
 	 relay_init();
 
 	 // Initialize PWM day/night state from current RTC time
@@ -143,14 +156,36 @@ int main(void)
 	 if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
 			 LOGE("Alarm Fail\r\n");
 	 }
-	 Draw_Active_Menu();
-	 
-	 if(rtc_rest){
-				LOGD("RTC Reset!\r\n");
-	 }else{
-			LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);	
-	 }
 	 get_schedule_period();
+	 Draw_Active_Menu();
+	 if(rtc_empty){
+				LOGD("RTC Empty!\r\n");
+	 }else if(rtc_reset){						//RTC had lost time
+				LOGD("RTC Reset!\r\n");
+				if(g_parameter.operation_mode != 0){
+						// QA Spec 5.3: Schedule Mode with invalid RTC - force user to set time
+						set_time_from_boot = 1;
+						delete_alarm(Active_Alarm);
+						if(register_alarm(Setting_Menu_Alarm, SETTING_UPDATE_TIME) == eFALSE){
+								LOGE("Alarm Fail\r\n");
+						}
+						UI_state = STATE_USER_SETTING_SET_TIME;
+						Top_Bar_Active = 1;
+						item_selection = 0;
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						temp_rtc.Year = rtc_time.Year;
+						temp_rtc.Mon = rtc_time.Mon;
+						temp_rtc.Date = rtc_time.Date;
+						temp_rtc.Hour = rtc_time.Hour;
+						temp_rtc.Min = rtc_time.Min;
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_User_Setting_SetTime_Page(item_selection, leave_icon_color, edit_icon_color);
+				}
+	 }else{
+				LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);	
+	 }
+	 
 	  
 		
 	// Initialize ADC and measure VCC voltage

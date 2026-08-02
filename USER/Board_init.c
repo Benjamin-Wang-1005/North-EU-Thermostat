@@ -28,13 +28,15 @@ void cmd_init(void);
 //
 //---------------------------------------------------------------------------------------------------------
 
-uint8_t rtc_rest = 0;
+uint8_t rtc_empty = 0;
+uint8_t rtc_reset = 0;
 void my_RTC_Init(void)
 	
 {
-		uint8_t rtc_status, need_ini = 0;
+		uint8_t rtc_status;
 		// Initialize RTC
 		rtc_status = RTC_Init();
+		
 		cmd_init();								//Initial UART1 fifo buffer
 		
 		if (rtc_status == RTC_OK)
@@ -42,17 +44,13 @@ void my_RTC_Init(void)
 				// Read current time from RTC
 				RTC_ReadTime(&rtc_time);
 				// Check if RTC was previously configured
-				if (!RTC_IsConfigured() || rtc_time.Year < 26)
-				{
-						need_ini = 1;
-				}
-				if(need_ini)
+				if (!RTC_IsConfigured())
 				{
 						// First time boot - set default time
 						RTC_GetDefaultTime(&rtc_time);
 						RTC_SetTime(&rtc_time);
-						rtc_rest = 1;
-						//LOGD("RTC Reset!\n\r");
+						BKP_WriteBackupRegister(BKP_DR1, 0x0000);	// Default time is NOT user-configured (QA 5.3)
+						rtc_empty = 1;
 				}
 		
 				// Start RTC counting
@@ -60,6 +58,45 @@ void my_RTC_Init(void)
 		}
 		
 		
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Funcation: g_check_rtc(void)
+// Description: use currect RTC time to compare with Flash RTC Time
+// 		- current RTC < Flash RTC  => RTC Reset
+//		- current RTC > Flash RTC + 5 days  => RTC Reset
+// Input:
+// Output: 1 => RTC Reset 
+// Date: 2026/07/31
+// Update: 
+//---------------------------------------------------------------------------------------------------------
+void g_check_rtc(void)
+{
+			uint32_t flash_time, elapsed = 0;
+	
+			flash_time = g_parameter.backup_rtc.Year * 525600;
+			flash_time += g_parameter.backup_rtc.Mon * 43200;
+			flash_time += g_parameter.backup_rtc.Date * 1440;
+			flash_time += g_parameter.backup_rtc.Hour * 60;
+			flash_time += g_parameter.backup_rtc.Min;
+	
+			elapsed = g_parameter.backup_rtc.Year * 525600; 		// One Year 
+			elapsed += g_parameter.backup_rtc.Mon * 43200;			// One Month
+			elapsed += g_parameter.backup_rtc.Date * 1440;			// One Date
+			elapsed += g_parameter.backup_rtc.Hour * 60;				// One Hour
+			elapsed += g_parameter.backup_rtc.Min;
+	
+			if((flash_time > elapsed) || (elapsed > (flash_time + 7200))){
+					rtc_reset = 1;
+					//Set to default time
+					RTC_GetDefaultTime(&rtc_time);
+					RTC_SetTime(&rtc_time);
+					BKP_WriteBackupRegister(BKP_DR1, 0x0000);
+			}else{
+					rtc_reset = 0;
+			}
+	
+			
 }
 
 
@@ -167,8 +204,8 @@ void golbal_par_init(void)
 		g_parameter.sensor_type = 0;								//'0'=Room, '1'=Floor
 		g_parameter.setting_number = 18.0f;					//Initial set to 18
 		g_parameter.sleep_backlight_duty = 20;			//Duty 20%
-		g_parameter.temp_correct_external = -0.5f;	//Minus 0.5
-		g_parameter.temp_correct_internal = -1.0f;	//Minus 1
+		g_parameter.temp_correct_external = 0;			
+		g_parameter.temp_correct_internal = 0;			
 		g_parameter.temp_limit_max = INPUT_TEMPERATURE_MAX_DEFAULT;						// Setup temp limit max value
 		g_parameter.temp_limit_min = INPUT_TEMPERATURE_MIN_DEFAULT;
 		g_parameter.temp_swing = 1;									// swing range 0.5 ~ 3, 0.5 as one step
@@ -181,12 +218,12 @@ void golbal_par_init(void)
 		g_parameter.window_fun_temp = 5;
 		g_parameter.window_fun_time = 30;
 		g_parameter.adaptive_start = 0;								//OFF
-	g_parameter.language = 0;										//English
+		g_parameter.r_mild = AS_DEFAULT_R_MILD;				//Default mild-zone rate-of-rise
+		g_parameter.r_cold = AS_DEFAULT_R_COLD;				//Default cold-zone rate-of-rise
+		g_parameter.language = 0;										//English
 		g_parameter.font_size = 0;									//size 8x16
 		g_parameter.idle_comp_count = 0;									//Reset temperature compensation
-		g_parameter.heatting_comp_count = 0;	
-		//g_parameter.pwm_duty_cycle = 50;						
-		//g_parameter.pwm_duration = 1;								
+		g_parameter.heatting_comp_count = 0;				
 		g_parameter.astro_day_hour = 5;
 		g_parameter.astro_day_min = 30;
 		g_parameter.astro_night_hour = 18;
@@ -199,6 +236,8 @@ void golbal_par_init(void)
 		child_lock_flag = 0;
 		//Display_INT_Temp = -100;
 		//Display_EXT_Temp = -100;
+
+		adaptive_start_init();
 
 }
 
@@ -224,9 +263,11 @@ void relay_init(void)
 		}else if(g_parameter.power_on_state == 2){			//Relay Off
 				Relay = RELAY_OFF;
 				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);		//Close relay
-		}else if(g_parameter.relay_staty == 3){					//Relay on
+				g_parameter.relay_staty = Relay;
+		}else if(g_parameter.power_on_state == 3){					//Relay on
 				Relay = RELAY_ON;
 				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_SET);			//Open relay
+				g_parameter.relay_staty = Relay;
 		}
 		
 		//old_relay_state = Relay;
