@@ -133,7 +133,7 @@ uint8_t schedule_edit_source = 0;
 	
 // Menu item definitions for Control Adj Menu
 const MenuItem_t Control_Adj_Menu_Items[] = {
-	{STR_Sensor, STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
+	{STR_Main_Sensor, STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
 	{STR_Temperature_Swing, STATE_CONTROL_TEMP_SWING, Draw_Control_Adj_Temp_Swing_Page, NULL},
 	{STR_PWM_Setting, STATE_CONTROL_ADJ_PWM_SETTING, Draw_Control_Adj_PWM_Setting_Page, NULL},
 	{STR_Power_Limit, STATE_CONTROL_POWER_LIMIT, Draw_Control_Adj_Power_Limit_Page, NULL},
@@ -144,23 +144,12 @@ const MenuItem_t Control_Adj_Menu_Items[] = {
 };
 const uint8_t Control_Adj_Menu_Item_Count = sizeof(Control_Adj_Menu_Items) / sizeof(Control_Adj_Menu_Items[0]);
 
-const MenuItem_t Control_Adj_Menu_Items_12x24[] ={
-	{STR_Sensor, STATE_CONTROL_ADJ_SENSOR, Draw_Control_Adj_Sensor_Page, NULL},
-	{STR_hysteresis, STATE_CONTROL_TEMP_SWING, Draw_Control_Adj_Temp_Swing_Page, NULL},
-	{STR_PWM_Setting, STATE_CONTROL_ADJ_PWM_SETTING, Draw_Control_Adj_PWM_Setting_Page, NULL},
-	{STR_Power_Limit, STATE_CONTROL_POWER_LIMIT, Draw_Control_Adj_Power_Limit_Page, NULL},
-	{STR_Calibrate, STATE_CONTROL_ADJ_TEMP_CORRECT, Draw_Control_Adj_TempCorrect_Page, NULL},
-	{STR_Input_Limit, STATE_CONTROL_ADJ_TEMP_LIMIT, Draw_Control_Adj_TempLimit_Page, NULL},
-	{STR_Protect_Temperature, STATE_CONTROL_ADJ_TEMP_PROTECT, Draw_Control_Adj_TempProtect_Page, NULL},
-	{STR_Power_On_State, STATE_CONTROL_ADJ_POWER_ON_STATE, Draw_Control_Adj_Power_On_State_Page, NULL},
-};
-
 // Menu item definitions for User Setting Menu
 const MenuItem_t User_Setting_Menu_Items[] = {
-	{STR_Child_lock, STATE_USER_SETTING_CHILD_LOCK, Draw_User_Setting_Child_Lock_Page, NULL},
+	{STR_Child_Lock_Setting, STATE_USER_SETTING_CHILD_LOCK, Draw_User_Setting_Child_Lock_Page, NULL},
 	{STR_Window_Function, STATE_USER_SETTING_WINDOW_FUN, Draw_User_Setting_Window_Fun_Page, NULL},
-	{STR_Set_Time, STATE_USER_SETTING_SET_TIME, Draw_User_Setting_SetTime_Page, NULL},
-	{STR_Language, STATE_USER_SETTING_LANGUAGE, Draw_User_Setting_Language_Page, NULL},
+	{STR_Set_Date_Time, STATE_USER_SETTING_SET_TIME, Draw_User_Setting_SetTime_Page, NULL},
+	{STR_Multi_Language, STATE_USER_SETTING_LANGUAGE, Draw_User_Setting_Language_Page, NULL},
 	{STR_Adaptive_Start, STATE_USER_SETTING_ADAPTIVE_START, Draw_User_Setting_Adaptive_Start_Page, NULL},
 	{STR_Set_Backlight, STATE_USER_SETTING_BACKLIGHT, Draw_User_Setting_Backlight_Page, NULL},
 	{STR_Factory_Reset, STATE_USER_SETTING_RESET, Draw_User_Setting_Reset_Page, NULL},
@@ -630,7 +619,8 @@ void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc,
 // selected: 1=selected (red bg), 0=not selected
 void Draw_Function_Setting_Edit_Row(uint8_t row, uint8_t selected)
 {
-	uint16_t row_y[4] = {27, 59, 91, 123};
+	//uint16_t row_y[4] = {27, 59, 91, 123};
+	uint16_t row_y[4] = {30, 68, 106, 144};
 	uint16_t text_color, bg_color;
 	uint8_t row_height = 32;
 	uint8_t visible_rows = 4;
@@ -643,11 +633,11 @@ void Draw_Function_Setting_Edit_Row(uint8_t row, uint8_t selected)
 	if(selected) {
 		text_color = WHITE;
 		bg_color = RED;
-		LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + row_height, RED);
+		LCD_Fill(4, row_y[row], lcddev.width - 4, row_y[row] + row_height, RED);
 	} else {
 		text_color = BLACK;
 		bg_color = WHITE;
-		LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + row_height, WHITE);
+		LCD_Fill(4, row_y[row], lcddev.width - 4, row_y[row] + row_height, WHITE);
 	}
 
 	// Draw the row content based on item index
@@ -693,17 +683,7 @@ void Draw_Function_Setting_Page(uint8_t selection, uint8_t Leave_col, uint8_t Ed
 	uint8_t max_scroll;
 
 	visible_rows = 4;
-	max_scroll = (4 > visible_rows) ? (4 - visible_rows) : 0;
-
-	// Auto-adjust scroll so that selected item is visible
-	if(!Top_Bar_Active && selection > 0) {
-		if(selection > func_setting_scroll + visible_rows) {
-			func_setting_scroll = selection - visible_rows;
-		}
-		if(selection - 1 < func_setting_scroll) {
-			func_setting_scroll = selection - 1;
-		}
-	}
+	max_scroll = 1;   // scroll 只允許 0(4列) 或 1(3列)
 
 	// Ensure scroll is valid
 	if(func_setting_scroll > max_scroll) func_setting_scroll = max_scroll;
@@ -731,43 +711,58 @@ void Draw_Function_Setting_Page(uint8_t selection, uint8_t Leave_col, uint8_t Ed
 		}
 		Draw_Function_Setting_Edit_Row(i, is_selected);
 	}
+	LCD_Fill(0, 155, lcddev.width, lcddev.height, WHITE);
 }
 
 void Draw_Opeaation_Mode_Choices(uint8_t selection)
 {
-	uint16_t row_y[] = {48, 82, 112};  // Y for Manual, Schedule, PWM
-	uint8_t row_height = 26;
+	uint16_t row_y[] = {29, 69, 109};  // Y for Manual, Schedule, PWM
+	uint8_t row_height = 32;
 	uint8_t i;
 	
 	for(i = 0; i < 3; i++) {
-		LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, WHITE);
-		
-		POINT_COLOR = BLACK;
-		BACK_COLOR = WHITE;
-		if(i == 0) {
-			Show_FuncSetting_Row_Text(34, row_y[i], BLACK, WHITE, (char*)LanguageTable[STR_Manual_Mode][g_parameter.language], 16);
-		} else if(i == 1) {
-			Show_FuncSetting_Row_Text(34, row_y[i], BLACK, WHITE, (char*)LanguageTable[STR_Schedule_Mode][g_parameter.language], 16);
-		} else {
-			Show_FuncSetting_Row_Text(34, row_y[i], BLACK, WHITE, (char*)LanguageTable[STR_PWM_Mode][g_parameter.language], 16);
-		}
-		
-		// Arrow icon: vertically centered in the row
-		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
+		uint8_t is_current = 0;    // TopBar/Save mode: current saved parameter
+		uint8_t is_selected = 0;   // Edit mode: red background selection
+		uint16_t text_color, bg_color;
+
+		// Determine selection state
 		if((selection == 0) || (selection == 4)){
-				if(operation_mode == i){
-						GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);
-				}else{
-						LCD_Fill(12, arrow_y, 28, arrow_y + 16, WHITE);
-				}
+			// TopBar/Save mode: show current operation_mode without red background
+			if(operation_mode == i) is_current = 1;
 		}else{
-				if((i+1) == selection) {
-					GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);
-				}else{
-						LCD_Fill(12, arrow_y, 28, arrow_y + 16, WHITE);
-				}
+			// Edit mode: highlight the option matching selection
+			if((i+1) == selection) is_selected = 1;
+		}
+
+		if(is_selected){
+			text_color = WHITE;
+			bg_color = RED;
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, RED);
+		}else{
+			text_color = BLACK;
+			bg_color = WHITE;
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
+		}
+
+		POINT_COLOR = text_color;
+		BACK_COLOR = bg_color;
+		if(i == 0) {
+			Show_FuncSetting_Row_Text(34, row_y[i], text_color, bg_color, (char*)LanguageTable[STR_Manual_Mode][g_parameter.language], 16);
+		} else if(i == 1) {
+			Show_FuncSetting_Row_Text(34, row_y[i], text_color, bg_color, (char*)LanguageTable[STR_Schedule_Mode][g_parameter.language], 16);
+		} else {
+			Show_FuncSetting_Row_Text(34, row_y[i], text_color, bg_color, (char*)LanguageTable[STR_PWM_Mode][g_parameter.language], 16);
 		}
 		
+		// Arrow icon: always shown, vertically centered in the row
+		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
+		if(is_selected) {
+			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);       // red bg, white line
+		} else if(is_current) {
+			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);       // red bg, white line
+		} else {
+			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);     // black bg, white line
+		}
 	}
 }
 
@@ -776,15 +771,13 @@ void Draw_Operation_Mode_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t
 		Draw_TopBar(leave_col, edit_col);
 		
 	
-		// Draw "Sensor" title closer to Top Bar (left aligned, y=24 - moved up)
+		// Draw "OP Mode" title between Leave and Edit Icons in the TopBar (x=21..107, y=5..21)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		//lan_str = LanguageTable[STR_Operation_Mode][g_parameter.language];
-		//Show_Str(10, 24, BLACK, WHITE, "Operation Mode", 16, 0);
-		Show_Str(10, 24, BLACK, WHITE, (char*)LanguageTable[STR_OP_Mode][g_parameter.language], 16, 0);
+		Show_Str(30, 5, BLACK, WHITE, (char*)LanguageTable[STR_OP_Mode][g_parameter.language], 16, 0);
 	
-		// Draw horizontal line below "Sensor" title (y=42 to y=43, leave 4px margin on both sides)
-		LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
+		// Draw horizontal line below title (y=25, leave 4px margin on both sides)
+		LCD_Fill(4, 25, lcddev.width - 4, 26, BLACK);
 	
 		Draw_Opeaation_Mode_Choices(selection);
 		//lan_str = LanguageTable[STR_Save][g_parameter.language];
@@ -1100,16 +1093,8 @@ void UI_Update(void)
 									uint8_t old_scroll = func_setting_scroll;
 									item_selection++;
 									
-									if(g_parameter.font_size == 0){
-										if(item_selection > func_setting_scroll + 4) {
-											func_setting_scroll = item_selection - 4;
-										}
-										if(func_setting_scroll > 0) func_setting_scroll = 0;
-									}else if(g_parameter.font_size == 1){
-										if(item_selection > func_setting_scroll + 3) {
-											func_setting_scroll = item_selection - 3;
-										}
-										if(func_setting_scroll > 1) func_setting_scroll = 1;
+									if(item_selection > 3) {
+										func_setting_scroll = 1;
 									}
 									
 									// If scroll changed, redraw entire page
@@ -1132,11 +1117,6 @@ void UI_Update(void)
 									// Check if scroll position needs to change
 									if(item_selection - 1 < func_setting_scroll) {
 										func_setting_scroll = item_selection - 1;
-									}
-									if(g_parameter.font_size == 0){
-										if(func_setting_scroll > 0) func_setting_scroll = 0;
-									}else if(g_parameter.font_size == 1){
-										if(func_setting_scroll > 1) func_setting_scroll = 1;
 									}
 									
 									// If scroll changed, redraw entire page
@@ -1205,6 +1185,7 @@ void UI_Update(void)
 										item_selection = 0;
 										leave_icon_color = 0;
 										edit_icon_color = 1;
+										user_setting_menu_scroll = 0;  // Reset scroll when entering from Function Setting page
 										LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 										Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 									
@@ -1910,17 +1891,11 @@ void UI_Update(void)
 						item_selection++;
 						
 						// Check if scroll position needs to change
-						// Adjust visible rows based on font size
-						if(g_parameter.font_size == 0){
-							if(item_selection > control_adj_menu_scroll + 4) {
-								control_adj_menu_scroll = item_selection - 4;
-							}
-						}else if(g_parameter.font_size == 1){
-							if(item_selection > control_adj_menu_scroll + 3) {
-								control_adj_menu_scroll = item_selection - 3;
-							}
-							if(control_adj_menu_scroll > 4) control_adj_menu_scroll = 4;
+						// Cursor stays on rows 0..2 (y=30/68/106); row3 (y=144) is a peek, never dwell
+						if(item_selection - 1 > control_adj_menu_scroll + 2) {
+							control_adj_menu_scroll = item_selection - 3;
 						}
+						if(control_adj_menu_scroll > (Control_Adj_Menu_Item_Count - 3)) control_adj_menu_scroll = Control_Adj_Menu_Item_Count - 3;
 						// If scroll changed, redraw entire page
 						if(old_scroll != control_adj_menu_scroll) {
 							Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
@@ -1944,11 +1919,7 @@ void UI_Update(void)
 						if(item_selection - 1 < control_adj_menu_scroll) {
 							control_adj_menu_scroll = item_selection - 1;
 						}
-						if(g_parameter.font_size == 0){
-							if(control_adj_menu_scroll > 3) control_adj_menu_scroll = 3;
-						}else if(g_parameter.font_size == 1){
-							if(control_adj_menu_scroll > 4) control_adj_menu_scroll = 4;
-						}
+						if(control_adj_menu_scroll > (Control_Adj_Menu_Item_Count - 3)) control_adj_menu_scroll = Control_Adj_Menu_Item_Count - 3;
 						// If scroll changed, redraw entire page
 						if(old_scroll != control_adj_menu_scroll) {
 							Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
@@ -2362,9 +2333,10 @@ void UI_Update(void)
 					else  // At Room, go back to TopBar mode
 					{
 						Top_Bar_Active = 1;
-						edit_icon_color = 1;
-						leave_icon_color = 0;
+						edit_icon_color = 0;
+						leave_icon_color = 1;
 						item_selection = 0;
+						current_sensor_type = g_parameter.sensor_type;
 						Draw_Control_Adj_Sensor_Page(item_selection, leave_icon_color, edit_icon_color);  
 					}
 					
@@ -3054,7 +3026,7 @@ else if(item_selection == 3)
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_FUNC_SETTING;
-						func_setting_scroll = 0;  // Reset scroll
+						func_setting_scroll = 1;  // item_selection=4 -> User Settings stays at row2 (y=106)
 						Top_Bar_Active = 0;
 						item_selection = 4;
 						leave_icon_color = 0;
@@ -3076,10 +3048,11 @@ else if(item_selection == 3)
 						item_selection++;
 						
 						// Check if scroll position needs to change
-						// 4 visible rows at a time, scroll when selection goes below visible area
-						if(item_selection > user_setting_menu_scroll + 4) {
-							user_setting_menu_scroll = item_selection - 4;
+						// Cursor stays on rows 0..2 (y=30/68/106); row3 (y=144) is a peek, never dwell
+						if(item_selection - 1 > user_setting_menu_scroll + 2) {
+							user_setting_menu_scroll = item_selection - 3;
 						}
+						if(user_setting_menu_scroll > (User_Setting_Menu_Item_Count - 3)) user_setting_menu_scroll = User_Setting_Menu_Item_Count - 3;
 						
 						// If scroll changed, redraw entire page
 						if(old_scroll != user_setting_menu_scroll) {
@@ -3101,9 +3074,10 @@ else if(item_selection == 3)
 						item_selection--;
 						
 						// Check if scroll position needs to change
-						if(item_selection - 1 < user_setting_menu_scroll + 1) {
-							user_setting_menu_scroll = 0;
+						if(item_selection - 1 < user_setting_menu_scroll) {
+							user_setting_menu_scroll = item_selection - 1;
 						}
+						if(user_setting_menu_scroll > (User_Setting_Menu_Item_Count - 3)) user_setting_menu_scroll = User_Setting_Menu_Item_Count - 3;
 						
 						// If scroll changed, redraw entire page
 						if(old_scroll != user_setting_menu_scroll) {
@@ -3255,8 +3229,8 @@ else if(item_selection == 3)
 							}else if(item_selection == 1){	//go back Top_Bar
 									Top_Bar_Active = 1;
 									item_selection = 0;
-									leave_icon_color = 0;
-									edit_icon_color = 1;
+									leave_icon_color = 1;
+									edit_icon_color = 0;
 									Draw_User_Setting_Child_Lock_Page(item_selection, leave_icon_color, edit_icon_color);
 							}
 							
@@ -4079,6 +4053,7 @@ else if(item_selection == 3)
 									item_selection = 0;
 									leave_icon_color = 1;
 									edit_icon_color = 0;
+									language_temp = g_parameter.language;
 									Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
 							}
 							
@@ -4157,6 +4132,7 @@ else if(item_selection == 3)
 						item_selection = 0;
 						leave_icon_color = 1;
 						edit_icon_color = 0;
+						adaptive_start = g_parameter.adaptive_start;
 						Draw_User_Setting_Adaptive_Start_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
 				}else if(key.key_val == ENTERKEY){

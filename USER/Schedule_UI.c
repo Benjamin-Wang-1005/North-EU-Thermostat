@@ -28,17 +28,10 @@ void Draw_Heating_Schedule_Menu_Row(uint8_t row, uint8_t selected)
 	uint16_t row_y[3];  // Y positions for 3 rows
 	uint16_t text_color, bg_color;
 	uint8_t row_height;
-	if(g_parameter.font_size == 0){
-			row_y[0] = 29;
-			row_y[1] = 65;
-			row_y[2] = 101;
-			row_height = 32;
-	}else if(g_parameter.font_size == 1){
-			row_y[0] = 30;
-			row_y[1] = 60;
-			row_y[2] = 90;
-			row_height = 30;
-	}
+	row_y[0] = 28;
+	row_y[1] = 66;
+	row_y[2] = 104;
+	row_height = 32;
 	row--;
 	if(row > 2) return;  // Bounds check
 	
@@ -58,39 +51,21 @@ void Draw_Heating_Schedule_Menu_Row(uint8_t row, uint8_t selected)
 	if(row == 0) {
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		if(g_parameter.font_size == 0){
-				GUI_DrawMonoIcon16x16(5, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Program_Type_16x16);
-				lan_str = LanguageTable[STR_Program_Type][g_parameter.language];
-				Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-		}else if(g_parameter.font_size == 1){
-				GUI_DrawMonoIcon16x16(5, row_y[row] + 6, text_color, bg_color, Program_Type_16x16);
-				lan_str = LanguageTable[STR_Type][g_parameter.language];
-				Show_Str(30, row_y[row] + 2, text_color, bg_color, (char*)lan_str, 24, 1);
-		}
+		GUI_DrawMonoIcon16x16(5, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Program_Type_16x16);
+		lan_str = LanguageTable[STR_Program_Type][g_parameter.language];
+		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 	} else if(row == 1) {
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		if(g_parameter.font_size == 0){
-				GUI_DrawMonoIcon16x16(5, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Workday_Setting_16x16);
-				lan_str = LanguageTable[STR_Workday_Setting][g_parameter.language];
-				Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-		}else if(g_parameter.font_size == 1){
-				GUI_DrawMonoIcon16x16(5, row_y[row] + 6, text_color, bg_color, Workday_Setting_16x16);
-				lan_str = LanguageTable[STR_Workday][g_parameter.language];
-				Show_Str(30, row_y[row] + 2, text_color, bg_color, (char*)lan_str, 24, 1);
-		}
+		GUI_DrawMonoIcon16x16(5, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Workday_Setting_16x16);
+		lan_str = LanguageTable[STR_Workday_Setting][g_parameter.language];
+		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 	} else if(row == 2) {
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
-		if(g_parameter.font_size == 0){
-				GUI_DrawMonoIcon16x16(5, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Restday_Setting_16x16);
-				lan_str = LanguageTable[STR_Restday_Setting][g_parameter.language];
-				Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-		}else if(g_parameter.font_size == 1){
-				GUI_DrawMonoIcon16x16(5, row_y[row] + 6, text_color, bg_color, Restday_Setting_16x16);
-				lan_str = LanguageTable[STR_Restday][g_parameter.language];
-				Show_Str(30, row_y[row] + 2, text_color, bg_color, (char*)lan_str, 24, 1);
-		}
+		GUI_DrawMonoIcon16x16(5, row_y[row] + (row_height - 16) / 2, text_color, bg_color, Restday_Setting_16x16);
+		lan_str = LanguageTable[STR_Restday_Setting][g_parameter.language];
+		Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 	}
 }
 void Draw_Heating_Schedule_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
@@ -98,6 +73,12 @@ void Draw_Heating_Schedule_Menu_Page(uint8_t selection, uint8_t leave_col, uint8
 		uint8_t i;
 	
 		Draw_TopBar(leave_col, edit_col);
+	
+		// Draw "Schedule" title between Leave and Edit Icons in the TopBar (x=21..107, y=5..21)
+		POINT_COLOR = BLACK;
+		BACK_COLOR = WHITE;
+		lan_str = LanguageTable[STR_Schedule][g_parameter.language];
+		Show_Str(30, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
 	
 		LCD_Fill(4, 24, lcddev.width - 4, 25, BLACK);
 	
@@ -109,6 +90,7 @@ void Draw_Heating_Schedule_Menu_Page(uint8_t selection, uint8_t leave_col, uint8
 						Draw_Heating_Schedule_Menu_Row(i, 0);  // Not selected	
 				}
 		}
+		LCD_Fill(0, 155, lcddev.width, lcddev.height, WHITE);
 }
 
 void LCD_FillCircle(uint16_t x0, uint16_t y0, uint8_t r, uint16_t color)
@@ -143,15 +125,17 @@ void Draw_Heating_Schedule_Prog_Type_Content(uint8_t selected)
 {
 	uint8_t i;
 	uint8_t row_height = 24;
-	uint16_t row_y[] = {50, 78, 106};  // Y positions for 3 options (5+2, 6+1, 7)
+	uint16_t row_y[] = {28, 58, 88};  // Y positions for 3 options (5+2, 6+1, 7)
 	uint16_t sel_bg_color;
 
 	// Clear content area (below separator to bottom)
-	LCD_Fill(0, 44, lcddev.width, lcddev.height, WHITE);
+	LCD_Fill(0, 28, lcddev.width, lcddev.height, WHITE);
 
-	// TopBar mode: selected=BLACK; Edit mode: selected=RED (Save mode: BLACK)
-	if(Top_Bar_Active || item_selection == 2) {
-		sel_bg_color = BLACK;
+	// Current-param mode (TopBar or Save): white bg + red-line arrow for selected;
+	// Edit mode: red bg for selected
+	uint8_t is_current_mode = (Top_Bar_Active || item_selection == 2);
+	if(is_current_mode) {
+		sel_bg_color = WHITE;
 	} else {
 		sel_bg_color = RED;
 	}
@@ -160,10 +144,17 @@ void Draw_Heating_Schedule_Prog_Type_Content(uint8_t selected)
 		uint16_t text_color, bg_color;
 
 		if(selected == i) {
-			text_color = WHITE;
-			bg_color = sel_bg_color;
-			// Draw background for selected item
-			LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, sel_bg_color);
+			if(is_current_mode) {
+				// Current-param mode: white bg, black text, red-line arrow
+				text_color = BLACK;
+				bg_color = WHITE;
+				LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, WHITE);
+			} else {
+				// Edit mode: red bg, white text
+				text_color = WHITE;
+				bg_color = sel_bg_color;
+				LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, sel_bg_color);
+			}
 		} else {
 			text_color = BLACK;
 			bg_color = WHITE;
@@ -172,7 +163,14 @@ void Draw_Heating_Schedule_Prog_Type_Content(uint8_t selected)
 		}
 
 		// Draw Arrow icon (vertically centered)
-		GUI_DrawMonoIcon16x16(12, row_y[i] + (row_height - 16) / 2, WHITE, bg_color, Icon16x16_Arrow);
+		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
+		if(selected == i && is_current_mode) {
+			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);   // red bg, white line
+		} else if(selected == i) {
+			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, bg_color, Icon16x16_Arrow);   // edit mode: white line on bg
+		} else {
+			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);   // black bg, white line
+		}
 
 		// Draw program type text
 		POINT_COLOR = text_color;
@@ -180,8 +178,8 @@ void Draw_Heating_Schedule_Prog_Type_Content(uint8_t selected)
 		Show_Str(34, row_y[i] + (row_height - 16) / 2, text_color, bg_color, prog_type_strs[i], 16, 0);
 	}
 
-	// Draw Save button (always visible when not in TopBar mode)
-	if(!Top_Bar_Active) {
+	// Draw Save button (always visible)
+	{
 		uint16_t save_color = (item_selection == 2) ? RED : BLACK;
 		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		Show_Str(86, 135, save_color, WHITE, (char*)lan_str, 16, 0);
@@ -191,14 +189,14 @@ void Draw_Heating_Schedule_Prog_Type_Page(uint8_t selected, uint8_t leave_col, u
 {
 	Draw_TopBar(leave_col, edit_col);
 
-	// Draw "Program Type" title
+	// Draw "Type" title between Leave and Edit Icons in the TopBar (x=21..107, y=5..21)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Program_Type][g_parameter.language];
-	Show_Str(10, 25, BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Type][g_parameter.language];
+	Show_Str(30, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
 
 	// Draw horizontal separator line below title
-	LCD_Fill(4, 42, lcddev.width - 4, 43, BLACK);
+	LCD_Fill(4, 24, lcddev.width - 4, 25, BLACK);
 
 	Draw_Heating_Schedule_Prog_Type_Content(current_prog_type);
 }

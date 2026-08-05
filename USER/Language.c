@@ -60,13 +60,13 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Max_Temperature_Protect]
 	{
-		[LANG_ENGLISH] = "Max Temp.Prot",
-		[LANG_Norwegian] = "Maks tempvern",
+		[LANG_ENGLISH] = "Maximum",
+		[LANG_Norwegian] = "Maksimum",
 	},
 	// [STR_Min_Temperature_Protect]
 	{
-		[LANG_ENGLISH] = "Min Temp.Prot",
-		[LANG_Norwegian] = "Min tempvern",
+		[LANG_ENGLISH] = "Minimum",
+		[LANG_Norwegian] = "Minimum",
 	},
 	// [STR_Power_On_State]
 	{
@@ -93,6 +93,11 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "Power Limit",
 		[LANG_Norwegian] = "Str\xF8mgrense",
 	},
+	// [STR_Limit]
+	{
+		[LANG_ENGLISH] = "Limit",
+		[LANG_Norwegian] = "Grense",
+	},
 	// [STR_OFF]
 	{
 		[LANG_ENGLISH] = "OFF",
@@ -103,10 +108,10 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 		[LANG_ENGLISH] = "ON",
 		[LANG_Norwegian] = "P\xC5",
 	},
-	// [STR_Language]
+	// [STR_Multi_Language]
 	{
-		[LANG_ENGLISH] = "Language",
-		[LANG_Norwegian] = "Spr\xE5k"
+		[LANG_ENGLISH] = "Multi Language",
+		[LANG_Norwegian] = "Flere Spr\xE5k"
 	},
 	// [STR_Menu_Language]
 	{
@@ -130,8 +135,8 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Temp_Swing]
 	{
-		[LANG_ENGLISH] = "Temp.Swing",
-		[LANG_Norwegian] = "Temp.Svingning",
+		[LANG_ENGLISH] = "Swing",
+		[LANG_Norwegian] = "Swing",
 	},
 	// [STR_Program_Type]
 	{
@@ -258,9 +263,10 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	//	[LANG_ENGLISH] = "WED",
 	//	[LANG_Norwegian] = "ONS",
 	//},
-	// [STR_Sensor]
+	
+		// [STR_Sensor]
 	{
-		[LANG_ENGLISH] = "Main Sensor",
+		[LANG_ENGLISH] = "Sensor",
 		[LANG_Norwegian] = "Sensor",
 	},
 	// [STR_Input_Temperature_Limit]
@@ -275,23 +281,23 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Protect_Temperature_short]
 	{
-		[LANG_ENGLISH] = "Temp.Protect",
-		[LANG_Norwegian] = "Beskyttelses",
+		[LANG_ENGLISH] = "Protect",
+		[LANG_Norwegian] = "Beskyttelse",
 	},
 	// [STR_Child_lock]
 	{
 		[LANG_ENGLISH] = "Child Lock",
-		[LANG_Norwegian] = "Barnesikring",
+		[LANG_Norwegian] = "Barnel\xE5s",
 	},
 	// [STR_Window_Function]
 	{
 		[LANG_ENGLISH] = "Window Function",
 		[LANG_Norwegian] = "Vindusfunksjon",
 	},
-	// [STR_Set_Time]
+	// [STR_Set_Date_Time]
 	{
-		[LANG_ENGLISH] = "Set Time",
-		[LANG_Norwegian] = "Angi Tid",
+		[LANG_ENGLISH] = "Set Date and Time",
+		[LANG_Norwegian] = "Angi dato og klokke",
 	},
 	// [STR_Set_Backlight]
 	{
@@ -470,8 +476,8 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Sensor_Cal_Short]
 	{
-		[LANG_ENGLISH] = "Sensor Calib.",
-		[LANG_Norwegian] = "Kalibrering",
+		[LANG_ENGLISH] = "Sensor Cal",
+		[LANG_Norwegian] = "Sensor Kal",
 	},
 
 	// [STR_Keep]
@@ -503,6 +509,11 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	{
 		[LANG_ENGLISH] = "PWM Setting",
 		[LANG_Norwegian] = "PWM-innst.",
+	},
+	// [STR_PWM]
+	{
+		[LANG_ENGLISH] = "PWM",
+		[LANG_Norwegian] = "PWM",
 	},
 	// [STR_Duty]
 	{
@@ -541,8 +552,8 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	},
 	// [STR_Astro_Setting]
 	{
-		[LANG_ENGLISH] = "Astro Setting",
-		[LANG_Norwegian] = "Astro-innst.",
+		[LANG_ENGLISH] = "Astro",
+		[LANG_Norwegian] = "Astro",
 	},
 	// [STR_Day]
 	{
@@ -568,5 +579,35 @@ const char* const LanguageTable[STR_MAX][LANG_MAX] = {
 	{
 		[LANG_ENGLISH] = "Hour",
 		[LANG_Norwegian] = "Time",
+	},
+	// [STR_Main_Sensor]
+	{
+		[LANG_ENGLISH] = "Main Sensor",
+		[LANG_Norwegian] = "Hovedsensor",
+	},
+	// [STR_Child_Lock_Setting]
+	{
+		[LANG_ENGLISH] = "Child Lock Setting",
+		[LANG_Norwegian] = "Barnesikring innstilling",
+	},
+	// [STR Window]
+	{
+		[LANG_ENGLISH] = "Window",
+		[LANG_Norwegian] = "Vindu",
+	},
+	// [STR_Set_Time]
+	{
+		[LANG_ENGLISH] = "Set Time",
+		[LANG_Norwegian] = "Angi tid",
+	},
+	// [STR_Language]
+	{
+		[LANG_ENGLISH] = "Language",
+		[LANG_Norwegian] = "Spr\xE5k",
+	},
+	// [STR_Backlight]
+	{
+		[LANG_ENGLISH] = "Backlight",
+		[LANG_Norwegian] = "Baklys",
 	},
 };

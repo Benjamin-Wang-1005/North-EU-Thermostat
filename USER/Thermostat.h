@@ -94,7 +94,6 @@ typedef struct {
 } MenuItem_t;
 
 extern const MenuItem_t Control_Adj_Menu_Items[];
-extern const MenuItem_t Control_Adj_Menu_Items_12x24[];
 extern const uint8_t Control_Adj_Menu_Item_Count;
 
 extern const MenuItem_t User_Setting_Menu_Items[];

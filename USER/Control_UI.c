@@ -146,22 +146,13 @@ void Draw_Control_Adj_Menu_Row(uint8_t row, uint8_t selected)
 	uint8_t visible_rows;
 	uint8_t text_idx = control_adj_menu_scroll + row;
 
-	if(g_parameter.font_size == 0){
-		row_y[0] = 27;
-		row_y[1] = 59;
-		row_y[2] = 91;
-		row_y[3] = 123;
-		row_height = 32;
-		visible_rows = 4;
-	}else if(g_parameter.font_size == 1){
-		row_y[0] = 30;
-		row_y[1] = 60;
-		row_y[2] = 90;
-		row_height = 30;
-		visible_rows = 3;
-	}
+	row_y[0] = 30;
+	row_y[1] = 68;
+	row_y[2] = 106;
+	row_y[3] = 144;
+	row_height = 32;
+	visible_rows = 4;
 
-	// Bounds check
 	if(text_idx >= Control_Adj_Menu_Item_Count) return;
 	if(row >= visible_rows) return;
 
@@ -169,12 +160,12 @@ void Draw_Control_Adj_Menu_Row(uint8_t row, uint8_t selected)
 		text_color = WHITE;
 		bg_color = RED;
 		// Draw red background for selected item
-		LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + row_height, RED);
+		LCD_Fill(4, row_y[row], lcddev.width - 4, row_y[row] + row_height, RED);
 	} else {
 		text_color = BLACK;
 		bg_color = WHITE;
 		// Clear background to white
-		LCD_Fill(0, row_y[row], lcddev.width, row_y[row] + row_height, WHITE);
+		LCD_Fill(4, row_y[row], lcddev.width - 4, row_y[row] + row_height, WHITE);
 	}
 
 	// Draw Arrow Icon (white on black when unselected, white on red when selected)
@@ -187,13 +178,8 @@ void Draw_Control_Adj_Menu_Row(uint8_t row, uint8_t selected)
 	// Draw menu text (two-line auto for long strings)
 	POINT_COLOR = text_color;
 	BACK_COLOR = bg_color;
-	if(g_parameter.font_size == 0){
-			lan_str = LanguageTable[Control_Adj_Menu_Items[text_idx].text_id][g_parameter.language];
-			Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
-	}else if(g_parameter.font_size == 1){
-			lan_str = LanguageTable[Control_Adj_Menu_Items_12x24[text_idx].text_id][g_parameter.language];
-			Show_Str(30, row_y[row] + (row_height - 24) / 2, text_color, bg_color, (char*)lan_str, 24, 1);
-	}
+	lan_str = LanguageTable[Control_Adj_Menu_Items[text_idx].text_id][g_parameter.language];
+	Show_FuncSetting_Row_Text(30, row_y[row], text_color, bg_color, (char*)lan_str, 16);
 }
 
 
@@ -206,22 +192,8 @@ void Draw_Control_Adj_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t ed
 	uint8_t visible_rows;
 	uint8_t max_scroll;
 
-	if(g_parameter.font_size == 0){
-		visible_rows = 4;
-	}else if(g_parameter.font_size == 1){
-		visible_rows = 3;
-	}
-	max_scroll = (Control_Adj_Menu_Item_Count > visible_rows) ? (Control_Adj_Menu_Item_Count - visible_rows) : 0;
-
-	// Auto-adjust scroll so that selected item is visible
-	if(!Top_Bar_Active && selection > 0) {
-		if(selection > control_adj_menu_scroll + visible_rows) {
-			control_adj_menu_scroll = selection - visible_rows;
-		}
-		if(selection - 1 < control_adj_menu_scroll) {
-			control_adj_menu_scroll = selection - 1;
-		}
-	}
+	visible_rows = 4;
+	max_scroll = (Control_Adj_Menu_Item_Count > 3) ? (Control_Adj_Menu_Item_Count - 3) : 0;
 
 	// Ensure scroll is valid
 	if(control_adj_menu_scroll > max_scroll) control_adj_menu_scroll = max_scroll;
@@ -246,47 +218,58 @@ void Draw_Control_Adj_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t ed
 		}
 		Draw_Control_Adj_Menu_Row(i, is_selected);
 	}
+	LCD_Fill(0, 155, lcddev.width, lcddev.height, WHITE);
 }
 
 
 // Draw Floor/Room choices for Sensor Setting page (portrait)
-// selection: 0=Room, 1=Floor (swapped order)
+// selection: 0=TopBar, 1=Edit, 2=Save; current_sensor_type: 0=Room, 1=Floor
 void Draw_Control_Adj_Sensor_Choices(uint8_t selection)
 {
-	uint16_t row_y[2] = {52, 78};  // Room=52, Floor=78
+	uint16_t row_y[2] = {36, 66};  // Room=36, Floor=66 (8px extra gap below divider)
 	uint8_t row_height = 24;
-	
-	// Draw Room option
-	LCD_Fill(0, row_y[0], lcddev.width, row_y[0] + row_height, WHITE);
-	if(current_sensor_type == 0) {
-		if(selection == 1) {
-			GUI_DrawMonoIcon16x16(12, row_y[0] + (row_height - 16) / 2, WHITE, RED, Icon16x16_Arrow);
-		} else {
-			GUI_DrawMonoIcon16x16(12, row_y[0] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
-		}
-	} else {
-		LCD_Fill(12, row_y[0] + (row_height - 16) / 2, 28, row_y[0] + (row_height - 16) / 2 + 16, WHITE);
-	}
-	POINT_COLOR = BLACK;
-	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Room][g_parameter.language];
-	Show_Str(34, row_y[0] + (row_height - 16) / 2, BLACK, WHITE, (char*)lan_str, 16, 0);
+	uint8_t i;
 
-	// Draw Floor option
-	LCD_Fill(0, row_y[1], lcddev.width, row_y[1] + row_height, WHITE);
-	if(current_sensor_type == 1) {
-		if(selection == 1) {
-			GUI_DrawMonoIcon16x16(12, row_y[1] + (row_height - 16) / 2, WHITE, RED, Icon16x16_Arrow);
+	uint8_t is_edit = (selection == 1);
+
+	for(i = 0; i < 2; i++) {
+		uint16_t text_color, bg_color;
+		uint8_t is_selected = (current_sensor_type == i);
+
+		if(is_edit && is_selected) {
+			// Edit mode, selected item: red bg, white text
+			text_color = WHITE;
+			bg_color = RED;
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, RED);
 		} else {
-			GUI_DrawMonoIcon16x16(12, row_y[1] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
+			// TopBar/Save mode or unselected: white bg, black text
+			text_color = BLACK;
+			bg_color = WHITE;
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 		}
-	} else {
-		LCD_Fill(12, row_y[1] + (row_height - 16) / 2, 28, row_y[1] + (row_height - 16) / 2 + 16, WHITE);
+
+		// Arrow icon
+		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
+		if(is_selected) {
+			if(is_edit) {
+				GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);      // red bg, white line
+			} else {
+				GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);      // red bg, white line (current param)
+			}
+		} else {
+			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);        // black bg, white line
+		}
+
+		// Text
+		POINT_COLOR = text_color;
+		BACK_COLOR = bg_color;
+		if(i == 0) {
+			lan_str = LanguageTable[STR_Room][g_parameter.language];
+		} else {
+			lan_str = LanguageTable[STR_Floor][g_parameter.language];
+		}
+		Show_Str(34, row_y[i] + (row_height - 16) / 2, text_color, bg_color, (char*)lan_str, 16, 0);
 	}
-	POINT_COLOR = BLACK;
-	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Floor][g_parameter.language];
-	Show_Str(34, row_y[1] + (row_height - 16) / 2, BLACK, WHITE, (char*)lan_str, 16, 0);
 
 	// Draw Save button at bottom
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
@@ -302,17 +285,22 @@ void Draw_Control_Adj_Sensor_Choices(uint8_t selection)
 // Draw Control Adj Sensor Setting Page (portrait)
 void Draw_Control_Adj_Sensor_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
 
-	// Draw "Temp.Read From" title
+	// Draw "Sensor" title centered in the TopBar (font size 16, ASCII half-width = 8px)
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Temperature_Read_From][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+	lan_str = LanguageTable[STR_Sensor][g_parameter.language];
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
 
-	// Draw horizontal separator line
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	// Draw horizontal separator line right below the TopBar (TopBar ends at y=21)
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_Control_Adj_Sensor_Choices(selection);
 }
@@ -324,22 +312,22 @@ void Draw_Control_Adj_TempCorrect_Contect(uint8_t selection)
 	uint8_t is_neg;
 	int int_part;
 	uint8_t dec_part, d1, d2;
-	
+
 	// Room (left) / Floor (right) - colored when selected
 	lan_str = LanguageTable[STR_Room][g_parameter.language];
-	Show_Str(10, 48, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_Str(10, 40, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 	lan_str = LanguageTable[STR_Floor][g_parameter.language];
-	Show_Str(80, 48, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_Str(80, 40, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 
 	// In edit mode (1 or 2): draw number, clear area first
 	// In save mode (3): keep number displayed, just update Save button
 	if(selection == 1 || selection == 2) {
-		LCD_Fill(5, 44, lcddev.width, 133, WHITE);
+		LCD_Fill(5, 36, lcddev.width, 133, WHITE);
 		// Redraw labels (cleared by LCD_Fill)
 		lan_str = LanguageTable[STR_Room][g_parameter.language];
-		Show_Str(10, 48, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(10, 40, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 		lan_str = LanguageTable[STR_Floor][g_parameter.language];
-		Show_Str(80, 48, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(80, 40, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 
 		disp_val = (selection == 1) ? temp_correct_internal : temp_correct_external;
 		is_neg = (disp_val < 0) ? 1 : 0;
@@ -348,22 +336,22 @@ void Draw_Control_Adj_TempCorrect_Contect(uint8_t selection)
 		d1 = int_part / 10;
 		d2 = int_part % 10;
 		// Minus sign (keep at original position, not shifted left)
-		if(is_neg) LCD_Fill(12, 100, 27, 104, BLACK);
-		// Integer digits (32x64 font, y=68, shifted left 12px)
+		if(is_neg) LCD_Fill(12, 92, 27, 96, BLACK);
+		// Integer digits (32x64 font, y=60, shifted left 12px)
 		if(int_part >= 10) {
-			GUI_DrawBigDigit(12, 68, BLACK, WHITE, '0' + d1, 0);
-			GUI_DrawBigDigit(44, 68, BLACK, WHITE, '0' + d2, 0);
+			GUI_DrawBigDigit(12, 60, BLACK, WHITE, '0' + d1, 0);
+			GUI_DrawBigDigit(44, 60, BLACK, WHITE, '0' + d2, 0);
 		} else {
-			GUI_DrawBigDigit(36, 68, BLACK, WHITE, '0' + d2, 0);
+			GUI_DrawBigDigit(36, 60, BLACK, WHITE, '0' + d2, 0);
 		}
 		// Decimal point (right after ones digit)
-		LCD_Fill(70, 124, 74, 128, BLACK);
-		LCD_Fill(69, 125, 75, 127, BLACK);
+		LCD_Fill(70, 116, 74, 120, BLACK);
+		LCD_Fill(69, 117, 75, 119, BLACK);
 		// Decimal digit (32x64 font, shifted left 12px)
-		GUI_DrawBigDigit(78, 68, BLACK, WHITE, '0' + dec_part, 0);
+		GUI_DrawBigDigit(78, 60, BLACK, WHITE, '0' + dec_part, 0);
 	}
 
-	// Save button
+	// Save button (keep original position)
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
 		Show_Str(86, 140, RED, WHITE, (char*)lan_str, 16, 0);
@@ -381,13 +369,23 @@ void Draw_Control_Adj_TempCorrect_Contect(uint8_t selection)
 // selection: 0=Internal, 1=External, 2=Save, 0xFF=TopBar Edit red, 0xFE=TopBar Leave red
 void Draw_Control_Adj_TempCorrect_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
+
+	// Draw title centered in TopBar
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Sensor_Cal_Short][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+	// Draw horizontal separator line right below TopBar
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
+
 	Draw_Control_Adj_TempCorrect_Contect(selection);
 }
 
@@ -400,17 +398,17 @@ void Draw_Control_Adj_TempLimit_Content(uint8_t selection)
 
 	// Draw Max (left) / Min (right) labels - colored when selected
 	lan_str = LanguageTable[STR_Max][g_parameter.language];
-	Show_Str(10, 48, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_Str(10, 40, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 	lan_str = LanguageTable[STR_Min][g_parameter.language];
-	Show_Str(80, 48, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_Str(80, 40, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 
 	// In edit mode: show number; in save mode: keep number
 	if(selection == 1 || selection == 2) {
-		LCD_Fill(5, 44, lcddev.width, 133, WHITE);
+		LCD_Fill(5, 36, lcddev.width, 133, WHITE);
 		lan_str = LanguageTable[STR_Max][g_parameter.language];
-		Show_Str(10, 48, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(10, 40, (selection == 1) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 		lan_str = LanguageTable[STR_Min][g_parameter.language];
-		Show_Str(80, 48, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(80, 40, (selection == 2) ? RED : BLACK, WHITE, (char*)lan_str, 16, 0);
 
 		int_val = (selection == 1) ? temp_limit_max : temp_limit_min;
 		if(int_val < 0) {
@@ -420,20 +418,20 @@ void Draw_Control_Adj_TempLimit_Content(uint8_t selection)
 		d1 = int_val / 10;
 		d2 = int_val % 10;
 		// Minus sign
-		if(is_neg) LCD_Fill(20, 100, 35, 104, BLACK);
-		// Integer digits (32x64 font, y=68)
+		if(is_neg) LCD_Fill(20, 92, 35, 96, BLACK);
+		// Integer digits (32x64 font, y=60)
 		if(int_val >= 10) {
-			GUI_DrawBigDigit(36, 68, BLACK, WHITE, '0' + d1, 0);
-			GUI_DrawBigDigit(68, 68, BLACK, WHITE, '0' + d2, 0);
+			GUI_DrawBigDigit(36, 60, BLACK, WHITE, '0' + d1, 0);
+			GUI_DrawBigDigit(68, 60, BLACK, WHITE, '0' + d2, 0);
 		} else {
-			GUI_DrawBigDigit(48, 68, BLACK, WHITE, '0' + d2, 0);
+			GUI_DrawBigDigit(48, 60, BLACK, WHITE, '0' + d2, 0);
 		}
 		// Edit arrows (vertically centered on 32x64 digits)
-		GUI_DrawMonoIcon16x16(6, 92, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(108, 92, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(6, 84, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(108, 84, WHITE, RED, Icon16x16_Up_Arror);
 	}
 
-	// Save button
+	// Save button (keep original position)
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
 		Show_Str(86, 140, RED, WHITE, (char*)lan_str, 16, 0);
@@ -444,13 +442,23 @@ void Draw_Control_Adj_TempLimit_Content(uint8_t selection)
 
 void Draw_Control_Adj_TempLimit_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
+
+	// Draw title centered in TopBar
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Temperature_Limit][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	lan_str = LanguageTable[STR_Limit][g_parameter.language];
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+	// Draw horizontal separator line right below TopBar
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
+
 	Draw_Control_Adj_TempLimit_Content(selection);
 }
 
@@ -458,23 +466,27 @@ void Draw_Control_Adj_TempLimit_Page(uint8_t selection, uint8_t leave_col, uint8
 void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
 	uint8_t i;
-	uint16_t row_y[2] = {45, 81};  // Row 0=Max, Row 1=Min
+	uint16_t row_y[2] = {37, 73};  // Row 0=Max, Row 1=Min (shifted up 8px)
 	uint8_t row_height = 32;
+	uint16_t title_x;
+	uint8_t title_width;
 	char *line1[2] = {"Max Temp.", "Min Temp."};
 	char *line2 = "Protect";
 	char *line2_n = "Beskytte";
-	
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
 
-	// Title: Temp.Protect (hardcoded)
+	// Title: Protect centered in TopBar
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Protect_Temperature_short][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
 
-	// Separator
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	// Separator right below TopBar
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	for(i = 0; i < 2; i++) {
 		uint8_t is_sel = (!Top_Bar_Active && (i + 1 == selection)) ? 1 : 0;
@@ -484,11 +496,11 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 		if(is_sel) {
 			text_color = WHITE;
 			bg_color = RED;
-			LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, RED);
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, RED);
 		} else {
 			text_color = BLACK;
 			bg_color = WHITE;
-			LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, WHITE);
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 		}
 
 		// Arrow icon (left of text)
@@ -522,20 +534,20 @@ void Draw_Control_Adj_TempProtect_Max_Content(uint8_t selection)
 	uint8_t is_neg = 0, d1, d2;
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 
-	LCD_Fill(5, 44, lcddev.width - 5, 130, WHITE);
+	LCD_Fill(5, 36, lcddev.width - 5, 130, WHITE);
 
 	// ON/OFF section (selection == 1)
 	uint16_t onoff_color = (selection == 1) ? RED : BLACK;
 	if(temp_protect_max_switch == 0) {
-		GUI_DrawMonoIcon32x32(48, 48, onoff_color, WHITE, OFF_Icon_32x32);
+		GUI_DrawMonoIcon32x32(48, 40, onoff_color, WHITE, OFF_Icon_32x32);
 	} else {
-		GUI_DrawMonoIcon32x32(48, 48, onoff_color, WHITE, ON_Icon_32x32);
+		GUI_DrawMonoIcon32x32(48, 40, onoff_color, WHITE, ON_Icon_32x32);
 	}
 
 	// ON/OFF edit arrows (selection == 1)
 	if(selection == 1) {
-		GUI_DrawMonoIcon16x16(20, 56, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(92, 56, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(20, 48, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(92, 48, WHITE, RED, Icon16x16_Up_Arror);
 	}
 
 	// Number section (selection == 2)
@@ -544,21 +556,21 @@ void Draw_Control_Adj_TempProtect_Max_Content(uint8_t selection)
 		if(int_val < 0) { is_neg = 1; int_val = -int_val; }
 		d1 = int_val / 10;
 		d2 = int_val % 10;
-		if(is_neg) LCD_Fill(44, 109, 59, 113, BLACK);
+		if(is_neg) LCD_Fill(44, 101, 59, 105, BLACK);
 		if(int_val >= 10) {
-			GUI_DrawBigDigit(52, 95, BLACK, WHITE, '0' + d1, 1);
-			GUI_DrawBigDigit(68, 95, BLACK, WHITE, '0' + d2, 1);
+			GUI_DrawBigDigit(52, 87, BLACK, WHITE, '0' + d1, 1);
+			GUI_DrawBigDigit(68, 87, BLACK, WHITE, '0' + d2, 1);
 		} else {
-			GUI_DrawBigDigit(60, 95, BLACK, WHITE, '0' + d2, 1);
+			GUI_DrawBigDigit(60, 87, BLACK, WHITE, '0' + d2, 1);
 		}
 		// Number edit arrows (selection == 2)
 		if(selection == 2) {
-			GUI_DrawMonoIcon16x16(20, 105, WHITE, RED, Icon16x16_Down_Arror);
-			GUI_DrawMonoIcon16x16(96, 105, WHITE, RED, Icon16x16_Up_Arror);
+			GUI_DrawMonoIcon16x16(20, 97, WHITE, RED, Icon16x16_Down_Arror);
+			GUI_DrawMonoIcon16x16(96, 97, WHITE, RED, Icon16x16_Up_Arror);
 		}
 	}
 
-	// Save button (selection == 3)
+	// Save button (selection == 3) — keep original position
 	if(selection == 3) {
 		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
@@ -568,13 +580,23 @@ void Draw_Control_Adj_TempProtect_Max_Content(uint8_t selection)
 
 void Draw_Control_Adj_TempProtect_Max_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
+
+	// Draw title centered in TopBar
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Max_Temperature_Protect][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+	// Draw horizontal separator line right below TopBar
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
+
 	Draw_Control_Adj_TempProtect_Max_Content(selection);
 }
 
@@ -584,20 +606,20 @@ void Draw_Control_Adj_TempProtect_Min_Content(uint8_t selection)
 	uint8_t is_neg = 0, d1, d2;
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 
-	LCD_Fill(5, 44, lcddev.width - 5, 130, WHITE);
+	LCD_Fill(5, 36, lcddev.width - 5, 130, WHITE);
 
 	// ON/OFF section (selection == 1)
 	uint16_t onoff_color = (selection == 1) ? RED : BLACK;
 	if(temp_protect_min_switch == 0) {
-		GUI_DrawMonoIcon32x32(48, 48, onoff_color, WHITE, OFF_Icon_32x32);
+		GUI_DrawMonoIcon32x32(48, 40, onoff_color, WHITE, OFF_Icon_32x32);
 	} else {
-		GUI_DrawMonoIcon32x32(48, 48, onoff_color, WHITE, ON_Icon_32x32);
+		GUI_DrawMonoIcon32x32(48, 40, onoff_color, WHITE, ON_Icon_32x32);
 	}
 
 	// ON/OFF edit arrows (selection == 1)
 	if(selection == 1) {
-		GUI_DrawMonoIcon16x16(20, 56, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(92, 56, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(20, 48, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(92, 48, WHITE, RED, Icon16x16_Up_Arror);
 	}
 
 	// Number section (selection == 2)
@@ -606,21 +628,21 @@ void Draw_Control_Adj_TempProtect_Min_Content(uint8_t selection)
 		if(int_val < 0) { is_neg = 1; int_val = -int_val; }
 		d1 = int_val / 10;
 		d2 = int_val % 10;
-		if(is_neg) LCD_Fill(44, 109, 59, 113, BLACK);
+		if(is_neg) LCD_Fill(44, 101, 59, 105, BLACK);
 		if(int_val >= 10) {
-			GUI_DrawBigDigit(52, 95, BLACK, WHITE, '0' + d1, 1);
-			GUI_DrawBigDigit(68, 95, BLACK, WHITE, '0' + d2, 1);
+			GUI_DrawBigDigit(52, 87, BLACK, WHITE, '0' + d1, 1);
+			GUI_DrawBigDigit(68, 87, BLACK, WHITE, '0' + d2, 1);
 		} else {
-			GUI_DrawBigDigit(60, 95, BLACK, WHITE, '0' + d2, 1);
+			GUI_DrawBigDigit(60, 87, BLACK, WHITE, '0' + d2, 1);
 		}
 		// Number edit arrows (selection == 2)
 		if(selection == 2) {
-			GUI_DrawMonoIcon16x16(20, 105, WHITE, RED, Icon16x16_Down_Arror);
-			GUI_DrawMonoIcon16x16(96, 105, WHITE, RED, Icon16x16_Up_Arror);
+			GUI_DrawMonoIcon16x16(20, 97, WHITE, RED, Icon16x16_Down_Arror);
+			GUI_DrawMonoIcon16x16(96, 97, WHITE, RED, Icon16x16_Up_Arror);
 		}
 	}
 
-	// Save button (selection == 3)
+	// Save button (selection == 3) — keep original position
 	if(selection == 3) {
 		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
@@ -630,13 +652,23 @@ void Draw_Control_Adj_TempProtect_Min_Content(uint8_t selection)
 
 void Draw_Control_Adj_TempProtect_Min_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
+
+	// Draw title centered in TopBar
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Min_Temperature_Protect][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+	// Draw horizontal separator line right below TopBar
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
+
 	Draw_Control_Adj_TempProtect_Min_Content(selection);
 }
 
@@ -644,32 +676,35 @@ void Draw_Control_Adj_TempProtect_Min_Page(uint8_t selection, uint8_t leave_col,
 void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 {
 	uint8_t i;
-	uint16_t row_y[3] = {42, 75, 108};
+	uint16_t row_y[3] = {34, 67, 100};  // shifted up 8px
 	uint8_t row_height = 32;
-	
+	uint8_t is_edit = (selection == 1);
+
 	// Clear content area (leave room for Save)
-	LCD_Fill(0, 42, lcddev.width, 150, WHITE);
+	LCD_Fill(0, 34, lcddev.width, 150, WHITE);
 
 	for(i = 0; i < 3; i++) {
-		uint8_t is_current = (i + 1 == power_on_state) ? 1 : 0;
+		// In TopBar mode show the saved value; in Edit mode show the current selection
+		uint8_t display_state = (selection == 0) ? g_parameter.power_on_state : power_on_state;
+		uint8_t is_current = (i + 1 == display_state) ? 1 : 0;
 		uint16_t text_color, bg_color;
+		uint16_t arrow_bg;
 
-		if(selection == 1 && is_current) {
+		if(is_edit && is_current) {
+			// Edit mode, selected item: red bg, white text
 			text_color = WHITE;
 			bg_color = RED;
-			LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, RED);
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, RED);
 		} else {
+			// TopBar/Save mode or unselected: white bg, black text
 			text_color = BLACK;
 			bg_color = WHITE;
-			LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, WHITE);
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 		}
 
-		// Arrow icon on the left
-		if(is_current) {
-			GUI_DrawMonoIcon16x16(6, row_y[i] + (row_height - 16) / 2, WHITE, (selection == 1) ? RED : BLACK, Icon16x16_Arrow);
-		} else {
-			LCD_Fill(6, row_y[i] + (row_height - 16) / 2, 22, row_y[i] + (row_height - 16) / 2 + 16, WHITE);
-		}
+		// Arrow icon on the left: red for current, black for others
+		arrow_bg = is_current ? RED : BLACK;
+		GUI_DrawMonoIcon16x16(6, row_y[i] + (row_height - 16) / 2, WHITE, arrow_bg, Icon16x16_Arrow);
 
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
@@ -687,7 +722,7 @@ void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 		}
 	}
 
-	// Save button (always visible)
+	// Save button (always visible) — keep original position
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 2) {
 		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
@@ -697,14 +732,22 @@ void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 }
 void Draw_Control_Adj_Power_On_State_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
 
+	// Draw title centered in TopBar
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Power_On_State][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	lan_str = LanguageTable[STR_State][g_parameter.language];
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+	// Draw horizontal separator line right below TopBar
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_Control_Adj_Power_On_State_Arrow(selection);
 }
@@ -719,46 +762,46 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 
 	// Clear content area (below separator)
-	LCD_Fill(5, 44, lcddev.width - 5, 130, WHITE);
+	LCD_Fill(5, 36, lcddev.width - 5, 130, WHITE);
 
-	// ===== ON/OFF section (y=48~80) =====
+	// ===== ON/OFF section (y=40~72) =====
 	uint16_t onoff_color = (selection == 1) ? RED : BLACK;
 	if(power_limit_switch == 0) {
-		GUI_DrawMonoIcon32x32(48, 48, onoff_color, WHITE, OFF_Icon_32x32);
+		GUI_DrawMonoIcon32x32(48, 40, onoff_color, WHITE, OFF_Icon_32x32);
 	} else {
-		GUI_DrawMonoIcon32x32(48, 48, onoff_color, WHITE, ON_Icon_32x32);
+		GUI_DrawMonoIcon32x32(48, 40, onoff_color, WHITE, ON_Icon_32x32);
 	}
 
 	// ON/OFF edit arrows (selection == 1): left/right of icon
 	if(selection == 1) {
-		GUI_DrawMonoIcon16x16(20, 56, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(92, 56, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(20, 48, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(92, 48, WHITE, RED, Icon16x16_Up_Arror);
 	}
 
-	// ===== Number + arrows section (y=98) =====
+	// ===== Number + arrows section (y=90) =====
 	if(power_limit_switch == 1) {
-		// Draw number digits (16x32 font, shifted down to y=95)
+		// Draw number digits (16x32 font, shifted up to y=87)
 		if(ten_digi != 0) {
-			GUI_DrawBigDigit(52, 95, BLACK, WHITE, '0' + ten_digi, 1);
+			GUI_DrawBigDigit(52, 87, BLACK, WHITE, '0' + ten_digi, 1);
 		}
-		GUI_DrawBigDigit(68, 95, BLACK, WHITE, '0' + one_digi, 1);
+		GUI_DrawBigDigit(68, 87, BLACK, WHITE, '0' + one_digi, 1);
 
 		// Draw "Min" text (right of digits)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		lan_str = LanguageTable[STR_Min][g_parameter.language];
-		Show_Str(92, 88, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(92, 80, BLACK, WHITE, (char*)lan_str, 16, 0);
 
 		// Number edit arrows (selection == 2): left/right of number
 		if(selection == 2) {
-			// Down arrow on left (x=20, y=105)
-			GUI_DrawMonoIcon16x16(20, 105, WHITE, RED, Icon16x16_Down_Arror);
-			// Up arrow on right (x=100, y=105)
-			GUI_DrawMonoIcon16x16(96, 105, WHITE, RED, Icon16x16_Up_Arror);
+			// Down arrow on left (x=20, y=97)
+			GUI_DrawMonoIcon16x16(20, 97, WHITE, RED, Icon16x16_Down_Arror);
+			// Up arrow on right (x=96, y=97)
+			GUI_DrawMonoIcon16x16(96, 97, WHITE, RED, Icon16x16_Up_Arror);
 		}
 	}
 
-	// ===== Save button =====
+	// ===== Save button (keep original position) =====
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
 		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
@@ -769,13 +812,23 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 
 void Draw_Control_Adj_Power_Limit_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
+
+	// Draw title centered in TopBar
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	lan_str = LanguageTable[STR_Power_Limit][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	lan_str = LanguageTable[STR_Limit][g_parameter.language];
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+
+	// Draw horizontal separator line right below TopBar
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
+
 	Draw_Control_Adj_Power_Limit_Content(selection);
 }
 
@@ -789,39 +842,44 @@ void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection)
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 0) {
 		// TopBar mode: show number + Save (no arrows)
-		LCD_Fill(5, 44, lcddev.width - 5, 130, WHITE);
-		GUI_DrawBigDigit(30, 54, BLACK, WHITE, '0' + int_part, 0);
-		LCD_Fill(63, 106, 66, 109, BLACK);
-		GUI_DrawBigDigit(68, 54, BLACK, WHITE, '0' + dec_part, 0);
-		GUI_DrawMonoIcon24x24(100, 58, BLACK, WHITE, Celsius_Icon_24x24);
+		LCD_Fill(5, 40, lcddev.width - 5, 126, WHITE);
+		GUI_DrawBigDigit(30, 50, BLACK, WHITE, '0' + int_part, 0);
+		LCD_Fill(63, 102, 66, 105, BLACK);
+		GUI_DrawBigDigit(68, 50, BLACK, WHITE, '0' + dec_part, 0);
+		GUI_DrawMonoIcon24x24(100, 54, BLACK, WHITE, Celsius_Icon_24x24);
 		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 1) {
 		// Edit mode: show arrows + number + Save
-		LCD_Fill(5, 44, lcddev.width - 5, 130, WHITE);
-		GUI_DrawMonoIcon16x16(6, 86, WHITE, RED, Icon16x16_Up_Arror);
-		GUI_DrawMonoIcon16x16(106, 86, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawBigDigit(30, 54, BLACK, WHITE, '0' + int_part, 0);
-		LCD_Fill(63, 106, 66, 109, BLACK);
-		GUI_DrawBigDigit(68, 54, BLACK, WHITE, '0' + dec_part, 0);
-		GUI_DrawMonoIcon24x24(100, 58, BLACK, WHITE, Celsius_Icon_24x24);
+		LCD_Fill(5, 40, lcddev.width - 5, 126, WHITE);
+		GUI_DrawMonoIcon16x16(6, 82, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(106, 82, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawBigDigit(30, 50, BLACK, WHITE, '0' + int_part, 0);
+		LCD_Fill(63, 102, 66, 105, BLACK);
+		GUI_DrawBigDigit(68, 50, BLACK, WHITE, '0' + dec_part, 0);
+		GUI_DrawMonoIcon24x24(100, 54, BLACK, WHITE, Celsius_Icon_24x24);
 		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 2) {
 		// Save mode: clear arrows, Save red
-		LCD_Fill(6, 86, 22, 102, WHITE);
-		LCD_Fill(106, 86, 122, 102, WHITE);
+		LCD_Fill(6, 82, 22, 98, WHITE);
+		LCD_Fill(106, 82, 122, 98, WHITE);
 		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
 void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+	uint16_t title_x;
+	uint8_t title_width;
+
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Temp_Swing][g_parameter.language];
-	Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-	LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 	Draw_Control_Adj_Temp_Swing_Content(selection);
 }
 
@@ -838,17 +896,17 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 		uint8_t duty_val;
 		uint8_t ten_digi, one_digi;
 
-		LCD_Fill(0, 42, lcddev.width, 160, WHITE);
+		LCD_Fill(0, 34, lcddev.width, 160, WHITE);
 
 		// Day / Night labels
 		POINT_COLOR = day_color;
 		BACK_COLOR = WHITE;
 		lan_str = LanguageTable[STR_Day][g_parameter.language];
-		Show_Str(12, 44, day_color, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(12, 36, day_color, WHITE, (char*)lan_str, 16, 0);
 
 		POINT_COLOR = night_color;
 		lan_str = LanguageTable[STR_Night][g_parameter.language];
-		Show_Str(78, 44, night_color, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(78, 36, night_color, WHITE, (char*)lan_str, 16, 0);
 
 		if(selection == 0) {
 				// TopBar mode — show both values compactly
@@ -856,7 +914,7 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 				sprintf(buf, "%d%%  /  %d%%",
 						g_parameter.pwm_day_duty,
 						g_parameter.pwm_night_duty);
-				Show_Str(16, 74, BLACK, WHITE, buf, 16, 0);
+				Show_Str(16, 66, BLACK, WHITE, buf, 16, 0);
 				return;
 		}
 
@@ -865,12 +923,12 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 		ten_digi = duty_val / 10;
 		one_digi = duty_val % 10;
 
-		// Value (32x64 font, centered)
+		// Value (32x64 font, centered) — keep original position
 		GUI_DrawBigDigit(32, 63, BLACK, WHITE, '0' + ten_digi, 0);
 		GUI_DrawBigDigit(64, 63, BLACK, WHITE, '0' + one_digi, 0);
 		GUI_DrawMonoIcon16x16(96, 70, BLACK, WHITE, Percent_Icon_16x16);
 
-		// Up/Down arrows (edit mode: selection == 1 or 2)
+		// Up/Down arrows (edit mode: selection == 1 or 2) — keep original position
 		if(selection == 1 || selection == 2) {
 				GUI_DrawMonoIcon16x16(12, 91, WHITE, RED, Icon16x16_Down_Arror);
 				GUI_DrawMonoIcon16x16(100, 91, WHITE, RED, Icon16x16_Up_Arror);
@@ -879,7 +937,7 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 				LCD_Fill(100, 91, 116, 107, WHITE);
 		}
 
-		// Save button (bottom right)
+		// Save button (bottom right) — keep original position
 		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 3)
 				Show_Str(94, 142, RED, WHITE, (char*)lan_str, 16, 0);
@@ -890,14 +948,20 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 // Draw full PWM Duty Cycle page (TopBar + title + content)
 void Draw_Control_Adj_PWM_Duty_Cycle_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+		uint16_t title_x;
+		uint8_t title_width;
+
 		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 		Draw_TopBar(leave_col, edit_col);
 
+		// Draw title centered in TopBar
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		lan_str = LanguageTable[STR_PWM_Duty][g_parameter.language];
-		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
-		LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+		title_width = strlen((char*)lan_str) * 8;
+		title_x = (lcddev.width - title_width) / 2;
+		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 		Draw_Control_Adj_PWM_Duty_Cycle_Content(selection);
 }
@@ -977,63 +1041,68 @@ void Draw_Operation_Mode_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, 
 	Draw_Operation_Mode_PWM_Setting_Content(selection);
 }
 
-// Draw Control Adj PWM Setting Page (entry page with 2 options + Next)
+// Draw Control Adj PWM Setting Page (entry page with 2 options)
 // Modeled after Draw_Control_Adj_Sensor_Choices
 void Draw_Control_Adj_PWM_Setting_Choices(uint8_t selection)
 {
-		uint16_t row_y[2] = {52, 86};  // Option 1=52, Option 2=86
-		uint8_t row_height = 30;
+		uint16_t row_y[2] = {34, 72};  // Option 1=34, Option 2=72 (extra 4px gap below divider, 6px between rows)
+		uint8_t row_height = 32;        // exactly two 16px lines
+		uint8_t i;
+		uint8_t is_edit = (selection == 1);
 
-		// Draw Astro Time option (2 lines)
-		LCD_Fill(0, row_y[0], lcddev.width, row_y[0] + row_height, WHITE);
-		if(pwm_setting_selection == 0) {
-				if(selection == 1) {
-						GUI_DrawMonoIcon16x16(12, row_y[0] + (row_height - 16) / 2, WHITE, RED, Icon16x16_Arrow);
-				} else {
-						GUI_DrawMonoIcon16x16(12, row_y[0] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
-				}
-		} else {
-				LCD_Fill(12, row_y[0] + (row_height - 16) / 2, 28, row_y[0] + (row_height - 16) / 2 + 16, WHITE);
-		}
-		POINT_COLOR = BLACK;
-		BACK_COLOR = WHITE;
-		lan_str = LanguageTable[STR_Astro_Time][g_parameter.language];
-		Show_Str(34, row_y[0], BLACK, WHITE, (char*)lan_str, 16, 0);
-		lan_str = LanguageTable[STR_Setting][g_parameter.language];
-		Show_Str(34, row_y[0] + 16, BLACK, WHITE, (char*)lan_str, 16, 0);
+		for(i = 0; i < 2; i++) {
+				uint16_t text_color, bg_color;
+				uint8_t is_selected = (pwm_setting_selection == i);
 
-		// Draw PWM Duty option (2 lines)
-		LCD_Fill(0, row_y[1], lcddev.width, row_y[1] + row_height, WHITE);
-		if(pwm_setting_selection == 1) {
-				if(selection == 1) {
-						GUI_DrawMonoIcon16x16(12, row_y[1] + (row_height - 16) / 2, WHITE, RED, Icon16x16_Arrow);
+				if(is_edit && is_selected) {
+						// Edit mode, selected item: red bg, white text
+						text_color = WHITE;
+						bg_color = RED;
+						LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, RED);
 				} else {
-						GUI_DrawMonoIcon16x16(12, row_y[1] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
+						// TopBar mode or unselected: white bg, black text
+						text_color = BLACK;
+						bg_color = WHITE;
+						LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 				}
-		} else {
-				LCD_Fill(12, row_y[1] + (row_height - 16) / 2, 28, row_y[1] + (row_height - 16) / 2 + 16, WHITE);
+
+				// Arrow icon: only red in edit mode for selected option; black in TopBar mode
+				uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
+				uint16_t arrow_bg = (is_edit && is_selected) ? RED : BLACK;
+				GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, arrow_bg, Icon16x16_Arrow);
+
+				// Text (two 16px lines, exactly filling 32px row height)
+				POINT_COLOR = text_color;
+				BACK_COLOR = bg_color;
+				if(i == 0) {
+						lan_str = LanguageTable[STR_Astro_Time][g_parameter.language];
+				} else {
+						lan_str = LanguageTable[STR_PWM_Duty][g_parameter.language];
+				}
+				Show_Str(34, row_y[i], text_color, bg_color, (char*)lan_str, 16, 0);
+				lan_str = LanguageTable[STR_Setting][g_parameter.language];
+				Show_Str(34, row_y[i] + 16, text_color, bg_color, (char*)lan_str, 16, 0);
 		}
-		POINT_COLOR = BLACK;
-		BACK_COLOR = WHITE;
-		lan_str = LanguageTable[STR_PWM_Duty][g_parameter.language];
-		Show_Str(34, row_y[1], BLACK, WHITE, (char*)lan_str, 16, 0);
-		lan_str = LanguageTable[STR_Setting][g_parameter.language];
-		Show_Str(34, row_y[1] + 16, BLACK, WHITE, (char*)lan_str, 16, 0);
 }
 
 void Draw_Control_Adj_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+		uint16_t title_x;
+		uint8_t title_width;
+
 		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 		Draw_TopBar(leave_col, edit_col);
 
-		// Draw title
+		// Draw title centered in TopBar
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		lan_str = LanguageTable[STR_PWM_Setting][g_parameter.language];
-		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+		lan_str = LanguageTable[STR_PWM][g_parameter.language];
+		title_width = strlen((char*)lan_str) * 8;
+		title_x = (lcddev.width - title_width) / 2;
+		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
 
-		// Draw horizontal separator line
-		LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+		// Draw horizontal separator line right below TopBar
+		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 		Draw_Control_Adj_PWM_Setting_Choices(selection);
 }
@@ -1041,16 +1110,22 @@ void Draw_Control_Adj_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uin
 // Astro Time Setting sub-page
 void Draw_Control_Adj_PWM_Astro_Time_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
 {
+		uint16_t title_x;
+		uint8_t title_width;
+
 		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 		Draw_TopBar(leave_col, edit_col);
 
+		// Draw title centered in TopBar
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		lan_str = LanguageTable[STR_Astro_Setting][g_parameter.language];
-		Show_Str(10, 24, BLACK, WHITE, (char*)lan_str, 16, 0);
+		title_width = strlen((char*)lan_str) * 8;
+		title_x = (lcddev.width - title_width) / 2;
+		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
 
-		// Draw horizontal separator line
-		LCD_Fill(4, 40, lcddev.width - 4, 41, BLACK);
+		// Draw horizontal separator line right below TopBar
+		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 		Draw_Control_Adj_PWM_Astro_Time_Content(selection);
 }
@@ -1065,25 +1140,26 @@ void Draw_Control_Adj_PWM_Astro_Time_Content(uint8_t selection)
 		uint16_t hour_color, min_color;
 		uint8_t hour_val, min_val;
 
-		LCD_Fill(0, 42, lcddev.width, 160, WHITE);
+		LCD_Fill(0, 34, lcddev.width, 160, WHITE);
 
 		// Day / Night labels
 		POINT_COLOR = day_color;
 		BACK_COLOR = WHITE;
 		lan_str = LanguageTable[STR_Day][g_parameter.language];
-		Show_Str(12, 44, day_color, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(12, 36, day_color, WHITE, (char*)lan_str, 16, 0);
 
 		POINT_COLOR = night_color;
 		lan_str = LanguageTable[STR_Night][g_parameter.language];
-		Show_Str(78, 44, night_color, WHITE, (char*)lan_str, 16, 0);
+		Show_Str(78, 36, night_color, WHITE, (char*)lan_str, 16, 0);
 
 		if(selection == 0) {
 				// TopBar mode — show both times in compact format
-				char buf[30];
-				sprintf(buf, "%02d:%02d  /  %02d:%02d",
-						g_parameter.astro_day_hour, g_parameter.astro_day_min,
-						g_parameter.astro_night_hour, g_parameter.astro_night_min);
-				Show_Str(8, 74, BLACK, WHITE, buf, 16, 0);
+				char buf[12];
+				sprintf(buf, "%02d:%02d", g_parameter.astro_day_hour, g_parameter.astro_day_min);
+				Show_Str(8, 66, BLACK, WHITE, buf, 16, 0);
+				Show_Str(60, 66, BLACK, WHITE, "/", 16, 0);
+				sprintf(buf, "%02d:%02d", g_parameter.astro_night_hour, g_parameter.astro_night_min);
+				Show_Str(80, 66, BLACK, WHITE, buf, 16, 0);
 				return;
 		}
 
@@ -1101,35 +1177,35 @@ void Draw_Control_Adj_PWM_Astro_Time_Content(uint8_t selection)
 
 		// Hour arrows
 		if(selection == 1 || selection == 3) {
-				GUI_DrawMonoIcon16x16(32, 68, WHITE, RED, Icon16x16_Up_Arror);
-				GUI_DrawMonoIcon16x16(32, 122, WHITE, RED, Icon16x16_Down_Arror);
+				GUI_DrawMonoIcon16x16(32, 60, WHITE, RED, Icon16x16_Up_Arror);
+				GUI_DrawMonoIcon16x16(32, 114, WHITE, RED, Icon16x16_Down_Arror);
 		} else {
-				LCD_Fill(32, 68, 48, 84, WHITE);
-				LCD_Fill(32, 122, 48, 138, WHITE);
+				LCD_Fill(32, 60, 48, 76, WHITE);
+				LCD_Fill(32, 114, 48, 130, WHITE);
 		}
 
 		// Hour digits
-		GUI_DrawBigDigit(24, 86, hour_color, WHITE, '0' + hour_val / 10, 1);
-		GUI_DrawBigDigit(40, 86, hour_color, WHITE, '0' + hour_val % 10, 1);
+		GUI_DrawBigDigit(24, 78, hour_color, WHITE, '0' + hour_val / 10, 1);
+		GUI_DrawBigDigit(40, 78, hour_color, WHITE, '0' + hour_val % 10, 1);
 
 		// Colon
-		LCD_Fill(65, 101, 67, 103, BLACK);
-		LCD_Fill(65, 107, 67, 109, BLACK);
+		LCD_Fill(65, 93, 67, 95, BLACK);
+		LCD_Fill(65, 99, 67, 101, BLACK);
 
 		// Minute arrows
 		if(selection == 2 || selection == 4) {
-				GUI_DrawMonoIcon16x16(84, 68, WHITE, RED, Icon16x16_Up_Arror);
-				GUI_DrawMonoIcon16x16(84, 122, WHITE, RED, Icon16x16_Down_Arror);
+				GUI_DrawMonoIcon16x16(84, 60, WHITE, RED, Icon16x16_Up_Arror);
+				GUI_DrawMonoIcon16x16(84, 114, WHITE, RED, Icon16x16_Down_Arror);
 		} else {
-				LCD_Fill(84, 68, 100, 84, WHITE);
-				LCD_Fill(84, 122, 100, 138, WHITE);
+				LCD_Fill(84, 60, 100, 76, WHITE);
+				LCD_Fill(84, 114, 100, 130, WHITE);
 		}
 
 		// Minute digits
-		GUI_DrawBigDigit(76, 86, min_color, WHITE, '0' + min_val / 10, 1);
-		GUI_DrawBigDigit(92, 86, min_color, WHITE, '0' + min_val % 10, 1);
+		GUI_DrawBigDigit(76, 78, min_color, WHITE, '0' + min_val / 10, 1);
+		GUI_DrawBigDigit(92, 78, min_color, WHITE, '0' + min_val % 10, 1);
 
-		// Save button (bottom right)
+		// Save button (bottom right) — keep original position
 		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 5)
 				Show_Str(94, 142, RED, WHITE, (char*)lan_str, 16, 0);

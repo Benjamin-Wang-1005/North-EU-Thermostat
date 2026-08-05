@@ -262,7 +262,7 @@ void adaptive_start_minute_task(void)
         as_runtime.target_temp = next_target;
         as_runtime.target_period = next_idx;
 
-        LOGD("AS: start preheat for P%d target=%.1fC in %lu min (R=%.3f)\r\n",
+        LOGD("AS: start preheat for P%d target=%.1fC in %d min (R=%.3f)\r\n",
              next_idx, next_target, required_min, current_r);
     }
 }
