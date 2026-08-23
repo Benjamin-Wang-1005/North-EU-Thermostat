@@ -1047,6 +1047,39 @@ void UI_Update(void)
 	{
 		
 			if(Top_Bar_Active){
+					if(edit_icon_color){		//Edit Icon is red
+							if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY){
+									item_selection = 1;
+									func_setting_scroll = 0;  // Reset scroll
+									Top_Bar_Active = 0;
+									leave_icon_color = 0;
+									edit_icon_color = 0;
+									Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
+							}else if(key.key_val == UPKEY){
+									leave_icon_color = 1;
+									edit_icon_color = 0;
+									Draw_TopBar(leave_icon_color, edit_icon_color);
+							}
+					}else{			//Leave Icon id red
+							if(key.key_val == DOWNKEY){
+									leave_icon_color = 0;
+									edit_icon_color = 1;
+									Draw_TopBar(leave_icon_color, edit_icon_color);
+							}else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY)){
+									UI_state = STATE_ACTIVE;
+									Top_Bar_Active = 0;
+									icon6_red_state = 0;
+									main_display_digi = Display_Room_Temp;
+									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+									delete_alarm(Setting_Menu_Alarm);
+									Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+									if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+											LOGE("Alarm Fail\r\n");
+									}
+									Draw_Active_Menu();
+							}
+					}
+					/*
 					if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed -> toggle Icon colors
 					{
 							Update_TopBar();
@@ -1065,7 +1098,6 @@ void UI_Update(void)
 							}
 							else
 							{
-									// Leave Icon is red -> return to Active state
 									UI_state = STATE_ACTIVE;
 									Top_Bar_Active = 0;
 									icon6_red_state = 0;
@@ -1077,12 +1109,8 @@ void UI_Update(void)
 											LOGE("Alarm Fail\r\n");
 									}
 									Draw_Active_Menu();
-									//if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
-									//		LOGE("Alarm Full!\r\n");
-									//}
 							}
-							//delay_ms(100);  // Debounce
-					}
+					}*/
 			}else{				
 					// Function Setting Edit mode navigation
 					if(key.key_val == DOWNKEY)  // Down key pressed
@@ -1197,13 +1225,9 @@ void UI_Update(void)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter menu scroll, Edit/Leave both black, highlight current mode
 						Top_Bar_Active = 0;
@@ -1212,7 +1236,22 @@ void UI_Update(void)
 						edit_icon_color = 0;
 						Draw_Operation_Mode_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit page
 						UI_state = STATE_FUNC_SETTING;
@@ -1307,13 +1346,9 @@ void UI_Update(void)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-						Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						Top_Bar_Active = 0;
 						item_selection = 1;
@@ -1321,7 +1356,22 @@ void UI_Update(void)
 						edit_icon_color = 0;
 						Draw_Heating_Schedule_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting in Heating Schedule item
 						UI_state = STATE_FUNC_SETTING;
@@ -1404,13 +1454,33 @@ void UI_Update(void)
 			// Program Type page navigation
 			if(Top_Bar_Active == 1) // Top Bar (Leave / Edit)
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
+					{
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						Top_Bar_Active = 0;
+						Draw_Heating_Schedule_Prog_Type_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
 				}
-				else if(key.key_val == ENTERKEY)  // Enter key
+				else  // Leave Icon is red
 				{
-					if(leave_icon_color) {
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
+					{
 						//go back to Heating schedul menu page and stay in program type item
 						UI_state = STATE_HEATING_SCHEDULE_MENU;
 						item_selection = 1;
@@ -1419,12 +1489,6 @@ void UI_Update(void)
 						Top_Bar_Active = 0;
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_Heating_Schedule_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
-					} else { // Edit selected
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						Top_Bar_Active = 0;
-						Draw_Heating_Schedule_Prog_Type_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
 
 				}
@@ -1496,13 +1560,9 @@ void UI_Update(void)
 			// Schedule Edit page navigation (P1-P6)
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter P1-P6/Finish mode, Edit/Leave both black, P1 Arrow red
 						Top_Bar_Active = 0;
@@ -1511,7 +1571,22 @@ void UI_Update(void)
 						item_selection = 1;
 						Draw_Schedule_Edit_Page(item_selection, leave_icon_color, edit_icon_color); 
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Heating Schedule Menu 
 						UI_state = STATE_HEATING_SCHEDULE_MENU;
@@ -1672,13 +1747,9 @@ void UI_Update(void)
 			// Schedule Time Setting page navigation
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Hour edit mode
 						item_selection = 1;
@@ -1688,7 +1759,22 @@ void UI_Update(void)
 						Draw_TopBar(leave_icon_color, edit_icon_color);
 						Draw_Schedule_Time_Setting_TimeDigits();
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Schedule Edit
 						UI_state = STATE_SCHEDULE_EDIT;
@@ -1849,13 +1935,9 @@ void UI_Update(void)
 			
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Edit/Leave both black, Sensor selected
 						Top_Bar_Active = 0;
@@ -1865,7 +1947,22 @@ void UI_Update(void)
 						control_adj_menu_scroll = 0;  // Reset scroll
 						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_FUNC_SETTING;
@@ -1998,13 +2095,9 @@ void UI_Update(void)
 	{
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter option selection mode
 						Top_Bar_Active = 0;
@@ -2014,7 +2107,22 @@ void UI_Update(void)
 						pwm_setting_selection = 0;  // Default to Astro Time
 						Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						UI_state = STATE_CONTROL_ADJ_MENU;
 						Top_Bar_Active = 0;
@@ -2070,13 +2178,9 @@ void UI_Update(void)
 	{
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)
-				{
-					if(edit_icon_color)  // Edit Icon is red → enter edit mode
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						temp_astro_day_hour = g_parameter.astro_day_hour;
 						temp_astro_day_min = g_parameter.astro_day_min;
@@ -2089,7 +2193,22 @@ void UI_Update(void)
 						edit_icon_color = 0;
 						Draw_Control_Adj_PWM_Astro_Time_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red → go back (no changes)
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave ??go back (no changes)
 					{
 						UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
 						Top_Bar_Active = 0;
@@ -2191,13 +2310,9 @@ void UI_Update(void)
 	{
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)
-				{
-					if(edit_icon_color)  // Edit Icon is red → enter edit mode
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						temp_pwm_day_duty = g_parameter.pwm_day_duty;
 						temp_pwm_night_duty = g_parameter.pwm_night_duty;
@@ -2208,7 +2323,22 @@ void UI_Update(void)
 						edit_icon_color = 0;
 						Draw_Control_Adj_PWM_Duty_Cycle_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red → go back (no changes)
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave ??go back (no changes)
 					{
 						UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
 						Top_Bar_Active = 0;
@@ -2279,13 +2409,9 @@ void UI_Update(void)
 			
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Room/Floor menu
 						Top_Bar_Active = 0;
@@ -2294,7 +2420,22 @@ void UI_Update(void)
 						item_selection = 1;
 						Draw_Control_Adj_Sensor_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Control_Adj_menu page
 						UI_state = STATE_CONTROL_ADJ_MENU;
@@ -2381,13 +2522,9 @@ void UI_Update(void)
 	{
 		if(Top_Bar_Active == 1)
 		{
-			if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+			if(edit_icon_color)
 			{
-				Update_TopBar();
-			}
-			else if(key.key_val == ENTERKEY)
-			{
-				if(edit_icon_color)
+				if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)
 				{
 					Top_Bar_Active = 0;
 					item_selection = 1;
@@ -2397,7 +2534,22 @@ void UI_Update(void)
 					Draw_TopBar(leave_icon_color, edit_icon_color);
 					Draw_Control_Adj_Temp_Swing_Content(item_selection);
 				}
-				else
+				else if(key.key_val == UPKEY)
+				{
+					leave_icon_color = 1;
+					edit_icon_color = 0;
+					Draw_TopBar(leave_icon_color, edit_icon_color);
+				}
+			}
+			else
+			{
+				if(key.key_val == DOWNKEY)
+				{
+					leave_icon_color = 0;
+					edit_icon_color = 1;
+					Draw_TopBar(leave_icon_color, edit_icon_color);
+				}
+				else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))
 				{
 					UI_state = STATE_CONTROL_ADJ_MENU;
 					Top_Bar_Active = 0;
@@ -2462,13 +2614,9 @@ void UI_Update(void)
 	{
 		if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Sensor Cal. edit mode
 						Top_Bar_Active = 0;
@@ -2479,7 +2627,22 @@ void UI_Update(void)
 						temp_correct_external = g_parameter.temp_correct_external;
 						Draw_Control_Adj_TempCorrect_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Control Adj Menu with Leave red
 						UI_state = STATE_CONTROL_ADJ_MENU;
@@ -2566,13 +2729,9 @@ void UI_Update(void)
 	{
 		if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 		{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						
 						Top_Bar_Active = 0;
@@ -2584,7 +2743,22 @@ void UI_Update(void)
 						Draw_TopBar(leave_icon_color, edit_icon_color);
 						Draw_Control_Adj_TempLimit_Content(item_selection);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Control Adj Menu with Leave red
 						UI_state = STATE_CONTROL_ADJ_MENU;
@@ -2670,13 +2844,9 @@ void UI_Update(void)
 	{
 		if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 		{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Correct num setting
 						Top_Bar_Active = 0;
@@ -2685,7 +2855,22 @@ void UI_Update(void)
 						item_selection = 1;
 						Draw_Control_Adj_TempProtect_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Control Adj Menu with Leave red
 						UI_state = STATE_CONTROL_ADJ_MENU;
@@ -2747,13 +2932,9 @@ void UI_Update(void)
 	{
 		if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 		{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Correct num setting
 						temp_protect_max = g_parameter.temp_protect_max;
@@ -2764,7 +2945,22 @@ void UI_Update(void)
 						item_selection = 1;  // Enter ON/OFF mode first
 						Draw_Control_Adj_TempProtect_Max_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Control Adj Menu with Leave red
 						UI_state = STATE_CONTROL_ADJ_TEMP_PROTECT;
@@ -2840,13 +3036,9 @@ else if(item_selection == 3)
 	{
 		if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 		{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Correct num setting
 						temp_protect_min = g_parameter.temp_protect_min;
@@ -2857,7 +3049,22 @@ else if(item_selection == 3)
 						item_selection = 1;  // Enter ON/OFF mode first
 						Draw_Control_Adj_TempProtect_Min_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Control Adj Menu with Leave red
 						UI_state = STATE_CONTROL_ADJ_TEMP_PROTECT;
@@ -2929,13 +3136,9 @@ else if(item_selection == 3)
 	{
 		if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 		{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Correct num setting
 						Top_Bar_Active = 0;
@@ -2944,9 +3147,23 @@ else if(item_selection == 3)
 						item_selection = 1;
 						Draw_Control_Adj_Power_On_State_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
 					{
-						
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
+					{
 						UI_state = STATE_CONTROL_ADJ_MENU;
 						Top_Bar_Active = 0;
 						leave_icon_color = 0;
@@ -3006,13 +3223,9 @@ else if(item_selection == 3)
 			// Control Adj Menu page navigation
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter menu selection, Edit/Leave both black, Sensor selected
 						Top_Bar_Active = 0;
@@ -3022,7 +3235,22 @@ else if(item_selection == 3)
 						control_adj_menu_scroll = 0;  // Reset scroll
 						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_FUNC_SETTING;
@@ -3184,13 +3412,9 @@ else if(item_selection == 3)
 		// User setting child lock page navigation
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Child Lock edit mode
 						Top_Bar_Active = 0;
@@ -3200,7 +3424,22 @@ else if(item_selection == 3)
 						//child_lock = g_parameter.child_lock;
 						Draw_User_Setting_Child_Lock_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
@@ -3277,13 +3516,9 @@ else if(item_selection == 3)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Window Function edit mode
 						Top_Bar_Active = 0;
@@ -3292,7 +3527,22 @@ else if(item_selection == 3)
 						edit_icon_color = 0;
 						Draw_User_Setting_Window_Fun_Content(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
@@ -3351,15 +3601,10 @@ else if(item_selection == 3)
 	else if(UI_state == STATE_USER_SETTING_WINDOW_TIME){
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
-						
 						Top_Bar_Active = 0;
 						item_selection = 1;
 						leave_icon_color = 0;
@@ -3368,9 +3613,23 @@ else if(item_selection == 3)
 						window_fun_time = g_parameter.window_fun_time;
 						Draw_User_Setting_Window_Time_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
 					{
-						
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
+					{
 						UI_state = STATE_USER_SETTING_WINDOW_FUN;
 						Top_Bar_Active = 0;
 						item_selection = 1;			//go back to ON/OFF selection
@@ -3437,13 +3696,9 @@ else if(item_selection == 3)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						Top_Bar_Active = 0;
 						item_selection = 1;
@@ -3451,7 +3706,22 @@ else if(item_selection == 3)
 						edit_icon_color = 0;
 						Draw_User_Setting_SetTime_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						UI_state = STATE_USER_SETTING_MENU;
 						set_time_from_boot = 0;	// Leave without saving: cancel boot redirect
@@ -3530,13 +3800,9 @@ else if(item_selection == 3)
 	{
 		if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						Top_Bar_Active = 0;
 						item_selection = 1;
@@ -3544,9 +3810,23 @@ else if(item_selection == 3)
 						edit_icon_color = 0;
 						Draw_User_Setting_Setclk_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
 					{
-						
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
+					{
 						UI_state = STATE_USER_SETTING_SET_TIME;
 						Top_Bar_Active = 1;
 						item_selection = 0;
@@ -3618,13 +3898,9 @@ else if(item_selection == 3)
 	else if(UI_state == STATE_USER_SETTING_BACKLIGHT){
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Backlight edit mode
 						Top_Bar_Active = 0;
@@ -3634,7 +3910,22 @@ else if(item_selection == 3)
 						sleep_backlight_duty = g_parameter.sleep_backlight_duty;
 						Draw_User_Setting_Backlight_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
@@ -3687,22 +3978,32 @@ else if(item_selection == 3)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
-						
 						Top_Bar_Active = 0;
 						item_selection = 1;
 						leave_icon_color = 0;
 						edit_icon_color = 0;
 						Draw_User_Setting_Reset_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_USER_SETTING_MENU;
@@ -3927,13 +4228,9 @@ else if(item_selection == 3)
 	{
 		if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Power Limit edit mode
 						Top_Bar_Active = 0;
@@ -3942,7 +4239,22 @@ else if(item_selection == 3)
 						edit_icon_color = 0;
 						Draw_Control_Adj_Power_Limit_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 						UI_state = STATE_CONTROL_ADJ_MENU;
@@ -4006,13 +4318,9 @@ else if(item_selection == 3)
 	{
 		if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)  // Up or Down key pressed
+				if(edit_icon_color)  // Edit Icon is red
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)  // Enter key pressed
-				{
-					if(edit_icon_color)  // Edit Icon is red
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)  // Enter Edit mode
 					{
 						// Enter Backlight edit mode
 						Top_Bar_Active = 0;
@@ -4022,7 +4330,22 @@ else if(item_selection == 3)
 						Draw_TopBar(leave_icon_color, edit_icon_color);
 						Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else  // Leave Icon is red
+					else if(key.key_val == UPKEY)  // Switch focus to Leave Icon
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else  // Leave Icon is red
+				{
+					if(key.key_val == DOWNKEY)  // Switch focus to Edit Icon
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))  // Leave
 					{
 						// Go back to Function Setting Edit mode with cursor on Control Adj
 							UI_state = STATE_USER_SETTING_MENU;
@@ -4089,13 +4412,9 @@ else if(item_selection == 3)
 	{
 		if(Top_Bar_Active)
 			{
-				if(key.key_val == UPKEY || key.key_val == DOWNKEY)
+				if(edit_icon_color)
 				{
-					Update_TopBar();
-				}
-				else if(key.key_val == ENTERKEY)
-				{
-					if(edit_icon_color)
+					if((key.key_val == DOWNKEY) || key.key_val == ENTERKEY)
 					{
 						Top_Bar_Active = 0;
 						item_selection = 1;
@@ -4104,7 +4423,22 @@ else if(item_selection == 3)
 						Draw_TopBar(leave_icon_color, edit_icon_color);
 						Draw_User_Setting_Adaptive_Start_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else
+					else if(key.key_val == UPKEY)
+					{
+						leave_icon_color = 1;
+						edit_icon_color = 0;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+				}
+				else
+				{
+					if(key.key_val == DOWNKEY)
+					{
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						Draw_TopBar(leave_icon_color, edit_icon_color);
+					}
+					else if((key.key_val == ENTERKEY) || (key.key_val == UPKEY))
 					{
 						UI_state = STATE_USER_SETTING_MENU;
 						Top_Bar_Active = 0;

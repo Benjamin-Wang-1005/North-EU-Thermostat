@@ -27,6 +27,7 @@
 #define ENTER_KEY_PORT   GPIOA
 #define RELAY_PIN		 	GPIO_Pin_8		//PB8
 #define RELAY_PORT	 	GPIOB
+#define FW_VER				0x0100
 
 enum{
 		STATE_ACTIVE = 0,

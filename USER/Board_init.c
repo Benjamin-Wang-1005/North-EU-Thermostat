@@ -86,7 +86,7 @@ void g_check_rtc(void)
 			elapsed += g_parameter.backup_rtc.Hour * 60;				// One Hour
 			elapsed += g_parameter.backup_rtc.Min;
 	
-			if((flash_time > elapsed) || (elapsed > (flash_time + 7200))){
+			if((flash_time > elapsed) || (elapsed > (flash_time + 14400))){
 					rtc_reset = 1;
 					//Set to default time
 					RTC_GetDefaultTime(&rtc_time);

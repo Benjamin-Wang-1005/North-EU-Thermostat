@@ -24,7 +24,7 @@
 #define		MAX_ALARM_NUMBER							(5)
 #define		ACTIVE_ALIVE_TIME							(20000)						//20 sec
 #define		DIGI_UPDATE_TIME							(10000)						//10 sec
-#define		SETTING_UPDATE_TIME						(10000)						//10 sec (QA Spec 2.1)
+#define		SETTING_UPDATE_TIME						(20000)						//20 sec (QA Spec 2.1)
 //#define		FACTORY_KEY_TEST_TIME					(20000)						//20 sec
 #define		Upkey_Mask										(1)
 #define		Downkey_Mask									(2)
@@ -71,6 +71,7 @@
 #define SENSOR_TEST_MASK								0x08
 #define RELAY_TEST_MASK									0x10
 #define VCC_TEST_MASK										0x20
+#define FW_TEST_MASK										0x40
 
 #define LONG_PRESS_THRESHOLD						(250)
 typedef enum 

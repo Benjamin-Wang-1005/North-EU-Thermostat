@@ -298,6 +298,17 @@ void set_vcc_cmd(char *param)
 		}
 }
 
+void set_fw_cmd(char *param)
+{
+		if(strcmp(param, "START") == 0){
+				TCMD("RES:FW:OK\n");
+				Factory_testing |= FW_TEST_MASK;
+		}else if(strcmp(param, "STOP") == 0){
+				TCMD("RES:FW:OK\n");
+				Factory_testing ^= VCC_TEST_MASK;
+		}
+}
+
 void get_vcc_cmd(void)
 {
 		char buffer[10];
@@ -313,6 +324,22 @@ void get_temp_cmd(void)
 		snprintf(buffer, sizeof(buffer), "%.1f,%.1f", Average_INT_Temp, Average_EXT_Temp);
 		TCMD("DATA:TEMP:%s\n", buffer);
 		
+}
+
+void get_ID_cmd(void)
+{
+		uint32_t uid[3];
+		uid[0] = *(__IO uint32_t *)(0x1FFFF7E8); // Low 32 bits
+		uid[1] = *(__IO uint32_t *)(0x1FFFF7EC); // Middle 32 bits
+		uid[2] = *(__IO uint32_t *)(0x1FFFF7F0); // High 32 bits
+	
+		TCMD("DATA:ID:0x%08X%08X%08X\n", uid[2], uid[1], uid[0]);
+}
+
+void get_FW_cmd(void)
+{
+		uint16_t fw_ver = FW_VER;
+		TCMD("DATA:FW:0x%04X\n", fw_ver);
 }
 //---------------------------------------------------------------------------------------------------------
 // Function: processCmd
@@ -398,6 +425,11 @@ static void processCmd(void)
 						set_vcc_cmd(param);
 				}
 		}
+		else if (strcmp(cmd_name, "FW") == 0) {
+				if(Factory_testing & FACTORT_TEST_MASK){
+						set_fw_cmd(param);
+				}
+		}
     else if (strcmp(cmd_name, "GET") == 0) {
         // Handle GET:TEMP or GET:VCC
         if (strcasecmp(param, "TEMP") == 0) {
@@ -406,6 +438,12 @@ static void processCmd(void)
         else if (strcasecmp(param, "VCC") == 0) {
             get_vcc_cmd();
         }
+				else if (strcasecmp(param, "ID") == 0) {
+						get_ID_cmd();
+				}
+				else if (strcasecmp(param, "FW") == 0) {
+						get_FW_cmd();
+				}
         else {
             //send_response("GET", "INVALID");
         }

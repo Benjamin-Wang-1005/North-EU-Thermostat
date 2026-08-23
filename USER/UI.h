@@ -22,7 +22,7 @@
 
 #define		MAX_SET_TEMP														(45)
 #define 	SIMULATION															(0)
-#define   NO_Power_Board													(0)
+#define   NO_Power_Board													(1)
 
 
 typedef enum{

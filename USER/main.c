@@ -63,6 +63,7 @@ int main(void)
 {
 //	uint8_t key_val;
 	uint32_t temp_time;
+	
 	SystemInit();        // Initialize RCC, system clock to 64MHz (HSI/2 * 16 PLL)
 	//SCB->VTOR = 0x08004000;  // Vector table relocated for IAP application area
 	sys_tick_Init();	 // Initialize system tick clock
@@ -186,7 +187,6 @@ int main(void)
 				LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);	
 	 }
 	 
-	  
 		
 	// Initialize ADC and measure VCC voltage
 	if(register_alarm(Min_Update_Alarm, 60000) == 0){

@@ -706,7 +706,7 @@ void l_process_alarm_source(alarm_source_t source)
 								if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
 										Show_Str(132, 106, RED, WHITE, en_week_texts[weekday], 16, 0);
 								}else{
-										Show_Str(132, 106, BLUE, WHITE, en_week_texts[weekday], 16, 0);
+										Show_Str(132, 106, BLACK, WHITE, en_week_texts[weekday], 16, 0);
 								}
 #endif
 						}
