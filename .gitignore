@@ -1,0 +1,43 @@
+# Keil MDK generated files
+OBJ/
+*.o
+*.crf
+*.d
+*.axf
+*.htm
+*.lnp
+*.sct
+*.dep
+*.iex
+*.bak
+*.map
+*.lst
+JLinkLog.txt
+
+# IAP Bootloader generated files
+IAP_Bootloader/OBJ/
+IAP_Bootloader/Objects/
+IAP_Bootloader/Listings/
+IAP_Bootloader/*.uvguix.*
+IAP_Bootloader/JLinkLog.txt
+IAP_Bootloader.hex
+
+# Project generated files
+PROJECT/JLinkLog.txt
+PROJECT/*.uvguix.*
+PROJECT/TOUCH.uvprojx.bak
+PROJECT/startup_stm32f10x_hd.lst
+PROJECT/TOUCH.map
+
+# Production merged firmware
+Production/
+Tools/Production/
+Tools/*.bin
+Tools/*.hex
+
+# Claude configuration
+.claude/
+
+# System files
+.DS_Store
+Thumbs.db

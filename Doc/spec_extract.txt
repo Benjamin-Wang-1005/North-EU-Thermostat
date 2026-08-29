@@ -1,0 +1,303 @@
+===== PAGE 1 =====
+溫控器規格釐清與 QA ⽂
+件
+July 25, 2026 at 02:22 PM
+Gemini Conversation 5c33e1da
+3 conversation turns
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 1/11
+===== PAGE 2 =====
+Turn 1
+🤖  Assistant
+這份  User Manual 包含了相當完整的硬體與基本  UI 架構，但在撰寫成完整的  QA 檢測與測試規格
+書（ Test Specification / Spec ） 前，確實有許多邏輯不嚴謹、定義模糊、 UI 互動未閉環，以
+及多功能同時啟動時的潛在衝突需要釐清。
+以下為您整理出  7 ⼤類、 22 個需要您補充 / 確認的關鍵議題。請您逐⼀確認或提供規格建議，補充
+完成後我們就能直接進⼊  QA Spec ⽂件的撰寫：
+⼀、  UI / Key 交互與狀態機（ State Machine ）模糊點
+1. Setting Mode 的  10 秒  Timeout 與「未確認參數」處置：
+⼿冊提到：在  Setting Mode 調整溫度若未按  Enter 確定， 10 秒  timeout 後會⾃動退回
+Active Mode 且丟棄修改。
+需要釐清： 如果使⽤者是在「選單內層（如修改  Schedule 時間、輸⼊  PIN 碼、設定
+Sensor Calibration ）」進⾏編輯， 10 秒  Timeout 觸發時：
+是退回到「該選單上⼀層」還是「直接退回  Active Mode 主畫⾯」？
+所有未  Save 的變更是否⼀律不儲存？
+2. Top Bar (Edit / Exit) 的選單操作邏輯：
+⼿冊寫：進⼊新⾴⾯時會先停在  Top Bar 的  Edit/Exit。
+需要釐清：
+按  Up/Down 鍵是在  Edit 與  Exit 之間切換？那要如何按到「⾴⾯下⽅的內容選
+單」？是選了  Edit 並按  Enter 後，焦點才移到內容區嗎？
+離開⾴⾯時，按  Exit 是否會提⽰「未儲存變更」？還是直接丟棄變更退回？
+3. 物理電源開關（ Power Switch ）與記憶體狀態：
+前⾯板有雙極切斷開關  (2-pole switch)。
+需要釐清： 切斷  Power Switch 後重新開啟（或外部斷電後復電）：
+系統開機初始化需要多久（ Booting Time ）？
+畫⾯是否會顯⽰  Bootloader / 商標？
+Power On State（ Restore / Force Off / Force On ）作⽤時，如果設為
+Restore ，會還原「斷電前的哪種模式（ Manual/Schedule/PWM ）」與「繼電器
+開閉狀態」？
+⼆、  控制模式（ Operation Modes ）與衝突機制
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 2/11
+===== PAGE 3 =====
+4. Schedule Mode 運作與臨時⼿動⼲預（ Manual Override ）：
+需要釐清： 當處於  Schedule Mode 時，若使⽤者直接按  Up/Down 調整⽬標溫度：
+系統是否允許  Override （臨時⼿動切換）？
+如果允許，這個臨時溫度會維持多久？（ A. 直到下⼀個  Schedule 時段  P(x) 到
+來； B. 維持固定⼩時； C. 直接把  Schedule Mode 永久改寫為  Manual Mode ？）
+5. PWM 模式與保護機制的優先權衝突（關鍵  QA 測項）：
+PWM 模式是「固定  20 分鐘週期、按  Duty % 強制開關  Relay ，不參考⽬標溫度」。
+需要釐清： 當  PWM 模式開啟時，若觸發了以下防護， Relay 的⾏為是什麼？
+Overheating Protection （過熱保護）： 地板  NTC 超過  Protect Limit 時，是
+否無視  PWM Duty 強制關閉  Relay？
+Window Open Detect （開窗偵測）： 偵測到開窗時， PWM 是否暫停？
+Power Limit （連續加熱限制）： PWM Duty 與  Power Limit 限制的  20 分鐘週
+期關閉時間重疊時，邏輯如何計算？
+6. Program Type 修改時的資料處理：
+切換  Program Type （ 5+2 / 6+1 / 7 ）時：
+原本設定好的週六 / 週⽇  Schedule 資料是否會被清空，還是隱藏？如果從  7 模式
+切回  5+2 ，舊的  Restday 設定是否還在？
+三、  溫控演算法、保護與防護機制（邏輯邊界）
+7. Sensor Selection 與  NTC 異常（斷線 / 短路  Error Handling ）：
+需要釐清：
+當  Sensor Select = Room，但內建  Room Sensor 故障（或  Sensor Select =
+Floor，但  External Floor Sensor 沒接 / 線材斷路 / 短路）時：
+畫⾯顯⽰什麼  Error Code （例如  E1/E2 ）？
+Relay 是否為了安全強制跳脫關閉？
+當  Sensor Select = Room 時，保護機制仍強制參考  External Floor NTC。如果
+此時  External Floor NTC 故障斷線，系統要停機報錯，還是允許繼續運作？
+8. Temperature Swing ( 回差  / Hysteresis) 計算邏輯：
+設  Swing = 1.0°C ，⽬標溫度  Target = 20°C。
+需要釐清： Relay 啟動與關閉的精確邊界是哪⼀個？
+⽅案  A （ Center ）： Temp < 19.5°C ON, Temp > 20.5°C OFF
+⽅案  B （ Asymmetric ）： Temp < 19.0°C ON, Temp >= 20.0°C OFF
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 3/11
+===== PAGE 4 =====
+9. Power Limit （加熱功率限制）的精確執⾏時機：
+⼿冊範例：設  6 分鐘，會在每⼩時分拆為三個  20 分鐘週期，每個週期強制關閉  2 分
+鐘。
+需要釐清： 這  2 分鐘強制關閉是發⽣在  20 分鐘週期的「前  2 分鐘」還是「後  2 分
+鐘」？如果該週期內  Relay 本來就因為達到⽬標溫度⽽沒開，這  2 分鐘冷卻時間是否
+還需累積？
+10. Window Open Detection （開窗偵測）觸發與復歸：
+需要釐清：
+觸發條件：在  X 分鐘內下降  Y°C （這個  X 與  Y 的可調範圍與預設值是多少？）
+復歸條件（ Resume ）：觸發開窗關閉加熱後，如何恢復正常加熱？（ A. 純靠使
+⽤者⼿動按鍵解除； B. 等待  Z 分鐘後⾃動恢復偵測； C. 溫度回升⼀定幅度後⾃
+動解除？）
+四、  安全機制與極限衝突（ High/Low Protection vs Limits ）
+11. Input Temperature Limit vs Protect Temperature Settings 的優先權：
+Input Temp Limit 限制使⽤者可設定的上限與下限（如最⾼可設  20~70°C ，最低可
+設  -15~10°C ）。
+Protect Temp 設定⾼溫保護與過冷防凍保護。
+需要釐清： 如果使⽤者將  Target Temp 設為  25°C ，但  Overheating Protect 設為
+24°C ，系統如何處理？（ UI 是否在設定時就阻⽌使⽤者將  Target 設得⽐  Overheat
+Protect ⾼？）
+12. Frost Protection （防凍保護）與各模式  Override （最⾼優先權）：
+⼿冊提到：即便在開窗關閉加熱狀態下，低於最低保護溫度仍會強制啟動防凍。
+需要釐清： 以下情況若達到防凍溫度（ Low Protect Temp ），是否全部強制啟動
+Relay？
+A. ⼿動模式關機（若有  OFF 狀態）
+B. 開窗防護中
+C. Power Limit 強制冷卻時間內
+D. PIN 碼鎖定中
+五、  安全鎖與系統重置（ Child Lock, PIN & Factory Reset ）
+13. Child Lock / PIN Code 邊界權限：
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 4/11
+===== PAGE 5 =====
+需要釐清： 當  Child Lock 啟⽤時：
+在  Active Mode 下，使⽤者是否可以直接按  Up/Down 調整臨時⽬標溫度？還
+是連調溫都需要輸⼊  PIN ？
+PIN 碼輸⼊錯誤的懲罰機制：連續輸錯  N 次是否會鎖定  X 分鐘？
+14. Hardware Bypass ( 硬體解鎖重置 ) ：
+⼿冊：Sleep Mode 下⻑按  Up+Down 5 秒可跳過  PIN 直接進⼊  Factory Reset 選單。
+需要釐清： 進⼊  Factory Reset 後，是否需再按  Enter 確認才執⾏清除？執⾏  Factory
+Reset 會清除哪些資料（ WiFi/ 時間 /Schedule/ 校正值 /PIN 碼）？
+六、  進階功能邏輯（ Adaptive Start & Backlight ）
+15. Adaptive Start （⾃適應預熱）邏輯：
+⼿冊說明：⾃動計算提早開啟 / 關閉加熱的時間。
+需要釐清：
+最多允許提早多久啟動（例如最多提早  2 ⼩時）？
+在⾃適應預熱階段， UI 的  Heating Icon 與  Operation Mode Icon 會如何顯⽰
+（會顯⽰  P(x) 還是特別標⽰  Adaptive ）？
+16. Set Backlight （背光）與告警狀態：
+背光在  Sleep Mode 可設  0%~70%。
+需要釐清： 若背光設為  0% （完全熄滅），當系統發⽣重⼤告警（如  Sensor 故障、開
+窗觸發、過熱保護觸發）時，背光是否會強制亮起或閃爍警⽰？
+七、  時間與語系（ System / Localization ）
+17. Set Time 丟失與  RTC （即時時鐘）：
+需要釐清： 斷電後  RTC 可維持多久時間不遺失（是否有  SuperCap 或電池）？若時間
+遺失，開機後若處於  Schedule Mode ，系統會如何反應？（強制彈出  Set Time 畫⾯，
+還是在校正前暫時切回  Manual Mode ？）
+18. Multi-Language （多國語系）：
+⽬前⽀援  English / Norwegian。
+需要釐清： 切換語系時， UI ⽂字⻑度不同（尤其是挪威語）是否會有字串溢出（ Text
+Overflow/Truncation ）問題？專案是否有各語系  UI 對照表？
+請您針對上述有疑問或尚未明確規範的點進⾏補充說明（如果某些項⽬您希望由我直接為您規劃業
+界標準  QA 邏輯，也可以告訴我）。
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 5/11
+===== PAGE 6 =====
+收到您的補充後，我會⽴刻為您整理出⼀份具備  測試案例（ Test Cases ）、邊界條件、狀態轉換表
+與衝突矩陣（ Conflict Matrix ） 的完整  QA 檢測與產品規格書  (QA Spec)！
+Turn 2
+🤖  Assistant
+No content
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 6/11
+===== PAGE 7 =====
+Turn 3
+🤖  Assistant
+感謝您提供極為精準且完整的回覆！  這些資訊已徹底將產品的  UI 互動、狀態轉換、保護優先權以
+及感測器異常處置（ Error Handling ）等邏輯閉環。
+依據您補充的規格細節，我已為您整理並彙整出⼀份完整標準的  QA 測試規格書（ QA Test
+Specification ）。本規範可直接交付給  Firmware ⼯程師作為開發基準，或作為  QA 部⾨編寫  Test
+Plan / Test Cases 的標準依據。
+QA 測試與產品系統規格書  (QA Test
+Specification)
+1. 系統啟動與初始化  (Booting & Power On Initialization)
+1.1 開機時間與畫⾯狀態  (Booting Time & Initial Screen)
+開機時序： 物理電源切換（ 2-Pole Switch ）或外部復電後，系統需在  300ms ~
+500ms 內完成  MCU/UI 繪製初始化（Draw Active Manual）。
+溫度初始化階段： 開機後  0 ~ 3.6 秒 內， UI 允許顯⽰基本框架與其他畫⾯，但溫度
+數字區域必須固定顯⽰  --（代表  Sensor 尚未採樣穩定）。
+正常顯⽰： 開機  3.6 秒後，溫度初始化完成，畫⾯正式顯⽰實際採樣溫度數字。中間過
+程不得出現  Bootloader 或其他⾮定義之雜訊畫⾯。
+1.2 上電繼電器狀態  (Power On State Logic)
+上電時  Relay 的動作依據選單設定之  Power On State 執⾏：
+Relay OFF：開機後  Relay 強制保持切斷。
+Relay ON：開機後  Relay 強制閉合加熱。
+Keep State / Restore：還原斷電前的運作模式（ Manual / Schedule / PWM ）
+與  Relay 狀態。
+2. UI 互動與狀態機  (UI State Machine & Navigation)
+2.1 超時⾃動退回  (Setting Mode 10s Timeout)
+在任何設定⾴⾯（包含⼦選單： Schedule 時段調整、 PIN 碼輸⼊、 Sensor Calibration
+等），若使⽤者連續  10 秒 無任何按鍵操作：
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 7/11
+===== PAGE 8 =====
+系統必須⽴刻強制退回  Active Mode 主畫⾯。
+所有未按  Enter 儲存的變更⼀律丟棄，恢復為變更前之參數。
+2.2 Top Bar 導覽邏輯  (Edit / Leave Icons)
+進⼊新設定⾴⾯時，焦點預設停留在  Top Bar 的  Edit / Leave 圖標上。
+選取  Edit 並按  Enter 鍵：焦點進⼊該⾴⾯下⽅的內容區域進⾏編輯。
+選取  Leave 並按  Enter 鍵：⽴刻退出當前⾴⾯並返回上⼀層（不彈出未儲存提⽰視
+窗，直接放棄未儲存之修改）。
+2.3 密碼與系統鎖定  (Child Lock & PIN Code)
+在  Active Mode 主畫⾯下，不需要輸⼊  PIN 碼即可直接操作  Up/Down 調整⽬標溫度。
+PIN 碼輸⼊無連續錯誤鎖定時間懲罰（無  Lockout 懲罰機制）。
+2.4 硬體強制重置  (Hardware Bypass / Factory Reset)
+在  Sleep Mode 下，⻑按  Up + Down 組合鍵  5 秒，可跳過  PIN 碼驗證直接跳轉⾄
+Factory Reset ⾴⾯。
+進⼊  Factory Reset 畫⾯後，必須再次按下  Enter 鍵進⾏⼆次確認，才會真正執⾏清
+除。
+Reset 清除範疇： 清除並恢復所有設定值⾄預設值（ Default Values ）；唯獨系統時間
+（ RTC Time & Date ）必須保留不被清除。
+3. 控制模式與防護優先權矩陣  (Priority & Conflict
+Resolution)
+3.1 控制模式衝突與操作  (Mode Overrides)
+Schedule Mode 下的⼿動調溫：
+在  Schedule Mode 下按  Up / Down 調整溫度時，系統必須彈出確認視窗（ Popup
+Notice ）。
+使⽤者可選擇：
+1. 取消  Schedule Mode：轉為  Manual Mode 並套⽤新設定溫度。
+2. 取消更改：放棄本次溫度調整，保持原本  Schedule 運作。
+Program Type 變更：
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 8/11
+===== PAGE 9 =====
+切換  5+2 / 6+1 / 7 僅決定系統如何套⽤  Workday 與  Restday 的  Schedule 規則，
+各⾃獨⽴儲存的  Workday / Restday 時段設定資料不會被清空或覆蓋。
+3.2 系統安全與保護優先權矩陣  (Protection Matrix)
+⾼溫保護與低溫防凍保護具有最⾼系統優先權，其邏輯覆蓋矩陣如下：
+保護機制 觸發條件 執⾏動作與優先權邏輯
+High Protection ( ⾼
+溫保護 )
+External Floor NTC
+達設定  limit
+最⾼優先權。無視所有模式（包含  PWM 週期），強
+制切斷  Relay 。直到溫度回升 / 下降⾄安全範圍。
+Low Frost
+Protection ( 低溫防
+凍 )
+NTC 偵測低於防凍設
+定值  ( 如  4°C)
+最⾼優先權。無視下述所有狀態，強制啟動  Relay
+加熱直到溫度⾼於防凍臨界點：
+1. ⼿動關機狀態  (Power OFF)
+2. 開窗保護關閉加熱中
+3. Power Limit 強制冷卻時間內
+4. PIN / Child Lock 鎖定中
+Window Open
+Detect ( 開窗防護 )
+X 分鐘內下降  Y°C
+( 預設  30 min 降  5°C)
+1. 暫停加熱（切斷  Relay ，含  PWM 模式）。
+2. Active / Sleep 畫⾯溫度數字紅⿊交替閃爍警⽰。
+3. 按任意鍵跳出  Pop-up ，由使⽤者選擇「忽略本
+次觸發」或「關閉開窗功能」以解除。
+4. 若此時觸發防凍保護，防凍優先權⾼於開窗防護。
+Power Limit ( 連續加
+熱限制 )
+Relay 開啟累計達限
+制時間
+1. 僅在  Relay 開啟時才計算累計時間。
+2. 加熱達到時間後強制切斷  Relay 進⼊冷卻。
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 9/11
+===== PAGE 10 =====
+保護機制 觸發條件 執⾏動作與優先權邏輯
+3. 冷卻途中若  Relay 因達到⽬標溫度⽽關閉，冷卻
+計時暫停，待下次  Relay 開啟後重新計算。
+4. PWM 模式與  Power Limit 互相獨⽴，跑
+PWM 模式時忽略  Power Limit 限制。
+4. 溫控演算法與異常處理  (Algorithm & Error Handling)
+4.1 回差控制  (Hysteresis / Swing)
+採⽤  Asymmetric （單邊落差） 關閉，向下  Hysteresis 重啟邏輯：
+範例： Target = 20°C, Swing = 1.0°C
+當溫度上升⾄  >= 20.0°C 時：關閉  Relay。
+當溫度下降⾄  <= 19.0°C (Target - Swing) 時：重新啟動  Relay 加熱。
+4.2 Sensor 斷線 / 短路異常處置  (NTC Fault Handling)
+告警提⽰： 當  Room 或  Floor NTC 發⽣開路 / 短路故障時， Active Mode 與  Sleep
+Mode 的數字區域會跳出⼩警⽰視窗，明確提⽰  INT NTC Error 或  EXT NTC Error。
+Relay 安全動作： 依據選單中  Power On State 的設定執⾏：
+若設為  Relay OFF： Sensor 異常時強制關閉  Relay。
+若設為  Keep State： Sensor 異常時保持當前  Relay 狀態不變。
+4.3 溫控邊界與輸⼊限制  (Input Temperature Limit)
+Input Temp Limit僅作為  UI 數值輸⼊時的硬性上 / 下限閥⾨（例如上限  30°C ，則
+Target Temp 與  High Protect Temp 皆無法輸⼊超過  30°C ）。
+系統允許  Target Temp 設定⾼於  Overheating Protect Temp （ UI 不會阻擋此邏輯），
+運作時由⾼溫保護機制實施安全切斷。
+5. 進階功能與系統輔助  (Advanced & System Features)
+5.1 ⾃適應預熱  (Adaptive Start)
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 10/11
+===== PAGE 11 =====
+系統預設最多允許提早  2 ⼩時啟動預熱。
+開啟  Adaptive Start 功能後，系統會⾃動根據演算法，逐次修正並更新下次提早開啟
+加熱的精確時間。
+5.2 背光告警聯動  (Backlight Alert Control)
+當系統發⽣重⼤告警（包含：Sensor 異常、開窗防護觸發、過熱保護觸發）時，不
+論  Sleep Mode 背光設為多少（即使設為  0% ），背光⼀律強制提升⾄  100% 全亮狀態
+以⽰警報。
+5.3 時鐘保存與時間遺失處理  (RTC & Power Loss)
+板載  SuperCap （超級電容）可在完全斷電情況下保持  RTC 即時時鐘運作  1 週  (7 天 )。
+若超過  1 週導致時間資料遺失，開機後若原處於  Schedule Mode ，系統會⾃動強制跳
+轉⾄  Set Time 設定畫⾯，提⽰使⽤者重新輸⼊正確⽇期與時間。
+5.4 多國語系字串  (Localization)
+UI 字串（ English / Norwegian ）已於  UI.c 完成⻑度優化與對照表配置， UI 繪製區
+域不會出現溢出  (Overflow) 或截斷  (Truncation) 狀況。
+QA 測試驗證建議（ Next Steps ）
+建議  QA 團隊在執⾏測試時，特別著重於  第  3.2 節的保護優先權矩陣：
+1. 防凍測試： 在⼿動關機或開窗狀態下，使⽤冷噴劑 / 冷⽔杯冷卻  NTC ⾄  4°C 以下，驗證
+Relay 是否能強制跳脫啟動。
+2. 斷電時間恢復測試： 將板⼦斷電  10 秒後重新上電，測試  3.6 秒內的  -- 顯⽰與  3.6 秒後的
+溫度採樣顯⽰是否符合時序。
+3. 超時退回測試： 在⼦選單修改參數⾄⼀半時放開按鍵，驗證  10 秒後是否無失誤退回  Active
+Mode 且未寫⼊⾮預期數值。
+Exported from Voyager (https://github.com/Nagi-ovo/voyager) • 3 conversation turns
+Generated on July 25, 2026 at 02:22 PM
+2026/7/25 下午 2:22 溫控器規格釐清與 QA ⽂件  - Gemini
+https://gemini.google.com/app/5c33e1dacf0553e3 11/11

@@ -1,0 +1,234 @@
+//////////////////////////////////////////////////////////////////////////////////	 
+// STM32 LCD Controller with Key Input
+// Display: Setting number with Up/Down key control
+// PA0  = Up Key (High Active)
+// PC13 = Down Key (High Active)
+//////////////////////////////////////////////////////////////////////////////////	 	
+#include "Thermostat.h"
+#include "sys.h"
+#include "lcd.h"
+#include "touch.h"
+#include "gui.h"
+#include "test.h"
+#include "arial_digits_flash.h"
+#include "icons_32x32.h"  // New 32x32 monochrome icons
+#include "icons_8x16.h"   // New 8x16 monochrome icons for Function Setting
+#include "icons_16x16.h"  // New 16x16 monochrome icons for Schedule Edit
+#include "icons_24x24.h"  // New 24x24 monochrome icons for Active page
+#include "stm32f10x.h"
+#include "stm32f10x_tim.h"
+//#include "Language.h"
+
+
+
+
+// Function prototypes
+
+
+void Draw_Main_Page(void);
+
+
+
+// Global variables
+
+volatile uint8_t	Relay;								// Output power indicator
+volatile uint8_t Schedule_Period;					// Schedule indicator
+uint8_t (*sch_table)[4];
+volatile uint8_t Update_Relay;
+
+
+//RTC Time Default 2026/01/01 00:00:00
+rtc_time_t rtc_time;
+
+
+// LCD color definitions (if not already defined)
+#ifndef BLUE
+#define BLUE    0x001F
+#endif
+#ifndef RED
+#define RED     0xF800
+#endif
+void test_system_tick(void)
+{
+		static uint32_t local_tick;
+		if(0 == g_clock_time_exceed(local_tick, 500)){								
+				return;
+		}
+		local_tick = time_tick;
+		RELAY_PORT->ODR ^= RELAY_PIN;
+		LOGD("Time Update\r\n");
+	
+}
+int main(void)
+{
+//	uint8_t key_val;
+	uint32_t temp_time;
+	
+	SystemInit();        // Initialize RCC, system clock to 64MHz (HSI/2 * 16 PLL)
+	//SCB->VTOR = 0x08004000;  // Vector table relocated for IAP application area
+	sys_tick_Init();	 // Initialize system tick clock
+	Key_Init();          // Key initialization
+	Backlight_Init();    // Backlight PWM initialization
+	Backlight_SetDuty(0); 	//close LCM at initial
+	Log_USART_Init();
+	LCD_Init();	         // LCD initialization
+	// Set rotation to 0 degrees
+	LCD_direction(2);
+	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);			// Clear screen with white background
+	LOGD("-----------------  Program Start --------------------------\n\r");
+	
+	my_RTC_Init();			 //Read RTC Time
+	
+#if(!SIMULATION)
+	Thermostat_ADC_Init();
+	LOGD("Comp_step:%.2f\r\n", adc_ctrl.idle_comp_step_val);
+#else
+	adc_ctrl.int_ntc_valid = 1;
+	adc_ctrl.ext_ntc_valid = 1;
+#endif
+	
+	flash_status_t flash_status = Flash_Load_Parameter();
+	if (flash_status != FLASH_OK) {
+				LOGD("Flash load failed, retrying after 500ms\r\n");
+				my_delay_ms(500);
+				flash_status = Flash_Load_Parameter();
+	}
+
+	if (flash_status == FLASH_OK) {
+        LOGD("Parameters loaded from Flash\r\n");
+				g_check_rtc();
+				if(rtc_empty || rtc_reset){
+						adc_ctrl.idle_comp_count = 0;
+						adc_ctrl.heating_comp_count = 0;
+				}else{
+						temp_time = g_check_power_off_time();
+						if(temp_time >= INT_NTC_COMP_STEP){
+								adc_ctrl.idle_comp_count = 0;
+								adc_ctrl.idle_comp_val = 0;
+						}else{
+								if((g_parameter.idle_comp_count <= INT_NTC_COMP_STEP) && (g_parameter.idle_comp_count >= (temp_time))){
+										adc_ctrl.idle_comp_count = g_parameter.idle_comp_count - (temp_time);
+										adc_ctrl.idle_comp_val = adc_ctrl.idle_comp_step_val * adc_ctrl.idle_comp_count;
+								}else{
+										adc_ctrl.idle_comp_count = 0;
+										adc_ctrl.idle_comp_val = 0;
+								}
+						}
+						if(temp_time >= HEAT_COMP_STEP){
+								adc_ctrl.heating_comp_count = 0;
+								adc_ctrl.heating_comp_val = 0;
+						}else{
+								if((g_parameter.heatting_comp_count <= HEAT_COMP_STEP) && (g_parameter.heatting_comp_count >= temp_time)){
+										adc_ctrl.heating_comp_count = g_parameter.heatting_comp_count - temp_time;
+										adc_ctrl.heating_comp_val = adc_ctrl.heatting_comp_step_val * adc_ctrl.heating_comp_count;
+								}else{
+										adc_ctrl.heating_comp_count = 0;
+										adc_ctrl.heating_comp_val = 0;
+								}
+						}
+						LOGD("idle_count : %d\r\n",adc_ctrl.idle_comp_count);
+						LOGD("heatting_count : %d\r\n", adc_ctrl.heating_comp_count);
+				}
+   } else {
+        LOGD("Flash load failed, using default values\r\n");
+        golbal_par_init();
+				adc_ctrl.idle_comp_count = 0;
+				adc_ctrl.heating_comp_count = 0;
+        if(Flash_Save_Parameter() != FLASH_OK){
+						LOGE("Flash write fail!\r\n");
+				}
+        LOGD("Default values saved to Flash\r\n");
+   }
+	 //LOGD("Power_ON_State %d\r\n", g_parameter.power_on_state);
+	 relay_init();
+
+	 // Initialize PWM day/night state from current RTC time
+	 // If Operation Mode is PWM (2), recompute today's sunrise/sunset (Location +
+	 // Tolerance) first, so astro_day/night reflect today rather than a stale value
+	 // from whenever the unit was last powered on.
+	 if(g_parameter.operation_mode == 2){
+			 Sun_Update_Today();
+	 }
+	 PWM_Update_DayNight_State();
+
+	 weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
+	 g_parameter.font_size = 0;			//for test
+	 UI_state = STATE_ACTIVE;
+	 Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+	 if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+			 LOGE("Alarm Fail\r\n");
+	 }
+	 get_schedule_period();
+	 Draw_Active_Menu();
+	 if(rtc_empty){
+				LOGD("RTC Empty!\r\n");
+	 }else if(rtc_reset){						//RTC had lost time
+				LOGD("RTC Reset!\r\n");
+				if(g_parameter.operation_mode != 0){
+						// QA Spec 5.3: Schedule Mode with invalid RTC - force user to set time
+						set_time_from_boot = 1;
+						delete_alarm(Active_Alarm);
+						if(register_alarm(Setting_Menu_Alarm, SETTING_UPDATE_TIME) == eFALSE){
+								LOGE("Alarm Fail\r\n");
+						}
+						UI_state = STATE_USER_SETTING_SET_TIME;
+						Top_Bar_Active = 1;
+						item_selection = 0;
+						leave_icon_color = 0;
+						edit_icon_color = 1;
+						temp_rtc.Year = rtc_time.Year;
+						temp_rtc.Mon = rtc_time.Mon;
+						temp_rtc.Date = rtc_time.Date;
+						temp_rtc.Hour = rtc_time.Hour;
+						temp_rtc.Min = rtc_time.Min;
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_User_Setting_SetTime_Page(item_selection, leave_icon_color, edit_icon_color);
+				}
+	 }else{
+				LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);	
+	 }
+	 
+		
+	// Initialize ADC and measure VCC voltage
+	if(register_alarm(Min_Update_Alarm, 60000) == 0){
+			LOGE("Alarm Full!\r\n");
+	}
+
+	
+	// Main loop
+	while(1)
+	{
+		// Scan keys
+		Key_Scan();
+		
+		if(Factory_testing == 0){
+				UI_Update();
+		}
+
+#if(!SIMULATION)		
+		Thermostat_Update();					//ADC Update
+#endif
+		
+		g_relay_handler();
+		
+		g_cmd_handler();
+
+		g_check_alarm();
+		
+	}
+
+		
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
