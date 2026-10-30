@@ -55,7 +55,7 @@
 #include "lcd.h"
 #include "stdlib.h"
 #include "delay.h"	 
-#include "spi.h"
+#include "SPI.h"
 
 	   
 //管理LCD重要参数

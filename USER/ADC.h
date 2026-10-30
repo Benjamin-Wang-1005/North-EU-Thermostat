@@ -38,6 +38,19 @@
 #define HEAT_COMPENSATE_VAL			6.5f
 #define HEAT_COMP_STEP					40
 #define HEAT_COMPENSATE					1
+#define SENSOR_RECOVER_COUNT		10								// Consecutive valid readings needed to clear a sensor error
+
+// Factory test background measurement (2026/10/12)
+// VCC and Int/Ext temperature are measured during the LCD test (before the board is pressed
+// in the key test), then the result is locked for GET:VCC / GET:TEMP.
+#define MEAS_CAPTURE_MS				3000							// Measurement window
+#define MEAS_REDO_DELAY_MS			300								// Delay before re-measuring (MEAS:START)
+#define MEAS_TEMP_MAX					32								// Max temperature samples kept per channel
+
+#define MEAS_IDLE						0								// Never measured: GET returns live values
+#define MEAS_WAIT						1								// Waiting MEAS_REDO_DELAY_MS before measuring
+#define MEAS_RUN						2								// Measuring
+#define MEAS_DONE						3								// Result locked
 
 
 typedef struct {
@@ -74,8 +87,10 @@ typedef struct {
     uint8_t  ext_ntc_count;
     uint8_t  int_ntc_valid;
     uint8_t  ext_ntc_valid;
-		uint8_t  int_sensor_error;						//while set to 0, never clear
+		uint8_t  int_sensor_error;						// Set on out-of-range reading; cleared after SENSOR_RECOVER_COUNT valid readings
 		uint8_t  ext_sensor_error;
+		uint8_t  int_valid_run;							// Consecutive valid readings (for sensor error recovery)
+		uint8_t  ext_valid_run;
     volatile float INT_NTC_Table[NTC_BUFFER_SIZE];
     volatile float EXT_NTC_Table[NTC_BUFFER_SIZE];
 } adc_thermostat_t;
@@ -85,6 +100,26 @@ typedef struct {
 
 
 
+
+typedef struct {
+    uint8_t  state;
+    uint32_t tick;
+    uint16_t delay_ms;
+    float    vcc_sum;
+    uint16_t vcc_n;
+    float    int_buf[MEAS_TEMP_MAX];
+    uint8_t  int_n;
+    float    ext_buf[MEAS_TEMP_MAX];
+    uint8_t  ext_n;
+    float    vcc;                // Locked results (valid when state == MEAS_DONE)
+    float    int_temp;
+    float    ext_temp;
+    uint8_t  vcc_ok;
+    uint8_t  int_ok;
+    uint8_t  ext_ok;
+} meas_capture_t;
+
+extern meas_capture_t meas_cap;
 
 // External instance
 
@@ -147,6 +182,8 @@ uint16_t ADC_Get_Channel_Average(uint8_t channel);
 
 
 float    ADC_Get_VCC_Voltage(void);
+
+void     Meas_Capture_Start(uint16_t delay_ms);
 
 
 

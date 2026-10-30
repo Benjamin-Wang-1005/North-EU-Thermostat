@@ -35,23 +35,32 @@
 volatile uint8_t		Factory_testing = 0;
 //---------------------------------------------------------------------------------------------------------
 // Funcation: _receiveCmd
-// Description: Check RX buffer had received complete command 
+// Description: Read RX bytes; push every complete line into cmd_queue.q_line[]
 // Input: None
-// Output: eTRUE -> complere command had received / eFALSE -> received not complete
+// Output: None
 // Date: 2022/12/03
-// Update:
+// Update: 2026/10/08 - Queue complete lines so a command arriving while the previous one
+//                      is still being processed (e.g. LCD_Fill) is not lost
 //----------------------------------------------------------------------------------------------------------
-static bool_t receiveCmd(void)
+static void receiveCmd(void)
 {
 		uint8_t inChar = 0xFF;
+		uint8_t next_head;
+		uint8_t i;
 		while((USART1->SR & USART_FLAG_RXNE) != 0){		//'0' no data can read
 				inChar = USART_ReceiveData(EVAL_COM1);
 				//LOGD("RX: 0x%02X '%c'\n", inChar, (inChar >= 32 && inChar <= 126) ? inChar : '.');
 				if(inChar == 0x00 || inChar == '\r' || inChar == '\n') {
 			if (cmd_queue.rx_index > 0) {
 						cmd_queue.rx_buffer[cmd_queue.rx_index] = 0x00;
+						next_head = (cmd_queue.q_head + 1) % CMD_QUEUE_DEPTH;
+						if (next_head != cmd_queue.q_tail) {					// Queue full -> line is dropped
+								for (i = 0; i <= cmd_queue.rx_index; i++) {
+										cmd_queue.q_line[cmd_queue.q_head][i] = cmd_queue.rx_buffer[i];
+								}
+								cmd_queue.q_head = next_head;
+						}
 					cmd_queue.rx_index = 0;
-                    return eTRUE;
 			}
 			continue;
 		}
@@ -73,8 +82,6 @@ static bool_t receiveCmd(void)
             cmd_queue.rx_index = 0;
         }
 		}
-		
-		return eFALSE;
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -86,14 +93,10 @@ static bool_t receiveCmd(void)
 //---------------------------------------------------------------------------------------------------------
 void USART1_IRQHandler(void)
 {
-		bool_t completed = eFALSE;
 		// check rx index
 		if(USART_GetITStatus(EVAL_COM1, USART_IT_RXNE) != RESET)
 		{
-				completed = receiveCmd();
-				if(completed){
-						cmd_queue.F_received_complete = eTRUE;
-				}					
+				receiveCmd();
 				// clear interrupt flag
 				USART_ClearITPendingBit(EVAL_COM1, USART_IT_RXNE);
 		}
@@ -158,10 +161,12 @@ void lcd_test_cmd(char *param)
 				TCMD("RES:LCD:OK\n");
 				Factory_testing |= LCD_TEST_MASK;
 				Backlight_SetDuty(100);
+				// 2026/10/12: measure VCC and temperature now, before the board is pressed in the key test
+				Meas_Capture_Start(0);
 		}else if(strcmp(param, "STOP") == 0){
 				TCMD("RES:LCD:OK\n");
 				LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-				Factory_testing ^= LCD_TEST_MASK;
+				Factory_testing &= ~LCD_TEST_MASK;
 		}else if(strcmp(param, "RED") == 0){
 				TCMD("RES:LCD:RED\n");
 				LCD_Fill(0, 0, lcddev.width, lcddev.height, RED);
@@ -202,12 +207,13 @@ void key_test_cmd(char *param)
 				//key.key_press = 0;
 		}else if(strcmp(param, "STOP") == 0){
 				TCMD("RES:KEY_TEST:OK\n");
-				Factory_testing ^= KEY_TEST_MASK;
+				Factory_testing &= ~KEY_TEST_MASK;
 				key.key_val = NONKEY;
 				key.key_active = 0;
 				//key.key_press = 0;
 		}
-		if((Factory_testing & KEY_TEST_MASK) == KEY_TEST_MASK){
+		// Wait for key events only on START; STOP just clears the test flag (2026/10/08)
+		if(strcmp(param, "START") == 0){
 				local_tick = time_tick;
 				
 				while(1){
@@ -258,7 +264,7 @@ void test_relay_cmd(char *param)
 				Factory_testing |= RELAY_TEST_MASK;
 		}else if(strcmp(param, "STOP") == 0){
 				TCMD("RES:RELAY:OK\n");
-				Factory_testing ^= RELAY_TEST_MASK;
+				Factory_testing &= ~RELAY_TEST_MASK;
 				Relay = RELAY_OFF;
 				GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
 				g_parameter.relay_staty = Relay;
@@ -283,7 +289,7 @@ void sensor_test_cmd(char *param)
 				Factory_testing |= SENSOR_TEST_MASK;
 		}else if(strcmp(param, "STOP") == 0){
 				TCMD("RES:SENSOR:OK\n");
-				Factory_testing ^= SENSOR_TEST_MASK;
+				Factory_testing &= ~SENSOR_TEST_MASK;
 		}
 }
 
@@ -294,7 +300,7 @@ void set_vcc_cmd(char *param)
 				Factory_testing |= VCC_TEST_MASK;
 		}else if(strcmp(param, "STOP") == 0){
 				TCMD("RES:VCC:OK\n");
-				Factory_testing ^= VCC_TEST_MASK;
+				Factory_testing &= ~VCC_TEST_MASK;
 		}
 }
 
@@ -305,25 +311,83 @@ void set_fw_cmd(char *param)
 				Factory_testing |= FW_TEST_MASK;
 		}else if(strcmp(param, "STOP") == 0){
 				TCMD("RES:FW:OK\n");
-				Factory_testing ^= VCC_TEST_MASK;
+				Factory_testing &= ~FW_TEST_MASK;
+		}
+}
+
+//----------------------------------------------------------------------------------------------------------
+// Function: meas_test_cmd(char *param)
+// Description: MEAS:START - re-measure VCC and temperature after MEAS_REDO_DELAY_MS (tool asks for it
+//              when the locked result failed). GET:VCC / GET:TEMP reply ERR until the new result is ready.
+// Update: 2026/10/12
+//----------------------------------------------------------------------------------------------------------
+void meas_test_cmd(char *param)
+{
+		if(strcmp(param, "START") == 0){
+				TCMD("RES:MEAS:OK\n");
+				Meas_Capture_Start(MEAS_REDO_DELAY_MS);
 		}
 }
 
 void get_vcc_cmd(void)
 {
 		char buffer[10];
+		float vcc = adc_ctrl.vcc_voltage;
+
+		// 2026/10/12: use the result measured during the LCD test (or MEAS:START); ERR while measuring
+		if(meas_cap.state == MEAS_DONE){
+				vcc = meas_cap.vcc_ok ? meas_cap.vcc : 0.0f;
+		}else if(meas_cap.state != MEAS_IDLE){
+				TCMD("DATA:VCC:ERR\n");
+				return;
+		}
+		// Report ERR instead of a misleading number when VCC was never measured
+		if((vcc < 1.0f) || (vcc > 5.0f)){
+				TCMD("DATA:VCC:ERR\n");
+				return;
+		}
 	
-		snprintf(buffer, sizeof(buffer), "%.2f", adc_ctrl.vcc_voltage);
+		snprintf(buffer, sizeof(buffer), "%.2f", vcc);
 	
 		TCMD("DATA:VCC:%sV\n", buffer);
 }
 
 void get_temp_cmd(void)
 {
-		char buffer[20];
-		snprintf(buffer, sizeof(buffer), "%.1f,%.1f", Average_INT_Temp, Average_EXT_Temp);
-		TCMD("DATA:TEMP:%s\n", buffer);
-		
+		char int_str[10];
+		char ext_str[10];
+
+		// 2026/10/12: use the result measured during the LCD test (or MEAS:START); ERR while measuring
+		if(meas_cap.state == MEAS_DONE){
+				if(meas_cap.int_ok){
+						snprintf(int_str, sizeof(int_str), "%.1f", meas_cap.int_temp);
+				}else{
+						strcpy(int_str, "ERR");
+				}
+				if(meas_cap.ext_ok){
+						snprintf(ext_str, sizeof(ext_str), "%.1f", meas_cap.ext_temp);
+				}else{
+						strcpy(ext_str, "ERR");
+				}
+				TCMD("DATA:TEMP:%s,%s\n", int_str, ext_str);
+				return;
+		}else if(meas_cap.state != MEAS_IDLE){
+				TCMD("DATA:TEMP:ERR,ERR\n");
+				return;
+		}
+
+		// Report ERR for a channel without a valid reading (no sample yet / sensor error)
+		if((adc_ctrl.int_ntc_valid == 0) || adc_ctrl.int_sensor_error || (Average_INT_Temp <= -100.0f)){
+				strcpy(int_str, "ERR");
+		}else{
+				snprintf(int_str, sizeof(int_str), "%.1f", Average_INT_Temp);
+		}
+		if((adc_ctrl.ext_ntc_valid == 0) || adc_ctrl.ext_sensor_error || (Average_EXT_Temp <= -100.0f)){
+				strcpy(ext_str, "ERR");
+		}else{
+				snprintf(ext_str, sizeof(ext_str), "%.1f", Average_EXT_Temp);
+		}
+		TCMD("DATA:TEMP:%s,%s\n", int_str, ext_str);
 }
 
 void get_ID_cmd(void)
@@ -349,15 +413,12 @@ void get_FW_cmd(void)
 // Date: 2026/05/03
 // Update: Added factory test protocol parsing
 //----------------------------------------------------------------------------------------------------------
-static void processCmd(void)
+static void processCmd(char* cmd_str)
 {
     char cmd_name[32];
     char param[32];
-    char* cmd_str;
 		int len;
     
-    // Get the received command string
-    cmd_str = (char*)cmd_queue.rx_buffer;
 
     LOGD("Received: %s\n", cmd_str);
 
@@ -430,6 +491,11 @@ static void processCmd(void)
 						set_fw_cmd(param);
 				}
 		}
+		else if (strcmp(cmd_name, "MEAS") == 0) {
+				if(Factory_testing & FACTORT_TEST_MASK){
+						meas_test_cmd(param);
+				}
+		}
     else if (strcmp(cmd_name, "GET") == 0) {
         // Handle GET:TEMP or GET:VCC
         if (strcasecmp(param, "TEMP") == 0) {
@@ -473,15 +539,21 @@ static void processCmd(void)
 // Input: None
 // Output: None
 // Date: 2026/05/03
-// Update:
+// Update: 2026/10/08 - Take one line from cmd_queue per call. The line is copied out before
+//                      processing, so the ISR can keep queueing new commands meanwhile.
 //----------------------------------------------------------------------------------------------------------
 void g_cmd_handler(void)
 {
+		char line[UART_FIFO_QTY];
+		uint8_t i;
 
-		if(cmd_queue.F_received_complete){
-				processCmd();
-
-				cmd_queue.F_received_complete = eFALSE;
+		if(cmd_queue.q_tail != cmd_queue.q_head){
+				for(i = 0; i < UART_FIFO_QTY; i++){
+						line[i] = (char)cmd_queue.q_line[cmd_queue.q_tail][i];
+				}
+				line[UART_FIFO_QTY - 1] = '\0';
+				cmd_queue.q_tail = (cmd_queue.q_tail + 1) % CMD_QUEUE_DEPTH;
+				processCmd(line);
 		}
 
 }

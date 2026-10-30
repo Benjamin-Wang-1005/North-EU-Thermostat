@@ -51,7 +51,7 @@
   * FROM THE CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE
   * CODING INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
 **************************************************************************************************/		
-#include "spi.h"
+#include "SPI.h"
 
 /*****************************************************************************
  * @name       :u8 SPI_WriteByte(SPI_TypeDef* SPIx,u8 Byte)

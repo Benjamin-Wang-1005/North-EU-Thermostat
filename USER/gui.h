@@ -70,9 +70,11 @@ void LCD_ShowChar_ISO(u16 x,u16 y,u16 fc, u16 bc, u8 code,u8 font_size);
 void LCD_ShowNum(u16 x,u16 y,u32 num,u8 len,u8 size);
 void LCD_Show2Num(u16 x,u16 y,u16 num,u8 len,u8 size,u8 mode);
 void LCD_ShowString(u16 x,u16 y,u8 size,u8 *p,u8 mode);
+#if 0 /* AC6: unused GB2312 Chinese fonts, disabled 2026-10-21 */
 void GUI_DrawFont16(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode);
 void GUI_DrawFont24(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode);
 void GUI_DrawFont32(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode);
+#endif /* AC6: unused GB2312 Chinese fonts */
 void Show_Str(u16 x, u16 y, u16 fc, u16 bc, char *str,u8 size,u8 font_size);
 void Gui_Drawbmp16(u16 x,u16 y,const unsigned char *p); //��ʾ40*40 QQͼƬ
 void gui_circle(int xc, int yc,u16 c,int r, int fill);

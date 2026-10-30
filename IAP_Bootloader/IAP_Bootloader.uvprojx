@@ -16,7 +16,7 @@
         <TargetCommonOption>
           <Device>FT32F103RC</Device>
           <Vendor>FMD</Vendor>
-          <PackID>FMD.FT32F1xx_DFP.1.0.2</PackID>
+          <PackID>FMD.FT32F1xx_DFP.1.0.3</PackID>
           <PackURL>https://www.fremontmicro.com/upload/tools/pack/</PackURL>
           <Cpu>IRAM(0x20000000,0x0000C000) IROM(0x08000000,0x00040000) CPUTYPE("Cortex-M3") CLOCK(12000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>

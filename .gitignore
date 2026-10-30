@@ -41,3 +41,6 @@ Tools/*.hex
 # System files
 .DS_Store
 Thumbs.db
+
+# Keil AC6 migration backups
+*.bak_ac6

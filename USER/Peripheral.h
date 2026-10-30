@@ -50,6 +50,7 @@
 #define EVAL_COM1_IRQn                   USART1_IRQn
 
 #define UART_FIFO_QTY										(32)
+#define CMD_QUEUE_DEPTH									(4)			// Max complete command lines buffered while main loop is busy
 #define MAX_CMD_PARAMS 									(5)
 
 /**
@@ -117,9 +118,11 @@ typedef struct{
 
 typedef struct
 {
-		uint8_t 		F_received_complete;
 		volatile uint8_t		rx_index;
-		volatile uint8_t 		rx_buffer[UART_FIFO_QTY];
+		volatile uint8_t 		rx_buffer[UART_FIFO_QTY];							// Line being assembled by USART1 ISR
+		volatile uint8_t		q_head;																// Written by ISR only
+		volatile uint8_t		q_tail;																// Written by main loop only
+		volatile uint8_t		q_line[CMD_QUEUE_DEPTH][UART_FIFO_QTY];			// Complete lines waiting for processCmd
 } cmd_queue_t;
 
 typedef enum {

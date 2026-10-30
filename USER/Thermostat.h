@@ -164,7 +164,7 @@ typedef enum
 #include "pwm.h"
 #include "UI.h"
 #include "lcd.h"
-#include "GUI.h"
+#include "gui.h"
 #include <stdio.h>
 #include <string.h>
 #include "Peripheral.h"

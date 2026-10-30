@@ -1021,10 +1021,14 @@ void Sun_Update_Today(void)
 //---------------------------------------------------------------------------------------------------------
 void PWM_Update_DayNight_State(void)
 {
+		uint8_t old_daytime = pwm_is_daytime;
     uint16_t now_min = rtc_time.Hour * 60 + rtc_time.Min;
     uint16_t day_start = g_parameter.astro_day_hour * 60 + g_parameter.astro_day_min;
     uint16_t night_start = g_parameter.astro_night_hour * 60 + g_parameter.astro_night_min;
     pwm_is_daytime = (now_min >= day_start && now_min < night_start) ? 1 : 0;
+		if(pwm_is_daytime != old_daytime){
+				LOGD("Astrow Update!\r\n");
+		}
 }
 
 volatile uint16_t heating_count = 0;          // Consecutive ON ticks (500ms each)

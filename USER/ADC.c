@@ -96,6 +96,8 @@ static const uint32_t INT_NTC_table[] =
 
 adc_thermostat_t adc_ctrl;
 
+meas_capture_t meas_cap;						// Factory test background measurement (2026/10/12)
+
 volatile float Average_INT_Temp = -999.0f;
 
 volatile float Average_EXT_Temp = -999.0f;
@@ -105,6 +107,67 @@ volatile uint8_t display_update_throttle_trigger = 0;
 volatile uint8_t display_refresh_request = 0;	// 1 = external request: drop stale avg history and refresh display ASAP
 
 static uint8_t adc_current_channel = 0;
+
+static uint16_t vcc_raw_avg = 0;                  // 2026/10/15: last Vrefint batch average (0 = ADC not working)
+static uint16_t vcc_raw_min = 0;                  // 2026/10/16: Vrefint batch min / max, for the VCC_BAD log
+static uint16_t vcc_raw_max = 0;
+#define VCC_BAD_LOG_GAP_MS      1000              // VCC_BAD log interval while VCC is invalid
+static uint32_t vcc_bad_log_tick = 0;
+
+// 2026/10/15: ignore ADC data while VCC (Vrefint) is invalid. After power-up the ADC can read
+// all 0 for >10 s (Vrefint included), which used to trigger a false sensor error.
+#define VCC_VALID_LOW           2.7f
+#define VCC_VALID_HIGH          3.6f
+#define ADC_INVALID_TIMEOUT_MS  60000             // ADC still invalid after this: report sensor error
+static uint8_t  adc_vcc_ok = 0;                   // 1 = last VCC reading valid, CH8/CH9 data usable
+static uint32_t adc_vcc_bad_tick = 0;             // time_tick when VCC became invalid (0 = power-up)
+
+static uint8_t adc_vcc_valid(float vcc)
+{
+    return (uint8_t)((vcc_raw_avg != 0) && (vcc >= VCC_VALID_LOW) && (vcc <= VCC_VALID_HIGH));
+}
+
+// Drop CH8/CH9 filter history so the next judgement uses only data taken with a valid VCC
+static void adc_reset_channel_filters(void)
+{
+    adc_ctrl.ch8.avg_index = 0;
+    adc_ctrl.ch8.avg_count = 0;
+    adc_ctrl.ch9.avg_index = 0;
+    adc_ctrl.ch9.avg_count = 0;
+    adc_ctrl.ch8_log_counter = 0;
+    adc_ctrl.ch9_log_counter = 0;
+}
+
+// 2026/10/16: the ADC needs tSTAB after ADON before calibration. Calibrating too early can leave a
+// bad offset so that every conversion (Vrefint included) reads 0.
+#define ADC_STAB_DELAY_US       10
+#define ADC_REINIT_MAX          5                 // Max ADC re-init attempts per power-up
+#define ADC_REINIT_GAP_MS       1000              // VCC invalid this long -> re-init; also gap between attempts
+static uint16_t adc_cal_value = 0;                // ADC_DR right after calibration (calibration code)
+static uint8_t  adc_reinit_count = 0;
+static uint32_t adc_reinit_tick = 0;
+
+// Power up the ADC, wait for it to settle, then calibrate. Returns the calibration code.
+static uint16_t adc_calibrate(void)
+{
+    ADC_Cmd(ADC1, ENABLE);
+    my_delay_us(ADC_STAB_DELAY_US);
+    ADC_ResetCalibration(ADC1);
+    while (ADC_GetResetCalibrationStatus(ADC1));
+    ADC_StartCalibration(ADC1);
+    while (ADC_GetCalibrationStatus(ADC1));
+    return (uint16_t)ADC1->DR;
+}
+
+// Power-cycle and recalibrate the ADC. Call only while no conversion is running (adc_busy == 0).
+static void adc_reinit(void)
+{
+    ADC_Cmd(ADC1, DISABLE);
+    my_delay_us(ADC_STAB_DELAY_US);
+    adc_cal_value = adc_calibrate();
+    ADC_Cmd(ADC1, DISABLE);                       // ADC_Start_Channel / ADC_Start_VCC enable it again
+    LOGD("ADC_REINIT n=%d t=%lu cal=%u\r\n", adc_reinit_count, (unsigned long)time_tick, adc_cal_value);
+}
 
 #define DISPLAY_UPDATE_CALL_TARGET_MAX  16      // 57.6s / 3.6s = 16 calls
 
@@ -277,15 +340,7 @@ void Thermostat_ADC_Init(void)
 
     ADC_Init(ADC1, &ADC_InitStructure);
 
-    ADC_Cmd(ADC1, ENABLE);
-
-    ADC_ResetCalibration(ADC1);
-
-    while (ADC_GetResetCalibrationStatus(ADC1));
-
-    ADC_StartCalibration(ADC1);
-
-    while (ADC_GetCalibrationStatus(ADC1));
+    adc_cal_value = adc_calibrate();              // 2026/10/16: wait tSTAB before calibration
 
     NVIC_InitStructure.NVIC_IRQChannel                   = ADC1_2_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
@@ -316,6 +371,13 @@ void Thermostat_ADC_Init(void)
     while (!adc_ctrl.vcc_complete);
 
     adc_ctrl.vcc_voltage = adc_process_vcc();
+
+    adc_vcc_ok = adc_vcc_valid(adc_ctrl.vcc_voltage);   // 2026/10/15
+    if (adc_vcc_ok == 0)
+    {
+        LOGD("VCC_BAD init vcc=%.3f vref=%u(%u~%u)\r\n", adc_ctrl.vcc_voltage, vcc_raw_avg, vcc_raw_min, vcc_raw_max);
+        adc_ctrl.vcc_voltage = ADC_VREF;                // No valid VCC yet: use nominal 3.3 V
+    }
 
     LOGD("ADC Init Complete, VCC: %.2fV\r\n", adc_ctrl.vcc_voltage);
 		
@@ -460,6 +522,33 @@ static float ntc_lookup(float resistance, const uint32_t *ntc_table)
 
 //---------------------------------------------------------------------------------------------------------
 
+// Helper: convert an averaged ADC reading of CH8/CH9 to temperature.
+
+// Returns -999.0f if out of range.
+
+//---------------------------------------------------------------------------------------------------------
+
+static float adc_raw_to_temp(uint16_t raw, uint8_t channel_num)
+{
+    float voltage;
+    float resistance;
+
+    if (raw == 0)
+    {
+        return -999.0f;
+    }
+    voltage = (raw * ADC_VREF) / ADC_RESOLUTION;
+    if (channel_num == 8)
+    {
+        resistance = (adc_ctrl.vcc_voltage - voltage) * _R2 / voltage;
+        return ntc_lookup(resistance, INT_NTC_table);
+    }
+    resistance = (adc_ctrl.vcc_voltage * EXTERNAL_R_PULLDOWN / voltage) - (EXTERNAL_R_SERIES + EXTERNAL_R_PULLDOWN);
+    return ntc_lookup(resistance, EXT_NTC_table);
+}
+
+//---------------------------------------------------------------------------------------------------------
+
 // Helper: process 16 raw samples, store average, run 18-sample filter when full.
 
 //---------------------------------------------------------------------------------------------------------
@@ -477,6 +566,14 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
 		char str_2[] = "EXT_NTC";
 		char *prt;
 
+    // 2026/10/15: drop batches taken while VCC is invalid (ADC reads all 0 after power-up)
+    if (adc_vcc_ok == 0)
+    {
+        ch->raw_count = 0;
+        ch->complete  = 0;
+        return -999.0f;
+    }
+
     for (i = 0; i < ADC_SAMPLE_COUNT; i++)
     {
         sum += ch->raw_buffer[i];
@@ -493,6 +590,23 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
     ch->raw_count = 0;
     ch->complete  = 0;
 
+    // Factory test measurement: every 16-sample batch (~200 ms per channel) gives one temperature
+    if (meas_cap.state == MEAS_RUN)
+    {
+        float t = adc_raw_to_temp(avg, channel_num);
+        if (t > -100.0f)
+        {
+            if ((channel_num == 8) && (meas_cap.int_n < MEAS_TEMP_MAX))
+            {
+                meas_cap.int_buf[meas_cap.int_n++] = t;
+            }
+            else if ((channel_num == 9) && (meas_cap.ext_n < MEAS_TEMP_MAX))
+            {
+                meas_cap.ext_buf[meas_cap.ext_n++] = t;
+            }
+        }
+    }
+
     if (ch->avg_count >= ADC_AVG_BUFFER_SIZE)
     {
         uint8_t *log_counter = (channel_num == 8) ? &adc_ctrl.ch8_log_counter : &adc_ctrl.ch9_log_counter;
@@ -502,8 +616,6 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
         {
             uint16_t sorted[ADC_AVG_BUFFER_SIZE];
             uint16_t filtered_avg;
-            float voltage;
-            float resistance;
             float temperature;
 
             memcpy(sorted, (uint16_t *)ch->avg_buffer, sizeof(sorted));
@@ -529,20 +641,15 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
             }
 
             filtered_avg = (uint16_t)(sum / (ADC_AVG_BUFFER_SIZE - 2));
-            voltage = (filtered_avg * ADC_VREF) / ADC_RESOLUTION;
-            if (channel_num == 8)
-            {
-                resistance = (adc_ctrl.vcc_voltage - voltage) * _R2 / voltage;
-                temperature = ntc_lookup(resistance, INT_NTC_table);
-            }
-            else
-            {
-                resistance = (adc_ctrl.vcc_voltage * EXTERNAL_R_PULLDOWN / voltage) - (EXTERNAL_R_SERIES + EXTERNAL_R_PULLDOWN);
-                temperature = ntc_lookup(resistance, EXT_NTC_table);
-            }
+            temperature = adc_raw_to_temp(filtered_avg, channel_num);
 
             if (temperature <= -100.0f)
             {
+								if(channel_num == 8){
+										adc_ctrl.int_valid_run = 0;
+								}else{
+										adc_ctrl.ext_valid_run = 0;
+								}
 								if(UI_state != STATE_FACTORY_TEST){
 #if(!NO_Power_Board)
 										//LOGE("ADC CH%d Temperature out of range! Voltage: %.1f\r\n", channel_num, voltage);
@@ -565,12 +672,31 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
                 volatile float *ntc_table = (channel_num == 8) ? adc_ctrl.INT_NTC_Table : adc_ctrl.EXT_NTC_Table;
                 uint8_t *ntc_count = (channel_num == 8) ? &adc_ctrl.int_ntc_count : &adc_ctrl.ext_ntc_count;
                 uint8_t *ntc_valid = (channel_num == 8) ? &adc_ctrl.int_ntc_valid : &adc_ctrl.ext_ntc_valid;
+                uint8_t *valid_run = (channel_num == 8) ? &adc_ctrl.int_valid_run : &adc_ctrl.ext_valid_run;
+                uint8_t *sensor_error = (channel_num == 8) ? &adc_ctrl.int_sensor_error : &adc_ctrl.ext_sensor_error;
                 prt = (channel_num == 8) ? str_1 : str_2;
                 ntc_table[*ntc_count] = temperature;
                 *ntc_count = (*ntc_count + 1) % NTC_BUFFER_SIZE;
                 if (*ntc_valid < NTC_BUFFER_SIZE)
                 {
                     (*ntc_valid)++;
+                }
+                // 2026/10/12: sensor error is recoverable - clear it after SENSOR_RECOVER_COUNT
+                // consecutive valid readings (e.g. sensor contact restored after power-up)
+                if (*valid_run < 255)
+                {
+                    (*valid_run)++;
+                }
+                if ((*sensor_error != 0) && (*valid_run >= SENSOR_RECOVER_COUNT))
+                {
+                    *sensor_error = 0;
+                    LOGD("ADC CH%d sensor recovered\r\n", channel_num);
+                    if ((adc_ctrl.int_sensor_error == 0) && (adc_ctrl.ext_sensor_error == 0) &&
+                        ((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP)))
+                    {
+                        display_refresh_request = 1;
+                        Draw_Active_Menu();				// Replace the sensor error box with the normal main page
+                    }
                 }
 
 								if(UI_state != STATE_FACTORY_TEST){
@@ -627,15 +753,25 @@ static float adc_process_vcc(void)
 
     uint16_t avg;
 
+    uint16_t mn = 0xFFFF;
+
+    uint16_t mx = 0;
+
     for (i = 0; i < ADC_SAMPLE_COUNT; i++)
 
     {
 
         sum += adc_ctrl.vcc_raw_buffer[i];
+        if (adc_ctrl.vcc_raw_buffer[i] < mn) mn = adc_ctrl.vcc_raw_buffer[i];
+        if (adc_ctrl.vcc_raw_buffer[i] > mx) mx = adc_ctrl.vcc_raw_buffer[i];
 
     }
 
     avg = (uint16_t)(sum / ADC_SAMPLE_COUNT);
+
+    vcc_raw_avg = avg;                              // 2026/10/15: used by adc_vcc_valid()
+    vcc_raw_min = mn;
+    vcc_raw_max = mx;
 
     adc_ctrl.vcc_raw_count = 0;
 
@@ -647,6 +783,75 @@ static float adc_process_vcc(void)
 
     return (VREFINT_VOLTAGE * ADC_RESOLUTION) / avg;
 
+}
+
+//---------------------------------------------------------------------------------------------------------
+
+// Function: Meas_Capture_Start
+
+// Description: Start the factory test background measurement of VCC and Int/Ext temperature.
+
+//              LCD:START calls it with delay 0, MEAS:START with MEAS_REDO_DELAY_MS.
+
+//---------------------------------------------------------------------------------------------------------
+
+void Meas_Capture_Start(uint16_t delay_ms)
+{
+    meas_cap.delay_ms = delay_ms;
+    meas_cap.tick     = time_tick;
+    meas_cap.state    = MEAS_WAIT;
+}
+
+// Average of the samples; min and max are dropped when there are enough samples
+static float meas_temp_average(float *buf, uint8_t n)
+{
+    float sum = 0.0f;
+    float min_v = buf[0];
+    float max_v = buf[0];
+    uint8_t i;
+
+    for (i = 0; i < n; i++)
+    {
+        sum += buf[i];
+        if (buf[i] < min_v) min_v = buf[i];
+        if (buf[i] > max_v) max_v = buf[i];
+    }
+    if (n >= 4)
+    {
+        return (sum - min_v - max_v) / (float)(n - 2);
+    }
+    return sum / (float)n;
+}
+
+static void meas_capture_update(void)
+{
+    if (meas_cap.state == MEAS_WAIT)
+    {
+        if (g_clock_time_exceed(meas_cap.tick, meas_cap.delay_ms))
+        {
+            meas_cap.vcc_sum = 0.0f;
+            meas_cap.vcc_n   = 0;
+            meas_cap.int_n   = 0;
+            meas_cap.ext_n   = 0;
+            meas_cap.tick    = time_tick;
+            meas_cap.state   = MEAS_RUN;
+        }
+    }
+    else if (meas_cap.state == MEAS_RUN)
+    {
+        if (g_clock_time_exceed(meas_cap.tick, MEAS_CAPTURE_MS))
+        {
+            meas_cap.vcc_ok   = (meas_cap.vcc_n > 0);
+            meas_cap.vcc      = meas_cap.vcc_ok ? (meas_cap.vcc_sum / (float)meas_cap.vcc_n) : 0.0f;
+            meas_cap.int_ok   = (meas_cap.int_n >= 5);
+            meas_cap.int_temp = meas_cap.int_ok ? meas_temp_average(meas_cap.int_buf, meas_cap.int_n) : -999.0f;
+            meas_cap.ext_ok   = (meas_cap.ext_n >= 5);
+            meas_cap.ext_temp = meas_cap.ext_ok ? meas_temp_average(meas_cap.ext_buf, meas_cap.ext_n) : -999.0f;
+            meas_cap.state    = MEAS_DONE;
+            LOGD("Meas done: VCC %.2fV (%d), Int %.2f (%d), Ext %.2f (%d)\r\n",
+                 meas_cap.vcc, meas_cap.vcc_n, meas_cap.int_temp, meas_cap.int_n, meas_cap.ext_temp, meas_cap.ext_n);
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------------
@@ -665,7 +870,10 @@ static float adc_process_vcc(void)
 
 void Thermostat_Update(void)
 {
-		static uint8_t write_flag = 0;
+		static uint8_t write_flag = 1;					// 2026/10/15: power-off flash save disarmed until VCC is normal
+
+    meas_capture_update();
+
     // Process any completed conversions as soon as possible
     if (adc_ctrl.ch8.complete)
     {
@@ -679,8 +887,59 @@ void Thermostat_Update(void)
 
     if (adc_ctrl.vcc_complete)
     {
-        adc_ctrl.vcc_voltage = adc_process_vcc();
-				if((adc_ctrl.vcc_voltage < 2.9) && (write_flag == 0)){
+        float vcc_meas = adc_process_vcc();
+
+        // 2026/10/15: only a valid reading updates vcc_voltage and the factory measurement
+        if (adc_vcc_valid(vcc_meas))
+        {
+            adc_ctrl.vcc_voltage = vcc_meas;
+            if (adc_vcc_ok == 0)
+            {
+                adc_vcc_ok = 1;
+                adc_reset_channel_filters();
+                LOGD("VCC_OK t=%lu vcc=%.3f invalid_ms=%lu reinit=%d\r\n",
+                     (unsigned long)time_tick, vcc_meas, (unsigned long)(time_tick - adc_vcc_bad_tick), adc_reinit_count);
+            }
+            if (meas_cap.state == MEAS_RUN)
+            {
+                meas_cap.vcc_sum += vcc_meas;
+                meas_cap.vcc_n++;
+            }
+        }
+        else
+        {
+            if (adc_vcc_ok != 0)
+            {
+                adc_vcc_ok = 0;
+                adc_vcc_bad_tick = time_tick;
+            }
+            // 2026/10/16: report the actual reading while VCC is invalid (once per second)
+            if (g_clock_time_exceed(vcc_bad_log_tick, VCC_BAD_LOG_GAP_MS))
+            {
+                vcc_bad_log_tick = time_tick;
+                LOGD("VCC_BAD t=%lu vcc=%.3f vref=%u(%u~%u)\r\n",
+                     (unsigned long)time_tick, vcc_meas, vcc_raw_avg, vcc_raw_min, vcc_raw_max);
+            }
+            // 2026/10/16: VCC still invalid -> power-cycle and recalibrate the ADC
+            if ((adc_reinit_count < ADC_REINIT_MAX) &&
+                g_clock_time_exceed(adc_vcc_bad_tick, ADC_REINIT_GAP_MS) &&
+                g_clock_time_exceed(adc_reinit_tick, ADC_REINIT_GAP_MS))
+            {
+                adc_reinit_count++;
+                adc_reinit_tick = time_tick;
+                adc_reinit();
+            }
+            // ADC never recovered: report the sensor error as before
+            if ((adc_ctrl.int_sensor_error == 0) && (UI_state != STATE_FACTORY_TEST) &&
+                g_clock_time_exceed(adc_vcc_bad_tick, ADC_INVALID_TIMEOUT_MS))
+            {
+                adc_ctrl.int_sensor_error = 1;
+                adc_ctrl.int_valid_run = 0;
+                LOGD("ADC_TIMEOUT t=%lu\r\n", (unsigned long)time_tick);
+                ADC_Update_Display_Temperature(8);
+            }
+        }
+				if((vcc_meas < 2.9) && (write_flag == 0)){
 						g_parameter.backup_rtc.Year = rtc_time.Year;
 						g_parameter.backup_rtc.Mon = rtc_time.Mon;
 						g_parameter.backup_rtc.Date = rtc_time.Date;
@@ -692,7 +951,7 @@ void Thermostat_Update(void)
 								LOGE("Flash write fail!\r\n");
 						}
 						write_flag = 1;
-				}else if(adc_ctrl.vcc_voltage > 3.1){
+				}else if(adc_vcc_valid(vcc_meas) && (vcc_meas > 3.1)){		// 2026/10/15: arm only on a valid VCC
 						write_flag = 0;
 				}
     }
@@ -755,25 +1014,8 @@ void ADC_Update_Display_Temperature(uint8_t channel){
 				display_update_call_target = 1;
 		}
 	
-		if(adc_ctrl.int_sensor_error == 1){
-				Clear_Number_Area();
-				LCD_Fill(5, 66, 123, 98, RED);
-				lan_str = LanguageTable[STR_Internal][g_parameter.language];
-				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
-				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
-				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
-				return;
-		}
-		
-		if(adc_ctrl.ext_sensor_error == 1){
-				Clear_Number_Area();
-				LCD_Fill(5, 66, 123, 98, RED);
-				lan_str = LanguageTable[STR_External][g_parameter.language];
-				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
-				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
-				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
-				return;
-		}
+    // 2026/10/12: averages are updated before the sensor error check, so GET:TEMP and the
+    // healthy channel keep valid data while the error box is shown
     // Step 1: Update global display temperature for the requested channel
 
     if(channel == 8)
@@ -814,6 +1056,25 @@ void ADC_Update_Display_Temperature(uint8_t channel){
         }
 				window_fun_ext_updated = 1;
     }
+		if(adc_ctrl.int_sensor_error == 1){
+				Clear_Number_Area();
+				LCD_Fill(5, 66, 123, 98, RED);
+				lan_str = LanguageTable[STR_Internal][g_parameter.language];
+				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
+				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
+				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				return;
+		}
+		
+		if(adc_ctrl.ext_sensor_error == 1){
+				Clear_Number_Area();
+				LCD_Fill(5, 66, 123, 98, RED);
+				lan_str = LanguageTable[STR_External][g_parameter.language];
+				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
+				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
+				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				return;
+		}
 
     // Signal window function that new average temperature is ready
     if((channel == 8) && (adc_ctrl.int_ntc_valid == 1))
@@ -892,8 +1153,9 @@ void ADC_Update_Display_Temperature(uint8_t channel){
     // Publish for Draw_Active_Menu redraws (BEFORE state check so it stays
     // fresh even during WINDOW_OPEN_DETECTED etc.)
     current_display_temp = display_temp;
-		LOGD("INT_Temp, %.2f\n\r",avg_sensor_temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val + g_parameter.temp_correct_internal);
-		LOGD("EXT_Temp, %.2f\r\n",avg_sensor_temp + g_parameter.temp_correct_external);
+		// 2026/10/16: print each sensor's own average (avg_sensor_temp is only the sensor_type selected one)
+		LOGD("INT_Temp, %.2f\n\r",Average_INT_Temp - adc_ctrl.idle_comp_val - adc_ctrl.heating_comp_val + g_parameter.temp_correct_internal);
+		LOGD("EXT_Temp, %.2f\r\n",Average_EXT_Temp + g_parameter.temp_correct_external);
     // Step 5: Only update LCD when UI_state is ACTIVE or SLEEP
     if((UI_state != STATE_ACTIVE) && (UI_state != STATE_SLEEP))
     {

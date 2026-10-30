@@ -289,8 +289,9 @@ void cmd_init(void)
 		uint8_t i;
 		
 		//inst = 0;
-		cmd_queue.F_received_complete = eFALSE;
 		cmd_queue.rx_index = 0;
+		cmd_queue.q_head = 0;
+		cmd_queue.q_tail = 0;
 		for(i=0; i<UART_FIFO_QTY; i++){
 				cmd_queue.rx_buffer[i] = 0;
 		}	
