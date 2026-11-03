@@ -1823,6 +1823,16 @@ void GUI_DrawPoint(u16 x,u16 y,u16 color)
 								color:the filled color value
  * @retvalue   :None
 ********************************************************************/
+#if LCD_FAST_DRAW
+void LCD_Fill(u16 sx,u16 sy,u16 ex,u16 ey,u16 color)
+{
+	u16 width=ex-sx+1;
+	u16 height=ey-sy+1;
+	LCD_SetWindows(sx,sy,ex,ey);
+	LCD_WriteColorRepeat(color, (u32)width * height);
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+}
+#else
 void LCD_Fill(u16 sx,u16 sy,u16 ex,u16 ey,u16 color)
 {  	
 	u16 i,j;			
@@ -1836,6 +1846,7 @@ void LCD_Fill(u16 sx,u16 sy,u16 ex,u16 ey,u16 color)
 	}
 	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);//»Ö¸´´°¿ÚÉèÖÃÎªÈ«ÆÁ
 }
+#endif
 
 /*******************************************************************
  * @name       :void LCD_DrawLine(u16 x1, u16 y1, u16 x2, u16 y2)
@@ -2185,6 +2196,55 @@ void LCD_ShowChar(u16 x,u16 y,u16 fc, u16 bc, u8 num,u8 size,u8 mode)
 	                font_size:0=8x16, 1=12x24
 	 * @retvalue   :None
 	******************************************************************************/
+#if LCD_FAST_DRAW
+void LCD_ShowChar_ISO(u16 x,u16 y,u16 fc,u16 bc,u8 code,u8 font_size)
+{
+	u8 pos,t;
+	if(font_size == 1)	// 12x24
+	{
+		const unsigned char *bitmap = Get_ISO_8859_1_12x24_Char(code);
+		u8 temp_h, temp_l;
+		LCD_SetWindows(x, y, x+11, y+23);
+		LCD_PixelStreamBegin();
+		for(pos=0; pos<24; pos++)
+		{
+			temp_h = bitmap[pos*2];
+			temp_l = bitmap[pos*2+1];
+			// First 8 bits (high byte, pixel 7..0)
+			for(t=0; t<8; t++)
+			{
+				LCD_PixelStreamPush((temp_h & 0x80) ? fc : bc);
+				temp_h <<= 1;
+			}
+			// Last 4 bits (low byte upper nibble, pixel 11..8)
+			for(t=0; t<4; t++)
+			{
+				LCD_PixelStreamPush((temp_l & 0x80) ? fc : bc);
+				temp_l <<= 1;
+			}
+		}
+		LCD_PixelStreamEnd();
+	}
+	else	// 8x16 (default)
+	{
+		const unsigned char *bitmap = Get_ISO_8859_1_Char(code);
+		u8 temp;
+		LCD_SetWindows(x,y,x+7,y+15);
+		LCD_PixelStreamBegin();
+		for(pos=0; pos<16; pos++)
+		{
+			temp = bitmap[pos];
+			for(t=0; t<8; t++)
+			{
+				LCD_PixelStreamPush((temp & 0x80) ? fc : bc);
+				temp <<= 1;
+			}
+		}
+		LCD_PixelStreamEnd();
+	}
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+}
+#else
 void LCD_ShowChar_ISO(u16 x,u16 y,u16 fc,u16 bc,u8 code,u8 font_size)
 {
 	u8 pos,t;
@@ -2234,6 +2294,7 @@ void LCD_ShowChar_ISO(u16 x,u16 y,u16 fc,u16 bc,u8 code,u8 font_size)
 	POINT_COLOR=colortemp;
 	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
 }
+#endif
 
 
 /*****************************************************************************
@@ -2630,6 +2691,93 @@ void Gui_Drawbmp16(u16 x,u16 y,const unsigned char *p) //ÏÔÊ¾40*40 QQÍ¼Æ¬
  *              font_size:0=32x64, 1=16x32, 2=12x24
  * @retvalue   :None
 ******************************************************************************/
+#if LCD_FAST_DRAW
+void GUI_DrawBigDigit(u16 x, u16 y, u16 fc, u16 bc, u8 digit, u8 font_size)
+{
+	const unsigned char* pattern;
+	u16 row, col;
+	u16 width, height, bytes_per_row;
+	const unsigned char* line;
+
+	/* Select pattern and size based on font_size */
+	if(font_size == 0)  /* 32x64 */
+	{
+		width = ARIAL_32X64_WIDTH;
+		height = ARIAL_32X64_HEIGHT;
+		bytes_per_row = ARIAL_32X64_BYTES_PER_ROW;
+		if(digit >= '0' && digit <= '9')
+		{
+			pattern = arial_32x64_digits[digit - '0'];
+		}
+		else
+		{
+			return;
+		}
+	}
+	else if(font_size == 1)  /* 16x32 */
+	{
+		width = ARIAL_16X32_WIDTH;
+		height = ARIAL_16X32_HEIGHT;
+		bytes_per_row = ARIAL_16X32_BYTES_PER_ROW;
+		if(digit >= '0' && digit <= '9')
+		{
+			pattern = arial_16x32_digits[digit - '0'];
+		}
+		else
+		{
+			return;
+		}
+	}
+	else if(font_size == 2)
+	{
+		width = ARIAL_16X32_WIDTH;
+		height = ARIAL_16X32_HEIGHT;
+		bytes_per_row = ARIAL_16X32_BYTES_PER_ROW;
+		if(digit >= '0' && digit <= '9')
+		{
+			pattern = t_arial_16x32_digits[digit - '0'];
+		}
+		else
+		{
+			return;
+		}
+		
+	}
+	else  /* 12x24 for decimal point */
+	{
+		width = ARIAL_12X24_WIDTH;
+		height = ARIAL_12X24_HEIGHT;
+		bytes_per_row = ARIAL_12X24_BYTES_PER_ROW;
+		if(digit == '.')
+		{
+			LCD_Fill(x + 3, y + 16, x + 9, y + 22, fc);
+			return;
+		}
+		else if(digit >= '0' && digit <= '9')
+		{
+			pattern = arial_12x24_digits[digit - '0'];
+		}
+		else
+		{
+			return;
+		}
+	}
+
+	/* One window for the whole digit, then stream pixels row by row */
+	LCD_SetWindows(x, y, x + width - 1, y + height - 1);
+	LCD_PixelStreamBegin();
+	for(row = 0; row < height; row++)
+	{
+		line = pattern + row * bytes_per_row;
+		for(col = 0; col < width; col++)
+		{
+			LCD_PixelStreamPush((line[col >> 3] & (0x80 >> (col & 7))) ? fc : bc);
+		}
+	}
+	LCD_PixelStreamEnd();
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+}
+#else
 void GUI_DrawBigDigit(u16 x, u16 y, u16 fc, u16 bc, u8 digit, u8 font_size)
 {
 	const unsigned char* pattern;
@@ -2711,6 +2859,7 @@ void GUI_DrawBigDigit(u16 x, u16 y, u16 fc, u16 bc, u8 digit, u8 font_size)
 		}
 	}
 }
+#endif
 
 /*****************************************************************************
  * @name       :void GUI_DrawMonoIcon32x32(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
@@ -2724,6 +2873,26 @@ void GUI_DrawBigDigit(u16 x, u16 y, u16 fc, u16 bc, u8 digit, u8 font_size)
  * @retvalue   :None
  * @note       :Bitmap format: MSB first, 4 bytes per row (32 bits), 32 rows total
 ******************************************************************************/
+#if LCD_FAST_DRAW
+void GUI_DrawMonoIcon32x32(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	const uint8_t *line;
+
+	LCD_SetWindows(x, y, x + 31, y + 31);
+	LCD_PixelStreamBegin();
+	for(row = 0; row < 32; row++)
+	{
+		line = bitmap + row * 4;  // 4 byte(s) per row, MSB first
+		for(col = 0; col < 32; col++)
+		{
+			LCD_PixelStreamPush((line[col >> 3] & (0x80 >> (col & 7))) ? fc : bc);
+		}
+	}
+	LCD_PixelStreamEnd();
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+}
+#else
 void GUI_DrawMonoIcon32x32(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 {
 	u16 row, col;
@@ -2748,6 +2917,7 @@ void GUI_DrawMonoIcon32x32(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 		}
 	}
 }
+#endif
 
 /*****************************************************************************
  * @name       :void GUI_DrawMonoIcon24x24(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
@@ -2761,6 +2931,26 @@ void GUI_DrawMonoIcon32x32(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
  * @retvalue   :None
  * @note       :Bitmap format: MSB first, 3 bytes per row (24 bits), 24 rows total
 ******************************************************************************/
+#if LCD_FAST_DRAW
+void GUI_DrawMonoIcon24x24(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	const uint8_t *line;
+
+	LCD_SetWindows(x, y, x + 23, y + 23);
+	LCD_PixelStreamBegin();
+	for(row = 0; row < 24; row++)
+	{
+		line = bitmap + row * 3;  // 3 byte(s) per row, MSB first
+		for(col = 0; col < 24; col++)
+		{
+			LCD_PixelStreamPush((line[col >> 3] & (0x80 >> (col & 7))) ? fc : bc);
+		}
+	}
+	LCD_PixelStreamEnd();
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+}
+#else
 void GUI_DrawMonoIcon24x24(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 {
 	u16 row, col;
@@ -2785,6 +2975,7 @@ void GUI_DrawMonoIcon24x24(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 		}
 	}
 }
+#endif
 
 /*****************************************************************************
  * @name       :void GUI_DrawMonoIcon16x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
@@ -2798,6 +2989,26 @@ void GUI_DrawMonoIcon24x24(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
  * @retvalue   :None
  * @note       :Bitmap format: MSB first, 2 bytes per row (16 bits), 16 rows total
 ******************************************************************************/
+#if LCD_FAST_DRAW
+void GUI_DrawMonoIcon16x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	const uint8_t *line;
+
+	LCD_SetWindows(x, y, x + 15, y + 15);
+	LCD_PixelStreamBegin();
+	for(row = 0; row < 16; row++)
+	{
+		line = bitmap + row * 2;  // 2 byte(s) per row, MSB first
+		for(col = 0; col < 16; col++)
+		{
+			LCD_PixelStreamPush((line[col >> 3] & (0x80 >> (col & 7))) ? fc : bc);
+		}
+	}
+	LCD_PixelStreamEnd();
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+}
+#else
 void GUI_DrawMonoIcon16x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 {
 	u16 row, col;
@@ -2822,6 +3033,7 @@ void GUI_DrawMonoIcon16x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 		}
 	}
 }
+#endif
 
 /*****************************************************************************
  * @name       :void GUI_DrawMonoIcon8x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
@@ -2835,6 +3047,26 @@ void GUI_DrawMonoIcon16x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
  * @retvalue   :None
  * @note       :Bitmap format: MSB first, 1 byte per row (8 bits), 16 rows total
 ******************************************************************************/
+#if LCD_FAST_DRAW
+void GUI_DrawMonoIcon8x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
+{
+	u16 row, col;
+	const uint8_t *line;
+
+	LCD_SetWindows(x, y, x + 7, y + 15);
+	LCD_PixelStreamBegin();
+	for(row = 0; row < 16; row++)
+	{
+		line = bitmap + row * 1;  // 1 byte(s) per row, MSB first
+		for(col = 0; col < 8; col++)
+		{
+			LCD_PixelStreamPush((line[col >> 3] & (0x80 >> (col & 7))) ? fc : bc);
+		}
+	}
+	LCD_PixelStreamEnd();
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+}
+#else
 void GUI_DrawMonoIcon8x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 {
 	u16 row, col;
@@ -2857,3 +3089,4 @@ void GUI_DrawMonoIcon8x16(u16 x, u16 y, u16 fc, u16 bc, const uint8_t *bitmap)
 		}
 	}
 }
+#endif

@@ -168,11 +168,11 @@ void Draw_Control_Adj_Menu_Row(uint8_t row, uint8_t selected)
 		LCD_Fill(4, row_y[row], lcddev.width - 4, row_y[row] + row_height, WHITE);
 	}
 
-	// Draw Arrow Icon (white on black when unselected, white on red when selected)
+	// Draw Arrow Icon (black line on white when unselected, white on red when selected)
 	if(selected) {
 		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, WHITE, RED, Icon16x16_Arrow);
 	} else {
-		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, WHITE, BLACK, Icon16x16_Arrow);
+		GUI_DrawMonoIcon16x16(6, row_y[row] + (row_height - 16) / 2, BLACK, WHITE, Icon16x16_Arrow);
 	}
 
 	// Draw menu text (two-line auto for long strings)
@@ -248,16 +248,14 @@ void Draw_Control_Adj_Sensor_Choices(uint8_t selection)
 			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 		}
 
-		// Arrow icon
-		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
+		// ON icon on the chosen option only; other rows stay blank
 		if(is_selected) {
-			if(is_edit) {
-				GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);      // red bg, white line
+			uint8_t icon_y = row_y[i] + (row_height - 16) / 2;
+			if(bg_color == RED) {
+				GUI_DrawMonoIcon16x16(12, icon_y, WHITE, RED, ON_Icon_16x16);       // edit mode: red bg, white line
 			} else {
-				GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);      // red bg, white line (current param)
+				GUI_DrawMonoIcon16x16(12, icon_y, BLACK, WHITE, ON_Icon_16x16);     // TopBar/Save: white bg, black line
 			}
-		} else {
-			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);        // black bg, white line
 		}
 
 		// Text
@@ -427,8 +425,8 @@ void Draw_Control_Adj_TempLimit_Content(uint8_t selection)
 			GUI_DrawBigDigit(48, 60, BLACK, WHITE, '0' + d2, 0);
 		}
 		// Edit arrows (vertically centered on 32x64 digits)
-		GUI_DrawMonoIcon16x16(6, 84, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(108, 84, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(6, 84, RED, WHITE, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(108, 84, RED, WHITE, Icon16x16_Up_Arror);
 	}
 
 	// Save button (keep original position)
@@ -490,7 +488,7 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 
 	for(i = 0; i < 2; i++) {
 		uint8_t is_sel = (!Top_Bar_Active && (i + 1 == selection)) ? 1 : 0;
-		uint16_t text_color, bg_color, icon_color;
+		uint16_t text_color, bg_color, icon_fc, icon_bc;
 		uint8_t onoff;
 
 		if(is_sel) {
@@ -504,7 +502,7 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 		}
 
 		// Arrow icon (left of text)
-		GUI_DrawMonoIcon16x16(6, row_y[i] + (row_height - 16) / 2, WHITE, (is_sel ? RED : BLACK), Icon16x16_Arrow);
+		GUI_DrawMonoIcon16x16(6, row_y[i] + (row_height - 16) / 2, (is_sel ? WHITE : BLACK), (is_sel ? RED : WHITE), Icon16x16_Arrow);
 
 		// Two-line text using direct Show_Str (always single-line strings)
 		POINT_COLOR = text_color;
@@ -518,11 +516,12 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 
 		// ON/OFF icon at right side (16x16)
 		onoff = (i == 0) ? g_parameter.temp_protect_max_switch : g_parameter.temp_protect_min_switch;
-		icon_color = is_sel ? RED : BLACK;
+		icon_fc = is_sel ? WHITE : BLACK;   // selected: white line on red; unselected: black line on white
+		icon_bc = is_sel ? RED : WHITE;
 		if(onoff == 0) {
-			GUI_DrawMonoIcon16x16(108, row_y[i] + (row_height - 16) / 2, WHITE, icon_color, OFF_Icon_16x16);
+			GUI_DrawMonoIcon16x16(108, row_y[i] + (row_height - 16) / 2, icon_fc, icon_bc, OFF_Icon_16x16);
 		} else {
-			GUI_DrawMonoIcon16x16(108, row_y[i] + (row_height - 16) / 2, WHITE, icon_color, ON_Icon_16x16);
+			GUI_DrawMonoIcon16x16(108, row_y[i] + (row_height - 16) / 2, icon_fc, icon_bc, ON_Icon_16x16);
 		}
 	}
 
@@ -546,8 +545,8 @@ void Draw_Control_Adj_TempProtect_Max_Content(uint8_t selection)
 
 	// ON/OFF edit arrows (selection == 1)
 	if(selection == 1) {
-		GUI_DrawMonoIcon16x16(20, 48, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(92, 48, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(20, 48, RED, WHITE, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(92, 48, RED, WHITE, Icon16x16_Up_Arror);
 	}
 
 	// Number section (selection == 2)
@@ -565,8 +564,8 @@ void Draw_Control_Adj_TempProtect_Max_Content(uint8_t selection)
 		}
 		// Number edit arrows (selection == 2)
 		if(selection == 2) {
-			GUI_DrawMonoIcon16x16(20, 97, WHITE, RED, Icon16x16_Down_Arror);
-			GUI_DrawMonoIcon16x16(96, 97, WHITE, RED, Icon16x16_Up_Arror);
+			GUI_DrawMonoIcon16x16(20, 97, RED, WHITE, Icon16x16_Down_Arror);
+			GUI_DrawMonoIcon16x16(96, 97, RED, WHITE, Icon16x16_Up_Arror);
 		}
 	}
 
@@ -618,8 +617,8 @@ void Draw_Control_Adj_TempProtect_Min_Content(uint8_t selection)
 
 	// ON/OFF edit arrows (selection == 1)
 	if(selection == 1) {
-		GUI_DrawMonoIcon16x16(20, 48, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(92, 48, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(20, 48, RED, WHITE, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(92, 48, RED, WHITE, Icon16x16_Up_Arror);
 	}
 
 	// Number section (selection == 2)
@@ -637,8 +636,8 @@ void Draw_Control_Adj_TempProtect_Min_Content(uint8_t selection)
 		}
 		// Number edit arrows (selection == 2)
 		if(selection == 2) {
-			GUI_DrawMonoIcon16x16(20, 97, WHITE, RED, Icon16x16_Down_Arror);
-			GUI_DrawMonoIcon16x16(96, 97, WHITE, RED, Icon16x16_Up_Arror);
+			GUI_DrawMonoIcon16x16(20, 97, RED, WHITE, Icon16x16_Down_Arror);
+			GUI_DrawMonoIcon16x16(96, 97, RED, WHITE, Icon16x16_Up_Arror);
 		}
 	}
 
@@ -688,7 +687,6 @@ void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 		uint8_t display_state = (selection == 0) ? g_parameter.power_on_state : power_on_state;
 		uint8_t is_current = (i + 1 == display_state) ? 1 : 0;
 		uint16_t text_color, bg_color;
-		uint16_t arrow_bg;
 
 		if(is_edit && is_current) {
 			// Edit mode, selected item: red bg, white text
@@ -702,9 +700,15 @@ void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 		}
 
-		// Arrow icon on the left: red for current, black for others
-		arrow_bg = is_current ? RED : BLACK;
-		GUI_DrawMonoIcon16x16(6, row_y[i] + (row_height - 16) / 2, WHITE, arrow_bg, Icon16x16_Arrow);
+		// ON icon on the chosen option only; other rows stay blank
+		if(is_current) {
+			uint8_t icon_y = row_y[i] + (row_height - 16) / 2;
+			if(bg_color == RED) {
+				GUI_DrawMonoIcon16x16(6, icon_y, WHITE, RED, ON_Icon_16x16);       // edit mode: red bg, white line
+			} else {
+				GUI_DrawMonoIcon16x16(6, icon_y, BLACK, WHITE, ON_Icon_16x16);     // TopBar/Save: white bg, black line
+			}
+		}
 
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
@@ -774,8 +778,8 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 
 	// ON/OFF edit arrows (selection == 1): left/right of icon
 	if(selection == 1) {
-		GUI_DrawMonoIcon16x16(20, 48, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(92, 48, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(20, 48, RED, WHITE, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(92, 48, RED, WHITE, Icon16x16_Up_Arror);
 	}
 
 	// ===== Number + arrows section (y=90) =====
@@ -795,9 +799,9 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 		// Number edit arrows (selection == 2): left/right of number
 		if(selection == 2) {
 			// Down arrow on left (x=20, y=97)
-			GUI_DrawMonoIcon16x16(20, 97, WHITE, RED, Icon16x16_Down_Arror);
+			GUI_DrawMonoIcon16x16(20, 97, RED, WHITE, Icon16x16_Down_Arror);
 			// Up arrow on right (x=96, y=97)
-			GUI_DrawMonoIcon16x16(96, 97, WHITE, RED, Icon16x16_Up_Arror);
+			GUI_DrawMonoIcon16x16(96, 97, RED, WHITE, Icon16x16_Up_Arror);
 		}
 	}
 
@@ -851,8 +855,8 @@ void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection)
 	} else if(selection == 1) {
 		// Edit mode: show arrows + number + Save
 		LCD_Fill(5, 40, lcddev.width - 5, 126, WHITE);
-		GUI_DrawMonoIcon16x16(6, 82, WHITE, RED, Icon16x16_Up_Arror);
-		GUI_DrawMonoIcon16x16(106, 82, WHITE, RED, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(6, 82, RED, WHITE, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(106, 82, RED, WHITE, Icon16x16_Down_Arror);
 		GUI_DrawBigDigit(30, 50, BLACK, WHITE, '0' + int_part, 0);
 		LCD_Fill(63, 102, 66, 105, BLACK);
 		GUI_DrawBigDigit(68, 50, BLACK, WHITE, '0' + dec_part, 0);
@@ -930,8 +934,8 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 
 		// Up/Down arrows (edit mode: selection == 1 or 2) — keep original position
 		if(selection == 1 || selection == 2) {
-				GUI_DrawMonoIcon16x16(12, 91, WHITE, RED, Icon16x16_Down_Arror);
-				GUI_DrawMonoIcon16x16(100, 91, WHITE, RED, Icon16x16_Up_Arror);
+				GUI_DrawMonoIcon16x16(12, 91, RED, WHITE, Icon16x16_Down_Arror);
+				GUI_DrawMonoIcon16x16(100, 91, RED, WHITE, Icon16x16_Up_Arror);
 		} else {
 				LCD_Fill(16, 91, 32, 107, WHITE);
 				LCD_Fill(100, 91, 116, 107, WHITE);
@@ -1010,8 +1014,8 @@ void Draw_Operation_Mode_PWM_Setting_Content(uint8_t selection)
 
 	// Up/Down arrows (edit mode: selection == 1 or 2)
 	if(selection == 1 || selection == 2) {
-		GUI_DrawMonoIcon16x16(12, 100, WHITE, RED, Icon16x16_Down_Arror);
-		GUI_DrawMonoIcon16x16(100, 100, WHITE, RED, Icon16x16_Up_Arror);
+		GUI_DrawMonoIcon16x16(12, 100, RED, WHITE, Icon16x16_Down_Arror);
+		GUI_DrawMonoIcon16x16(100, 100, RED, WHITE, Icon16x16_Up_Arror);
 	} else {
 		LCD_Fill(12, 100, 28, 116, WHITE);
 		LCD_Fill(100, 100, 116, 116, WHITE);
@@ -1066,10 +1070,10 @@ void Draw_Control_Adj_PWM_Setting_Choices(uint8_t selection)
 						LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 				}
 
-				// Arrow icon: only red in edit mode for selected option; black in TopBar mode
+				// Arrow icon: only red in edit mode for selected option; white bg/black line otherwise
 				uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
-				uint16_t arrow_bg = (is_edit && is_selected) ? RED : BLACK;
-				GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, arrow_bg, Icon16x16_Arrow);
+				uint16_t arrow_bg = (is_edit && is_selected) ? RED : WHITE;
+				GUI_DrawMonoIcon16x16(12, arrow_y, (arrow_bg == RED) ? WHITE : BLACK, arrow_bg, Icon16x16_Arrow);
 
 				// Text (two 16px lines, exactly filling 32px row height)
 				POINT_COLOR = text_color;
@@ -1156,10 +1160,10 @@ void Draw_Control_Adj_PWM_Astro_Time_Content(uint8_t selection)
 						LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 				}
 
-				// Arrow icon: only red in edit mode for selected option; black in TopBar mode
+				// Arrow icon: only red in edit mode for selected option; white bg/black line otherwise
 				uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
-				uint16_t arrow_bg = (is_edit && is_selected) ? RED : BLACK;
-				GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, arrow_bg, Icon16x16_Arrow);
+				uint16_t arrow_bg = (is_edit && is_selected) ? RED : WHITE;
+				GUI_DrawMonoIcon16x16(12, arrow_y, (arrow_bg == RED) ? WHITE : BLACK, arrow_bg, Icon16x16_Arrow);
 
 				// Text (single line, vertically centered in row)
 				POINT_COLOR = text_color;
@@ -1200,12 +1204,14 @@ void Draw_Control_Adj_PWM_Location_Choices(uint8_t selection)
 						LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
 				}
 
-				// Arrow icon: red for the current selection in any mode, black otherwise
-				uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
+				// ON icon on the chosen option only; other rows stay blank
 				if(is_selected) {
-						GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);
-				} else {
-						GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);
+					uint8_t icon_y = row_y[i] + (row_height - 16) / 2;
+					if(bg_color == RED) {
+						GUI_DrawMonoIcon16x16(12, icon_y, WHITE, RED, ON_Icon_16x16);       // edit mode: red bg, white line
+					} else {
+						GUI_DrawMonoIcon16x16(12, icon_y, BLACK, WHITE, ON_Icon_16x16);     // TopBar/Save: white bg, black line
+					}
 				}
 
 				// Text
@@ -1300,7 +1306,7 @@ void Draw_Control_Adj_PWM_Tolerance_Content(uint8_t selection)
 
 		// Minus sign (horizontal bar, vertically centered on the 64px-tall digit glyph)
 		if(is_neg) {
-				LCD_Fill(start_x, digit_y + 30, start_x + 16, digit_y + 34, BLACK);
+				LCD_Fill(start_x, digit_y + 30, start_x + 16, digit_y + 34, num_color);   // same color as digits (red while editing)
 		}
 
 		// Digits (full 32x64 size, centered as a block in the middle of the editable area)
@@ -1314,8 +1320,8 @@ void Draw_Control_Adj_PWM_Tolerance_Content(uint8_t selection)
 		// otherwise the sign's extra width pulls the center towards the tens digit)
 		if(selection == 1) {
 				uint16_t arrow_x = digits_x + (num_digits * digit_w) / 2 - 8;
-				GUI_DrawMonoIcon16x16(arrow_x, up_arrow_y, WHITE, RED, Icon16x16_Up_Arror);
-				GUI_DrawMonoIcon16x16(arrow_x, down_arrow_y, WHITE, RED, Icon16x16_Down_Arror);
+				GUI_DrawMonoIcon16x16(arrow_x, up_arrow_y, RED, WHITE, Icon16x16_Up_Arror);
+				GUI_DrawMonoIcon16x16(arrow_x, down_arrow_y, RED, WHITE, Icon16x16_Down_Arror);
 		}
 
 		// "min" unit label - top-right corner of the editable area (not under the number)

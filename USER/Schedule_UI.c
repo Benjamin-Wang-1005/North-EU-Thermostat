@@ -162,14 +162,14 @@ void Draw_Heating_Schedule_Prog_Type_Content(uint8_t selected)
 			LCD_Fill(0, row_y[i], lcddev.width, row_y[i] + row_height, WHITE);
 		}
 
-		// Draw Arrow icon (vertically centered)
-		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
-		if(selected == i && is_current_mode) {
-			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);   // red bg, white line
-		} else if(selected == i) {
-			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, bg_color, Icon16x16_Arrow);   // edit mode: white line on bg
-		} else {
-			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);   // black bg, white line
+		// ON icon on the chosen option only; other rows stay blank
+		if(selected == i) {
+			uint8_t icon_y = row_y[i] + (row_height - 16) / 2;
+			if(bg_color == RED) {
+				GUI_DrawMonoIcon16x16(12, icon_y, WHITE, RED, ON_Icon_16x16);       // edit mode: red bg, white line
+			} else {
+				GUI_DrawMonoIcon16x16(12, icon_y, BLACK, WHITE, ON_Icon_16x16);     // TopBar/Save: white bg, black line
+			}
 		}
 
 		// Draw program type text
@@ -428,18 +428,18 @@ void Draw_Schedule_Time_Setting_Arrows(uint8_t show)
 	Draw_Schedule_Time_Setting_ClearArrows();
 	switch (show){
 		case Hour:
-				GUI_DrawMonoIcon16x16(13, 30, WHITE, RED, Icon16x16_Up_Arror);     // Up arrow above hour (red bg)
-				GUI_DrawMonoIcon16x16(13, 82, WHITE, RED, Icon16x16_Down_Arror);   // Down arrow below hour (red bg)
+				GUI_DrawMonoIcon16x16(13, 30, RED, WHITE, Icon16x16_Up_Arror);     // Up arrow above hour (white bg, red line)
+				GUI_DrawMonoIcon16x16(13, 82, RED, WHITE, Icon16x16_Down_Arror);   // Down arrow below hour (white bg, red line)
 		break;
 		
 		case Minume:
-				GUI_DrawMonoIcon16x16(53, 30, WHITE, RED, Icon16x16_Up_Arror);     // Up arrow above minute (red bg)
-				GUI_DrawMonoIcon16x16(53, 82, WHITE, RED, Icon16x16_Down_Arror);   // Down arrow below minute (red bg)
+				GUI_DrawMonoIcon16x16(53, 30, RED, WHITE, Icon16x16_Up_Arror);     // Up arrow above minute (white bg, red line)
+				GUI_DrawMonoIcon16x16(53, 82, RED, WHITE, Icon16x16_Down_Arror);   // Down arrow below minute (white bg, red line)
 		break;
 		
 		case Temperature:
-				GUI_DrawMonoIcon16x16(96, 30, WHITE, RED, Icon16x16_Up_Arror);     // Up arrow above temperature (red bg)
-				GUI_DrawMonoIcon16x16(96, 82, WHITE, RED, Icon16x16_Down_Arror);   // Down arrow below temperature (red bg)
+				GUI_DrawMonoIcon16x16(96, 30, RED, WHITE, Icon16x16_Up_Arror);     // Up arrow above temperature (white bg, red line)
+				GUI_DrawMonoIcon16x16(96, 82, RED, WHITE, Icon16x16_Down_Arror);   // Down arrow below temperature (white bg, red line)
 		break;
 		
 		case Time_Clear:
@@ -474,8 +474,8 @@ void Clear_Schedule_Time_Setting_Arror(uint8_t clr)
 void Draw_Schedule_Time_Setting_MinArrows(uint8_t show)
 {
 	if(show) {
-		GUI_DrawMonoIcon16x16(53, 30, WHITE, RED, Icon16x16_Up_Arror);     // Up arrow above minute (red bg)
-		GUI_DrawMonoIcon16x16(53, 82, WHITE, RED, Icon16x16_Down_Arror);   // Down arrow below minute (red bg)
+		GUI_DrawMonoIcon16x16(53, 30, RED, WHITE, Icon16x16_Up_Arror);     // Up arrow above minute (white bg, red line)
+		GUI_DrawMonoIcon16x16(53, 82, RED, WHITE, Icon16x16_Down_Arror);   // Down arrow below minute (white bg, red line)
 	}
 }
 
@@ -483,8 +483,8 @@ void Draw_Schedule_Time_Setting_MinArrows(uint8_t show)
 void Draw_Schedule_Time_Setting_TempArrows(uint8_t show)
 {
 	if(show) {
-		GUI_DrawMonoIcon16x16(96, 30, WHITE, RED, Icon16x16_Up_Arror);     // Up arrow above temperature (red bg)
-		GUI_DrawMonoIcon16x16(96, 82, WHITE, RED, Icon16x16_Down_Arror);   // Down arrow below temperature (red bg)
+		GUI_DrawMonoIcon16x16(96, 30, RED, WHITE, Icon16x16_Up_Arror);     // Up arrow above temperature (white bg, red line)
+		GUI_DrawMonoIcon16x16(96, 82, RED, WHITE, Icon16x16_Down_Arror);   // Down arrow below temperature (white bg, red line)
 	}
 }
 

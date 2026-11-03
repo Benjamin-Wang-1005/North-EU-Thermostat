@@ -78,6 +78,12 @@ extern _lcd_dev lcddev;	//管理LCD重要参数
 #define LCD_W 128
 #define LCD_H 160
 
+// Add by Benjamin@20261030: LCD speed-up switches
+// LCD_FAST_DRAW : 1 = stream pixels with one window per glyph/icon (new), 0 = original per-pixel code (for A/B timing)
+// LCD_SPEED_TEST: 1 = print draw timing with LOGD, 0 = off (set to 0 after verification)
+#define LCD_FAST_DRAW   1
+#define LCD_SPEED_TEST  0
+
 //TFTLCD部分外要调用的函数		   
 extern u16  POINT_COLOR;//默认红色    
 extern u16  BACK_COLOR; //背景颜色.默认为白色
@@ -157,6 +163,13 @@ u16 LCD_BGR2RGB(u16 c);
 void LCD_SetParam(void);
 void Lcd_WriteData_16Bit(u16 Data);
 void LCD_direction(u8 direction );
+void LCD_PixelStreamBegin(void);
+void LCD_PixelStreamPush(u16 color);
+void LCD_PixelStreamEnd(void);
+void LCD_WriteColorRepeat(u16 color, u32 count);
+#if LCD_SPEED_TEST
+u32  LCD_SpeedTest_Us(void);
+#endif
 
 //如果仍然觉得速度不够快，可以使用下面的宏定义,提高速度.
 //注意要去掉lcd.c中void LCD_WR_DATA(u16 data)函数定义哦

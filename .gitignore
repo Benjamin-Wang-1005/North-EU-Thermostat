@@ -44,3 +44,10 @@ Thumbs.db
 
 # Keil AC6 migration backups
 *.bak_ac6
+
+# Manual source backups (bak_spi, bak_arrow, bak_onicon, ...)
+*.bak_*
+
+# Archive backups / already-extracted downloads
+/USER.zip
+UI/*.zip

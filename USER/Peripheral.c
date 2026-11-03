@@ -557,11 +557,6 @@ void l_process_alarm_source(alarm_source_t source)
 		switch(source){
 				case Active_Alarm:
 						delete_alarm(Active_Alarm);
-						if(icon6_red_state)
-						{
-								icon6_red_state = 0;
-							GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, Menu_Icon_24x24);  // Draw black Manu Icon
-						}
 						// Window-open alert must stay visible: ignore sleep timeout, keep full backlight
 						if(UI_state == STATE_WINDOW_OPEN_DETECTED){
 								Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
@@ -661,12 +656,12 @@ void l_process_alarm_source(alarm_source_t source)
 								RTC_ReadTime(&rtc_time);
 								LCD_Fill(5, 5, 21, 37, WHITE);
 								LCD_Fill(21, 5, 37, 37, WHITE);
-								GUI_DrawBigDigit(5, 5, BLACK, WHITE, (rtc_time.Hour/10)+0x30 , 1);
-								GUI_DrawBigDigit(21, 5, BLACK, WHITE, (rtc_time.Hour%10)+0x30, 1);
+								GUI_DrawBigDigit(5, 5, BLACK, WHITE, (rtc_time.Hour/10)+0x30 , 2);
+								GUI_DrawBigDigit(21, 5, BLACK, WHITE, (rtc_time.Hour%10)+0x30, 2);
 								LCD_Fill(47, 5, 63, 37, WHITE);
 								LCD_Fill(63, 5, 79, 37, WHITE);
-								GUI_DrawBigDigit(47, 5, BLACK, WHITE, (rtc_time.Min/10)+0x30, 1);
-								GUI_DrawBigDigit(63, 5, BLACK, WHITE, (rtc_time.Min%10)+0x30, 1);
+								GUI_DrawBigDigit(47, 5, BLACK, WHITE, (rtc_time.Min/10)+0x30, 2);
+								GUI_DrawBigDigit(63, 5, BLACK, WHITE, (rtc_time.Min%10)+0x30, 2);
 							
 								//Update Weekday
 								if((rtc_time.Hour == 0) && (rtc_time.Min == 1)){
@@ -695,8 +690,8 @@ void l_process_alarm_source(alarm_source_t source)
 								if(g_parameter.operation_mode == 1){
 										period = Schedule_Period;
 										get_schedule_period();
-										LCD_Fill(28, 131, 52, 155, WHITE);
-										GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, icons[Schedule_Period]);
+										LCD_Fill(4, 131, 28, 155, WHITE);
+										GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, icons[Schedule_Period]);
 										if(period != Schedule_Period){
 												LOGD("Schedule Period : %d\r\n", Schedule_Period);
 										}
@@ -1215,7 +1210,7 @@ void window_function_reset(void)
 void g_relay_handler(void)
 {
 		float temp;
-		float ext_temp;
+		float ext_temp = 20.0f;		// Neutral default (min protect <= 10, max protect >= 30): no false trigger when floor sensor has no reading
 		//float display_temp;
 		uint8_t old_relay_state;
 		static uint32_t local_tick;
@@ -1411,6 +1406,7 @@ void g_relay_handler(void)
 					}
 			}
 
+#if(!NO_Power_Board)		// No power board = no floor sensor: skip floor-temp (ext_temp) max/min protection
 			if(g_parameter.temp_protect_max_switch == 1 && ext_temp >= g_parameter.temp_protect_max){
 					Relay = RELAY_OFF;
 					GPIO_WriteBit(RELAY_PORT, RELAY_PIN, Bit_RESET);
@@ -1432,6 +1428,7 @@ void g_relay_handler(void)
 							protect_low_triggered = 0;
 					}
 			}
+#endif
 
 			if(!protect_high_triggered && !protect_low_triggered){
 					if(g_parameter.window_fun == 1 && window_fun_triggered == 1){

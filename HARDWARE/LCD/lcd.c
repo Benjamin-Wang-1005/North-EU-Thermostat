@@ -138,6 +138,81 @@ void Lcd_WriteData_16Bit(u16 Data)
    LCD_CS_SET;
 }
 
+// Add by Benjamin@20261030 Begin
+/*****************************************************************************
+ * @function   :Wait until SPI2 has shifted out the last bit, then clear RXNE/OVR.
+ *              Pixel streaming never reads DR, so RX overruns; CS must not rise
+ *              before BSY=0, and the stale RXNE would make the next
+ *              SPI_WriteByte() return early.
+******************************************************************************/
+static void LCD_SPI_WaitIdle(void)
+{
+	while((SPI2->SR & SPI_I2S_FLAG_TXE) == RESET);
+	while(SPI2->SR & SPI_I2S_FLAG_BSY);
+	(void)SPI2->DR;
+	(void)SPI2->SR;
+}
+
+/*****************************************************************************
+ * @function   :Start writing pixels to GRAM (call after LCD_SetWindows)
+******************************************************************************/
+void LCD_PixelStreamBegin(void)
+{
+	LCD_CS_CLR;
+	LCD_RS_SET;
+}
+
+/*****************************************************************************
+ * @function   :Write one RGB565 pixel, only waits for TXE (back-to-back bytes)
+******************************************************************************/
+void LCD_PixelStreamPush(u16 color)
+{
+	while((SPI2->SR & SPI_I2S_FLAG_TXE) == RESET);
+	SPI2->DR = color >> 8;
+	while((SPI2->SR & SPI_I2S_FLAG_TXE) == RESET);
+	SPI2->DR = color & 0xFF;
+}
+
+/*****************************************************************************
+ * @function   :Finish pixel stream and release CS
+******************************************************************************/
+void LCD_PixelStreamEnd(void)
+{
+	LCD_SPI_WaitIdle();
+	LCD_CS_SET;
+}
+
+/*****************************************************************************
+ * @function   :Write the same color count times (window must be set first)
+******************************************************************************/
+void LCD_WriteColorRepeat(u16 color, u32 count)
+{
+	LCD_PixelStreamBegin();
+	while(count--)
+	{
+		LCD_PixelStreamPush(color);
+	}
+	LCD_PixelStreamEnd();
+}
+
+#if LCD_SPEED_TEST
+/*****************************************************************************
+ * @function   :Timestamp for LCD timing logs, unit = 1/1000 of a SysTick period
+ *              (time_tick ms * 1000 + SysTick sub-count)
+******************************************************************************/
+u32 LCD_SpeedTest_Us(void)
+{
+	u32 ms, val;
+	do
+	{
+		ms  = time_tick;
+		val = SysTick->VAL;
+	}while(ms != time_tick);
+	return ms * 1000 + ((SysTick->LOAD - val) * 1000) / (SysTick->LOAD + 1);
+}
+#endif
+// Add by Benjamin@20261030 End
+
 /*****************************************************************************
  * @name       :void LCD_DrawPoint(u16 x,u16 y)
  * @date       :2018-08-09 
@@ -159,6 +234,13 @@ void LCD_DrawPoint(u16 x,u16 y)
  * @parameters :color:Filled color
  * @retvalue   :None
 ******************************************************************************/	
+#if LCD_FAST_DRAW
+void LCD_Clear(u16 Color)
+{
+	LCD_SetWindows(0,0,lcddev.width-1,lcddev.height-1);
+	LCD_WriteColorRepeat(Color, (u32)lcddev.width * lcddev.height);
+}
+#else
 void LCD_Clear(u16 Color)
 {
   unsigned int i,m;  
@@ -174,6 +256,7 @@ void LCD_Clear(u16 Color)
 	}
 	 LCD_CS_SET;
 } 
+#endif
 
 /*****************************************************************************
  * @name       :void LCD_GPIOInit(void)

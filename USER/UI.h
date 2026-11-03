@@ -21,7 +21,7 @@
 #include "rtc_driver.h"
 
 #define		MAX_SET_TEMP														(45)
-#define 	SIMULATION															(0)
+#define 	SIMULATION															(1)
 #define   NO_Power_Board													(0)
 
 

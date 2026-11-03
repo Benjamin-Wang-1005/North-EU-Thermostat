@@ -197,6 +197,9 @@ void Draw_Static_Icons(void);
 void Draw_Active_Menu(void)
 {
 		float display_temp;
+#if LCD_SPEED_TEST
+		u32 lcd_t0 = LCD_SpeedTest_Us();		// Add by Benjamin@20261030: LCD timing
+#endif
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 
@@ -210,13 +213,13 @@ void Draw_Active_Menu(void)
 		//rtc_time.Mon = 01;
 		//rtc_time.Date = 01;
 		
-		GUI_DrawBigDigit(5, 5, BLACK, WHITE, (rtc_time.Hour/10)+0x30 , 1);
-		GUI_DrawBigDigit(21, 5, BLACK, WHITE, (rtc_time.Hour%10)+0x30, 1);
+		GUI_DrawBigDigit(5, 5, BLACK, WHITE, (rtc_time.Hour/10)+0x30 , 2);
+		GUI_DrawBigDigit(21, 5, BLACK, WHITE, (rtc_time.Hour%10)+0x30, 2);
 		// colon
-		LCD_Fill(40, 15, 43, 18, BLACK);
-		LCD_Fill(40, 25, 43, 28, BLACK);
-		GUI_DrawBigDigit(47, 5, BLACK, WHITE, (rtc_time.Min/10)+0x30, 1);
-		GUI_DrawBigDigit(63, 5, BLACK, WHITE, (rtc_time.Min%10)+0x30, 1);
+		LCD_Fill(40, 19, 43, 22, BLACK);
+		LCD_Fill(40, 29, 43, 32, BLACK);
+		GUI_DrawBigDigit(47, 5, BLACK, WHITE, (rtc_time.Min/10)+0x30, 2);
+		GUI_DrawBigDigit(63, 5, BLACK, WHITE, (rtc_time.Min%10)+0x30, 2);
 		Draw_Static_Icons();
 		
 		// Initial display: 4.0 in BLACK (no blinking)
@@ -255,6 +258,9 @@ void Draw_Active_Menu(void)
 		
 		
 	
+#if LCD_SPEED_TEST
+		LOGD("LCD_T Active_Menu=%lu us FAST=%d\r\n", (unsigned long)(LCD_SpeedTest_Us() - lcd_t0), LCD_FAST_DRAW);
+#endif
 }
 
 
@@ -302,19 +308,11 @@ void Draw_Static_Icons(void)
 	LCD_Fill(4, 130, 128, 160, WHITE);
 	// Icon8 at (136, 45) - below Icon3
 	if(g_parameter.operation_mode == 0){
-			GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, M_Icon_24x24);
+			GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, M_Icon_24x24);
 	}else if(g_parameter.operation_mode == 1){
-			GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, icons[Schedule_Period]);	
+			GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, icons[Schedule_Period]);	
 	}else if(g_parameter.operation_mode == 2){
-			GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, PWM_Icon_24x24);
-	}
-	
-	// Icon6 at (136, 85) - below Icon8
-	
-	if(icon6_red_state){
-			GUI_DrawMonoIcon24x24(4, 131, RED, WHITE, Menu_Icon_24x24);
-	} else {
-			GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, Menu_Icon_24x24);
+			GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, PWM_Icon_24x24);
 	}
 	
 	if(Relay == RELAY_ON){
@@ -324,13 +322,13 @@ void Draw_Static_Icons(void)
 	
 	if(g_parameter.child_lock == 1){
 			//x_pos = 99 - (display_num * 24);
-			GUI_DrawMonoIcon24x24(76, 131, BLACK, WHITE, Lock_Icon_24x24);
+			GUI_DrawMonoIcon24x24(28, 131, BLACK, WHITE, Lock_Icon_24x24);
 			//display_num++;
 	}
 	
 	if(g_parameter.window_fun == 1){
 			//x_pos = 99 - (display_num *24);
-			GUI_DrawMonoIcon24x24(100, 131, BLACK, WHITE, Window_Icon_24x24);
+			GUI_DrawMonoIcon24x24(76, 131, BLACK, WHITE, Window_Icon_24x24);
 	}
 	
 	//Draw weekday
@@ -753,14 +751,15 @@ void Draw_Opeaation_Mode_Choices(uint8_t selection)
 			Show_FuncSetting_Row_Text(34, row_y[i], text_color, bg_color, (char*)LanguageTable[STR_PWM_Mode][g_parameter.language], 16);
 		}
 		
-		// Arrow icon: always shown, vertically centered in the row
-		uint8_t arrow_y = row_y[i] + (row_height - 16) / 2;
-		if(is_selected) {
-			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);       // red bg, white line
-		} else if(is_current) {
-			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, RED, Icon16x16_Arrow);       // red bg, white line
-		} else {
-			GUI_DrawMonoIcon16x16(12, arrow_y, WHITE, BLACK, Icon16x16_Arrow);     // black bg, white line
+		// ON icon marks the chosen option; other rows stay blank (row already filled with bg)
+		// TopBar/Save mode: current operation_mode; Edit mode: cursor row (red bg)
+		if(is_selected || is_current) {
+			uint8_t icon_y = row_y[i] + (row_height - 16) / 2;
+			if(is_selected) {
+				GUI_DrawMonoIcon16x16(12, icon_y, WHITE, RED, ON_Icon_16x16);       // edit mode: red bg, white line
+			} else {
+				GUI_DrawMonoIcon16x16(12, icon_y, BLACK, WHITE, ON_Icon_16x16);     // TopBar/Save: white bg, black line
+			}
 		}
 	}
 }
@@ -868,13 +867,6 @@ void UI_Update(void)
 				else
 #endif
 				{
-				// If Manu Icon is red, change it back to black first
-				if(icon6_red_state)
-				{
-					icon6_red_state = 0;
-					GUI_DrawMonoIcon24x24(4, 131, BLACK, WHITE, Menu_Icon_24x24);				// Draw black Manu Icon6 
-				}
-				
 				// Check if in Schedule Mode - if so, show confirmation dialog
 				if(g_parameter.operation_mode == 1){
 					// Schedule Mode - show leave confirmation dialog
@@ -906,31 +898,20 @@ void UI_Update(void)
 			}
 			else if(key.key_val == ENTERKEY)  // Enter key pressed
 			{
-				if(icon6_red_state)
-				{
-					// Manu Icon is red -> enter Function Setting state
-					UI_state = STATE_FUNC_SETTING;
-					delete_alarm(Active_Alarm);
-					if(register_alarm(Setting_Menu_Alarm, SETTING_UPDATE_TIME) == eFALSE){
-							LOGE("Alarm Full!\r\n");
-					}
-					
-					// Draw Function Setting page
-					leave_icon_color = 0;
-					edit_icon_color = 1;
-					item_selection = 0;
-					func_setting_scroll = 0;  // Reset scroll
-					Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);		
-					Top_Bar_Active = 1;
-					
+				// Menu Icon removed from new UI: Enter goes directly to the Function Setting list
+				UI_state = STATE_FUNC_SETTING;
+				delete_alarm(Active_Alarm);
+				if(register_alarm(Setting_Menu_Alarm, SETTING_UPDATE_TIME) == eFALSE){
+						LOGE("Alarm Full!\r\n");
 				}
-				else
-				{
-					// Manu Icon is black -> toggle to red
-					icon6_red_state = 1;							//	red state
-					GUI_DrawMonoIcon24x24(4, 131, RED, WHITE, Menu_Icon_24x24);;  // Draw red Manu Icon
-					//update_alarm(Active_Alarm);
-				}
+				
+				// Draw Function Setting page
+				leave_icon_color = 0;
+				edit_icon_color = 1;
+				item_selection = 0;
+				func_setting_scroll = 0;  // Reset scroll
+				Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);		
+				Top_Bar_Active = 1;
 
 			}
 			
