@@ -76,6 +76,7 @@ void GUI_DrawFont24(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode);
 void GUI_DrawFont32(u16 x, u16 y, u16 fc, u16 bc, u8 *s,u8 mode);
 #endif /* AC6: unused GB2312 Chinese fonts */
 void Show_Str(u16 x, u16 y, u16 fc, u16 bc, char *str,u8 size,u8 font_size);
+void Show_Str_Right(u16 right_x, u16 y, u16 fc, u16 bc, char *str, u8 size, u8 font_size);	// 2026-11-06
 void Gui_Drawbmp16(u16 x,u16 y,const unsigned char *p); //��ʾ40*40 QQͼƬ
 void gui_circle(int xc, int yc,u16 c,int r, int fill);
 void Gui_StrCenter(u16 x, u16 y, u16 fc, u16 bc, u8 *str,u8 size,u8 font_size);

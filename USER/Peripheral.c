@@ -673,17 +673,9 @@ void l_process_alarm_source(alarm_source_t source)
 										}
 										LCD_Fill(84, 5, 128, 37, WHITE);
 										if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
-												if(g_parameter.language == LANG_ENGLISH){
-														Show_Str(86, 16, RED, WHITE, en_week_texts[weekday], 32, 1);
-												}else if(g_parameter.language == LANG_Norwegian){
-														Show_Str(86, 16, RED, WHITE, no_week_texts[weekday], 32, 1);
-												}
+												Show_Str(86, 16, RED, WHITE, (char*)Week_Texts[g_parameter.language][weekday], 32, 1);
 										}else{
-												if(g_parameter.language == LANG_ENGLISH){
-														Show_Str(86, 16, BLUE, WHITE, en_week_texts[weekday], 32, 1);
-												}else if(g_parameter.language == LANG_Norwegian){
-														Show_Str(86, 16, BLUE, WHITE, no_week_texts[weekday], 32, 1);
-												}
+												Show_Str(86, 16, BLUE, WHITE, (char*)Week_Texts[g_parameter.language][weekday], 32, 1);
 										}
 								}
 								//Update Schedule Period
@@ -701,9 +693,9 @@ void l_process_alarm_source(alarm_source_t source)
 								weekday = getWeekday(rtc_time.Year, rtc_time.Mon, rtc_time.Date);
 								LCD_Fill(132, 106, 160, 120, WHITE);
 								if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
-										Show_Str(132, 106, RED, WHITE, en_week_texts[weekday], 16, 0);
+										Show_Str(132, 106, RED, WHITE, (char*)Week_Texts[LANG_ENGLISH][weekday], 16, 0);
 								}else{
-										Show_Str(132, 106, BLUE, WHITE, en_week_texts[weekday], 16, 0);
+										Show_Str(132, 106, BLUE, WHITE, (char*)Week_Texts[LANG_ENGLISH][weekday], 16, 0);
 								}
 #endif
 						}
@@ -843,13 +835,16 @@ typedef struct
     int16_t tz_std_min;   // STANDARD (winter) time UTC offset, in minutes
 } sun_city_t;
 
-// Oslo/Stockholm are CET/CEST (UTC+1 standard); Helsinki is EET/EEST (UTC+2
-// standard) - one hour further east. All three switch DST on the same EU/EEA
-// dates (see rtc_driver.c), just from a different standard-time base.
+// Oslo/Stockholm/Copenhagen/Berlin are CET/CEST (UTC+1 standard); Helsinki is
+// EET/EEST (UTC+2 standard) - one hour further east. All of them switch DST on the
+// same EU/EEA dates (see rtc_driver.c), just from a different standard-time base.
+// Copenhagen/Berlin added 2026-11-10.
 static const sun_city_t sun_city_table[ASTRO_LOCATION_MAX] = {
     [ASTRO_LOCATION_OSLO]      = {59.9139f, 10.7522f, 60},
     [ASTRO_LOCATION_STOCKHOLM] = {59.3293f, 18.0686f, 60},
     [ASTRO_LOCATION_HELSINKI]  = {60.1699f, 24.9384f, 120},
+    [ASTRO_LOCATION_COPENHAGEN]= {55.6761f, 12.5683f, 60},
+    [ASTRO_LOCATION_BERLIN]    = {52.5200f, 13.4050f, 60},
 };
 
 //---------------------------------------------------------------------------------------------------------
@@ -880,7 +875,7 @@ static uint16_t Sun_DayOfYear(uint16_t full_year, uint8_t month, uint8_t day)
 // Output: *sunrise_min, *sunset_min - minutes after midnight, local time (0-1439)
 // Return: 1 = normal day/night, 0 = sun never rises today (polar night),
 //         2 = sun never sets today (midnight sun)
-//      Note: none of Oslo/Stockholm/Helsinki (~59-60N) actually reach polar day/night
+//      Note: none of the five capitals (52-60N) actually reach polar day/night
 //      (that starts ~66.5N, the Arctic Circle) - this is defensive handling only.
 //---------------------------------------------------------------------------------------------------------
 static uint8_t Sun_Calc_Rise_Set(float lat_deg, float lon_deg, uint16_t full_year, uint8_t month, uint8_t day,

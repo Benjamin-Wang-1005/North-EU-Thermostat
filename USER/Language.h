@@ -24,6 +24,10 @@
 typedef enum {
  LANG_ENGLISH = 0,
  LANG_Norwegian, // Norway Language
+ LANG_Swedish,   // Sweden Language   (added 2026-11-06)
+ LANG_Danish,    // Denmark Language  (added 2026-11-06)
+ LANG_Finnish,   // Finland Language  (added 2026-11-06)
+ LANG_German,    // Germany Language  (added 2026-11-06)
  LANG_MAX
 } Language_t;
 
@@ -151,11 +155,21 @@ typedef enum {
 	STR_Oslo,
 	STR_Stockholm,
 	STR_Helsinki,
+	STR_Copenhagen,		// Astro Location (added 2026-11-10)
+	STR_Berlin,			// Astro Location (added 2026-11-10)
+	STR_Sensor_Updating,	// Red text on External Sensor Type page while the new type is measured (added 2026-11-11)
+	STR_Protect_Line2,	// 2nd line of Max/Min row on Temp. Protect page (added 2026-11-06)
+	STR_Ext_Sensor_Type,	// Control Adj menu row "External Sensor Type" (added 2026-11-06)
+	STR_Ext_Type,		// External Sensor Type page title (added 2026-11-06)
 	STR_MAX,
  
 } StringID_t;
 
 
 extern const char* const LanguageTable[STR_MAX][LANG_MAX];
+extern const char* const Week_Texts[LANG_MAX][7];			// MON..SUN per language (added 2026-11-06)
+extern const char* const Language_Native_Name[LANG_MAX];	// Language page names (added 2026-11-06)
+
+#define LANG_SOFT_HYPHEN	0xAD	// ISO 8859-1 soft hyphen: possible word break in menu-row strings
 
 #endif

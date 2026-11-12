@@ -2622,6 +2622,10 @@ void Show_Str(u16 x, u16 y, u16 fc, u16 bc, char *str, u8 size, u8 font_size)
 			x = x0;
 			str++;
 		}
+		else if((unsigned char)*str == 0xAD)	// soft hyphen: word-break hint only, never drawn (2026-11-06)
+		{
+			str++;
+		}
 		else
 		{
 			LCD_ShowChar_ISO(x, y, fc, bc, *str, font_size);
@@ -2629,6 +2633,36 @@ void Show_Str(u16 x, u16 y, u16 fc, u16 bc, char *str, u8 size, u8 font_size)
 			str++;
 		}
 	}
+}
+
+/*****************************************************************************
+ * @name       :void Show_Str_Right(u16 right_x, u16 y, u16 fc, u16 bc, char *str, u8 size, u8 font_size)
+ * @date       :2026-11-06
+ * @function   :Display ISO 8859-1 string right-aligned: the string ends at right_x.
+ *              The start x is computed from the string length of the current
+ *              language (start = right_x - chars * char_width), so a button
+ *              stays on the right whatever the language.
+ * @parameters :right_x:x coordinate just after the last character
+                y:the beginning y coordinate of the string
+                fc:the color of character
+                bc:the color of background
+                str:the start address of the string
+                size:line height
+                font_size:0=8x16, 1=12x24
+ * @retvalue   :None
+******************************************************************************/
+void Show_Str_Right(u16 right_x, u16 y, u16 fc, u16 bc, char *str, u8 size, u8 font_size)
+{
+	u8 char_width = (font_size == 1) ? 12 : 8;
+	u16 width = 0;
+	char *p = str;
+	while(*p != 0)
+	{
+		if((unsigned char)*p != 0xAD) width += char_width;
+		p++;
+	}
+	if(width > right_x) width = right_x;	// too long: start at x=0 (Show_Str clips the rest)
+	Show_Str(right_x - width, y, fc, bc, str, size, font_size);
 }
 
 

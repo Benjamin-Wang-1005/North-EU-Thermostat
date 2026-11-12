@@ -1,0 +1,129 @@
+﻿String ID,Where it is shown,Max characters,English,Norwegian (current),Swedish (draft),Danish (draft),Finnish (draft),German (draft),NO check,SV check,DA check,FI check,DE check
+STR_Save,Bottom-right button (right-aligned),10,Save,Lagre,Spara,Gem,Tallenna,Speichern,OK,OK,OK,OK,OK
+STR_Temperature_Read_From,Not shown on screen yet (keep short),,Temp.Read From,Temp.lest fra,Temp.läst från,Temp.læst fra,Lämpö luettu,Temp. gelesen,,,,,
+STR_Room,Single line,11,Room,Rom,Rum,Rum,Huone,Raum,OK,OK,OK,OK,OK
+STR_Floor,Single line,6,Floor,Gulv,Golv,Gulv,Lattia,Boden,OK,OK,OK,OK,OK
+STR_Sensor_Calibrate,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Sensor Calibration,Sensorkalibrering,Givar|kalibrering,Føler|kalibrering,Anturin kalibrointi,Fühler|kalibrierung,WORD SPLIT (Sensorkalib / rering),OK (Givar- / kalibrering),OK (Føler- / kalibrering),OK (Anturin / kalibrointi),OK (Fühler- / kalibrierung)
+STR_Temperature_Limit,Not shown on screen yet (keep short),,Temp.Limit,Temp.grense,Temp.gräns,Temp.grænse,Lämpöraja,Temp.grenze,,,,,
+STR_Max,Single line,10,Max,Maks,Max,Maks,Maks,Max,OK,OK,OK,OK,OK
+STR_Min,Single line,4,Min,Min,Min,Min,Min,Min,OK,OK,OK,OK,OK
+STR_Max_Temperature_Protect,Single line,10,Maximum,Maksimum,Maximum,Maksimum,Maksimi,Maximum,OK,OK,OK,OK,OK
+STR_Min_Temperature_Protect,Single line,10,Minimum,Minimum,Minimum,Minimum,Minimi,Minimum,OK,OK,OK,OK,OK
+STR_Power_On_State,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Power On State,Ved oppstart,Vid uppstart,Ved opstart,Käynnistys|tila,Einschalt|zustand,OK (Ved / oppstart),OK (Vid / uppstart),OK (Ved / opstart),OK (Käynnistys- / tila),OK (Einschalt- / zustand)
+STR_Keep_State,Not shown on screen yet (keep short),,Keep State,Behold status,Behåll status,Behold status,Säilytä tila,Zustand halten,,,,,
+STR_Device_Close,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Device Close,Enhet lukket,Enhet av,Enhed fra,Laite pois,Gerät aus,OK (Enhet / lukket),OK,OK,OK,OK
+STR_Device_Open,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Device Open,Enhet åpen,Enhet på,Enhed til,Laite päällä,Gerät ein,OK,OK,OK,OK (Laite / päällä),OK
+STR_Power_Limit,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Power Limit,Strømgrense,Effektgräns,Effektgrænse,Tehoraja,Leistungs|grenze,OK,OK,OK,OK,OK (Leistungs- / grenze)
+STR_Limit,Single line,10,Limit,Grense,Gräns,Grænse,Raja,Grenze,OK,OK,OK,OK,OK
+STR_OFF,Single line,4,OFF,AV,AV,FRA,POIS,AUS,OK,OK,OK,OK,OK
+STR_ON,Single line,8,ON,PÅ,PÅ,TIL,PÄÄLLÄ,EIN,OK,OK,OK,OK,OK
+STR_Multi_Language,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Multi Language,Flere Språk,Språk,Sprog,Kieli,Sprache,OK (Flere / Språk),OK,OK,OK,OK
+STR_Menu_Language,Not shown on screen yet (keep short),,Menu Language,Menyspråk,Menyspråk,Menusprog,Valikon kieli,Menüsprache,,,,,
+STR_English,"Language list: will show fixed native names (English / Norsk / Svenska / Dansk / Suomi / Deutsch), no translation needed",11,English,Engelsk,Engelska,Engelsk,Englanti,Englisch,OK,OK,OK,OK,OK
+STR_Norwegian,"Language list: will show fixed native names (English / Norsk / Svenska / Dansk / Suomi / Deutsch), no translation needed",11,Norwegian,norsk,Norska,Norsk,Norja,Norwegisch,OK,OK,OK,OK,OK
+STR_Temperature_Swing,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Temperature Swing,Temperatur svingning,Temperatur|sving,Temperatur udsving,Lämpötilan vaihtelu,Temperatur|schwankung,OK (Temperatur / svingning),OK (Temperatur- / sving),OK (Temperatur / udsving),OK (Lämpötilan / vaihtelu),OK (Temperatur- / schwankung)
+STR_Temp_Swing,Single line,10,Swing,Swing,Sving,Udsving,Vaihtelu,Schwankung,OK,OK,OK,OK,OK
+STR_Program_Type,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Program Type,Programtype,Programtyp,Programtype,Ohjelma|tyyppi,Programmtyp,OK,OK,OK,OK (Ohjelma- / tyyppi),OK
+STR_Type,Single line,12,Type,Type,Typ,Type,Tyyppi,Typ,OK,OK,OK,OK,OK
+STR_Workday_Setting,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Workday Setting,Innstilling virkedag,Inställning vardag,Indstilling hverdag,Arkipäivän asetus,Werktag Einstellung,OK (Innstilling / virkedag),OK (Inställning / vardag),OK (Indstilling / hverdag),OK (Arkipäivän / asetus),OK (Werktag / Einstellung)
+STR_Workday,Not shown on screen yet (keep short),,Workday,Virkedag,Vardag,Hverdag,Arkipäivä,Werktag,,,,,
+STR_Restday_Setting,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Restday Setting,Innstilling fridag,Inställning fridag,Indstilling fridag,Vapaapäivän asetus,Ruhetag Einstellung,OK (Innstilling / fridag),OK (Inställning / fridag),OK (Indstilling / fridag),OK (Vapaapäivän / asetus),OK (Ruhetag / Einstellung)
+STR_Restday,Not shown on screen yet (keep short),,Restday,Fridag,Fridag,Fridag,Vapaapäivä,Ruhetag,,,,,
+STR_Current_Type,Not shown on screen yet (keep short),,Current Type:,Gjeldende type:,Aktuell typ:,Aktuel type:,Nykyinen tyyppi:,Aktueller Typ:,,,,,
+STR_Finish,Single line,7,Finish,Fullfør,Klar,Færdig,Valmis,Fertig,OK,OK,OK,OK,OK
+STR_Period_1_On,Not shown on screen yet (keep short),,Period 1 On,Periode 1 På,Period 1 på,Periode 1 til,Jakso 1 päälle,Periode 1 ein,,,,,
+STR_Period_1_Off,Not shown on screen yet (keep short),,Period 1 Off,Periode 1 Av,Period 1 av,Periode 1 fra,Jakso 1 pois,Periode 1 aus,,,,,
+STR_Leave_Schedule,Single line,13,Leave,Forlat,Lämna,Forlad,Poistu,Verlassen,OK,OK,OK,OK,OK
+STR_Mode,Not shown on screen yet (keep short),,Mode,Modus,Läge,Tilstand,Tila,Modus,,,,,
+STR_Cancel,Single line,9,Cancel,Avbryt,Avbryt,Annuller,Peruuta,Abbrechen,OK,OK,OK,OK,OK
+STR_Yes,"Single line, popup button (right-aligned)",5,Yes,Ja,Ja,Ja,Kyllä,Ja,OK,OK,OK,OK,OK
+STR_Window_Open,Single line,13,Window Open,Åpent vindu,Öppet fönster,Åbent vindue,Ikkuna auki,Fenster offen,OK,OK,OK,OK,OK
+STR_Detected,Single line,13,Detected!,Detektert!,Upptäckt!,Registreret!,Havaittu!,Erkannt!,OK,OK,OK,OK,OK
+STR_Cancel_Detect,Single line,13,Cancel,Avbryt,Avbryt,Annuller,Peruuta,Abbrechen,OK,OK,OK,OK,OK
+STR_Reset_Detect,Single line,13,Reset,Nullstill,Återställ,Nulstil,Nollaa,Zurücksetzen,OK,OK,OK,OK,OK
+STR_Sensor,Single line,10,Sensor,Sensor,Givare,Føler,Anturi,Fühler,OK,OK,OK,OK,OK
+STR_Input_Temperature_Limit,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Input Temp. Limit,Inndata temp.grense,Gräns börvärde,Grænse sætpunkt,Asetusarvon raja,Sollwert|grenze,OK (Inndata / temp.grense),OK (Gräns / börvärde),OK (Grænse / sætpunkt),OK (Asetusarvon / raja),OK (Sollwert- / grenze)
+STR_Protect_Temperature,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Protect Temperature,Beskyttelsestemperatur,Skydds|temperatur,Temperatur|beskyttelse,Suoja|lämpötila,Schutz|temperatur,WORD SPLIT (Beskyttelse / stemperatur),OK (Skydds- / temperatur),OK (Temperatur- / beskyttelse),OK (Suoja- / lämpötila),OK (Schutz- / temperatur)
+STR_Protect_Temperature_short,Single line,10,Protect,Beskyttelse,Skydd,Beskyt.,Suoja,Schutz,TOO LONG 11/10,OK,OK,OK,OK
+STR_Child_lock,Single line,10,Child Lock,Barnelås,Barnlås,Børnelås,Lapsilukko,Sperre,OK,OK,OK,OK,OK
+STR_Window_Function,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Window Function,Vindusfunksjon,Fönster|funktion,Vindues|funktion,Ikkuna|toiminto,Fenster|funktion,WORD SPLIT (Vindusfunks / jon),OK (Fönster- / funktion),OK (Vindues- / funktion),OK (Ikkuna- / toiminto),OK (Fenster- / funktion)
+STR_Set_Date_Time,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Set Date and Time,Angi dato og klokke,Ställ datum och tid,Indstil dato og tid,Aseta päivä ja aika,Datum und Uhrzeit,OK (Angi dato / og klokke),OK (Ställ datum / och tid),OK (Indstil / dato og tid),OK (Aseta päivä / ja aika),OK (Datum und / Uhrzeit)
+STR_Set_Backlight,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Set Backlight,Angi Baklys,Bakgrunds|belysning,Baggrundslys,Taustavalo,Hintergrund|beleuchtung,OK (Angi / Baklys),OK (Bakgrunds- / belysning),OK,OK,OK (Hintergrund- / beleuchtung)
+STR_Factory_Reset,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Factory Reset,Nullstill,Fabriks|inställning,Fabriks|nulstilling,Tehdas|asetukset,Werks|einstellung,OK,OK (Fabriks- / inställning),OK (Fabriks- / nulstilling),OK (Tehdas- / asetukset),OK (Werks- / einstellung)
+STR_Operation_Mode,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Operation Mode,Driftsmodus,Driftläge,Drifts|tilstand,Toimintatila,Betriebsart,OK,OK,OK (Drifts- / tilstand),OK,OK
+STR_Heating_Schedule,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Heating Schedule,Varmeplan,Värmeschema,Varmeplan,Lämmitys|ohjelma,Heizprogramm,OK,OK,OK,OK (Lämmitys- / ohjelma),OK
+STR_Control_Adjustment,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Control Adjustment,Reguleringsjustering,Regler|inställning,Regulering,Säädön asetukset,Regelung,WORD SPLIT (Regulerings / justering),OK (Regler- / inställning),OK,OK (Säädön / asetukset),OK
+STR_User_Settings,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,User Settings,Brukerinnstillinger,Användar|inställning,Bruger|indstilling,Käyttäjä|asetukset,Benutzer|einstellung,WORD SPLIT (Brukerinnst / illinger),OK (Användar- / inställning),OK (Bruger- / indstilling),OK (Käyttäjä- / asetukset),OK (Benutzer- / einstellung)
+STR_Manual_Mode,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 11,Manual Mode,Manuell modus,Manuellt läge,Manuel tilstand,Käsitila,Handbetrieb,OK (Manuell / modus),OK (Manuellt / läge),OK (Manuel / tilstand),OK,OK
+STR_Manual,Not shown on screen yet (keep short),,Manual,Manuell,Manuell,Manuel,Käsi,Manuell,,,,,
+STR_Schedule_Mode,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 11,Schedule Mode,Tidsplanmodus,Schemaläge,Tidsplan,Ohjelmatila,Zeit|programm,WORD SPLIT (Tidsplanmod / us),OK,OK,OK,OK (Zeit- / programm)
+STR_Schedule,Single line,12,Schedule,Tidsplan,Schema,Tidsplan,Ohjelma,Programm,OK,OK,OK,OK,OK
+STR_Enter_Pin_Code,Single line,14,Enter Pin Code,Tast PIN-kode,Ange PIN-kod,Indtast PIN,Anna PIN-koodi,PIN eingeben,OK,OK,OK,OK,OK
+STR_User_Setting,Not shown on screen yet (keep short),,User Setting,Brukerinnstilling,Användarinställning,Brugerindstilling,Käyttäjäasetus,Benutzereinstellung,,,,,
+STR_Set_Clock,Not shown on screen yet (keep short),,Set Clock,Still inn klokke,Ställ klocka,Indstil ur,Aseta kello,Uhr stellen,,,,,
+STR_Trigger_Temp,Single line,14,Trigger temp,Avtrekker temp,Utlösningstemp,Udløsertemp.,Laukaisulämpö,Auslösetemp.,OK,OK,OK,OK,OK
+STR_And_Time,Single line,14,and time,og tid,och tid,og tid,ja aika,und Zeit,OK,OK,OK,OK,OK
+STR_Temperature,Single line,14,Temp.,Temp.,Temp.,Temp.,Lämpö,Temp.,OK,OK,OK,OK,OK
+STR_Time,Single line,6,Time,Tid,Tid,Tid,Aika,Zeit,OK,OK,OK,OK,OK
+STR_Year_Month_Date,Not shown on screen yet (keep short),,  Year Month Date,  År Måned Dato,  År Månad Dag,  År Måned Dato,  Vuosi Kk Pv,  Jahr Monat Tag,,,,,
+STR_Hour_Minute,Not shown on screen yet (keep short),, Hour  Minute, Time  Minutt, Tim   Minut, Time  Minut, Tunti Min., Std.  Minute,,,,,
+STR_Reset,Bottom-right button (right-aligned) and page title,10,Reset,Nullstill,Återställ,Nulstil,Nollaa,Rücksetzen,OK,OK,OK,OK,OK
+STR_Reset_to,Single line,14,Reset to,Nullstill?,Återställ till,Nulstil til,Palautetaanko,Zurücksetzen,OK,OK,OK,OK,OK
+STR_Default,Single line,14,Default?, ,standard?,standard?,oletukset?,auf Standard?,OK,OK,OK,OK,OK
+STR_This_will,Single line,14,This will,Dette vil,Detta raderar,Dette sletter,Tämä poistaa,Dies löscht,OK,OK,OK,OK,OK
+STR_erase_all,Single line,14,erase all,slette alle,alla sparade,alle gemte,kaikki,alle gespeich.,OK,OK,OK,OK,OK
+STR_saved_settings,Single line,14,saved settings,innstilling.,inställningar,indstillinger,asetukset,Einstellungen,OK,OK,OK,OK,OK
+STR_Setup_Pin,Single line,14,Setup Pin,Opprett PIN,Skapa PIN,Opret PIN,Luo PIN,PIN festlegen,OK,OK,OK,OK,OK
+STR_Confirm_Pin,Single line,14,Confirm Pin,Bekreft PIN,Bekräfta PIN,Bekræft PIN,Vahvista PIN,PIN bestätigen,OK,OK,OK,OK,OK
+STR_Set_Date,Single line,12,Set Date,Angi Dato,Ställ datum,Indstil dato,Aseta päivä,Datum setzen,OK,OK,OK,OK,OK
+STR_OP_Mode,Single line,12,OP Mode,OP-modus,Driftläge,Driftstilst.,Tila,Betriebsart,OK,OK,OK,OK,OK
+STR_Adjust,Not shown on screen yet (keep short),,Adjustment,Innstilling,Justering,Justering,Säätö,Einstellung,,,,,
+STR_Setting,Single line,11,Setting,Innstilling,Inställning,Indstilling,Asetus,Einstellung,OK,OK,OK,OK,OK
+STR_hysteresis,Not shown on screen yet (keep short),,Hysteresis,Hysterese,Hysteres,Hysterese,Hystereesi,Hysterese,,,,,
+STR_Calibrate,Not shown on screen yet (keep short),,Calibrate,Kalibrering,Kalibrering,Kalibrering,Kalibrointi,Kalibrierung,,,,,
+STR_Input_Limit,Not shown on screen yet (keep short),,Input Limit,Inngangsgrense,Ingångsgräns,Indgangsgrænse,Syöttöraja,Eingabegrenze,,,,,
+STR_Sensor_Cal_Short,Single line,10,Sensor Cal,Sensor Kal,Givarkal.,Føler kal.,Anturikal.,Fühlerkal.,OK,OK,OK,OK,OK
+STR_Keep,Single line,12,Keep,Behold,Behåll,Behold,Säilytä,Halten,OK,OK,OK,OK,OK
+STR_State,Single line,10,State,Status,Status,Status,Tila,Zustand,OK,OK,OK,OK,OK
+STR_PWM_Mode,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 11,PWM Mode,PWM-modus,PWM-läge,PWM-tilstand,PWM-tila,PWM-Modus,OK,OK,OK (PWM- / tilstand),OK,OK
+STR_PWM_Duty_Cycle,Not shown on screen yet (keep short),,PWM Duty Cycle,PWM Duty Cycle,PWM-arbetscykel,PWM-arbejdscyklus,PWM-käyttösuhde,PWM-Tastgrad,,,,,
+STR_Next,Bottom-right button (right-aligned),10,Next,Neste,Nästa,Næste,Seuraava,Weiter,OK,OK,OK,OK,OK
+STR_PWM_Setting,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,PWM Setting,PWM-innst.,PWM-inställning,PWM-indstilling,PWM-asetus,PWM-Einstellung,OK,OK (PWM- / inställning),OK (PWM- / indstilling),OK,OK (PWM- / Einstellung)
+STR_PWM,Single line,10,PWM,PWM,PWM,PWM,PWM,PWM,OK,OK,OK,OK,OK
+STR_Duty,Single line,14,Duty,Arbeidssyklus,Arbetscykel,Arbejdscyklus,Käyttösuhde,Tastgrad,OK,OK,OK,OK,OK
+STR_Duration,Single line,6,Duration,Varighet,Tid,Tid,Kesto,Dauer,TOO LONG 8/6,OK,OK,OK,OK
+STR_Astro_Time,Single line,11,Astro Time,Astro-tid,Astro-tid,Astro-tid,Astro-aika,Astro-Zeit,OK,OK,OK,OK,OK
+STR_PWM_Duty,Single line,10,PWM Duty,PWM-drift,PWM-drift,PWM-drift,PWM-käyttö,PWM-Takt,OK,OK,OK,OK,OK
+STR_Internal,Single line,12,Internal,Innvendig,Intern,Intern,Sisäinen,Intern,OK,OK,OK,OK,OK
+STR_External,Single line,12,External,Utvendig,Extern,Ekstern,Ulkoinen,Extern,OK,OK,OK,OK,OK
+STR_Sensor_Error,Single line,12,Sensor Error,Sensorfeil,Givarfel,Følerfejl,Anturivika,Fühlerfehler,OK,OK,OK,OK,OK
+STR_Astro_Setting,Single line,10,Astro,Astro,Astro,Astro,Astro,Astro,OK,OK,OK,OK,OK
+STR_Day,Single line,9,Day,Dag,Dag,Dag,Päivä,Tag,OK,OK,OK,OK,OK
+STR_Night,Single line,6,Night,Natt,Natt,Nat,Yö,Nacht,OK,OK,OK,OK,OK
+STR_Adaptive_Start,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Adaptive Start,Adaptiv start,Adaptiv start,Adaptiv start,Mukautuva käynnistys,Adaptiver Start,OK (Adaptiv / start),OK (Adaptiv / start),OK (Adaptiv / start),OK (Mukautuva / käynnistys),OK (Adaptiver / Start)
+STR_Adaptive,Single line,12,Adaptive,Adaptiv,Adaptiv,Adaptiv,Mukautuva,Adaptiv,OK,OK,OK,OK,OK
+STR_Hour,Single line,13,Hour,Time,Timme,Time,Tunti,Stunde,OK,OK,OK,OK,OK
+STR_Main_Sensor,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Main Sensor,Hovedsensor,Huvudgivare,Hovedføler,Pääanturi,Hauptfühler,OK,OK,OK,OK,OK
+STR_Child_Lock_Setting,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Child Lock Setting,Barnesikring innstilling,Barnlås,Børnelås,Lapsilukko,Kinder|sicherung,CUT OFF (Barnesikrin / g innstilling),OK,OK,OK,OK (Kinder- / sicherung)
+STR_Window,Page title (Top Bar),8,Window,Vindu,Fönster,Vindue,Ikkuna,Fenster,OK,OK,OK,OK,OK
+STR_Set_Time,Single line,12,Set Time,Angi tid,Ställ tid,Indstil tid,Aseta aika,Zeit setzen,OK,OK,OK,OK,OK
+STR_Language,Single line,12,Language,Språk,Språk,Sprog,Kieli,Sprache,OK,OK,OK,OK,OK
+STR_Backlight,Single line,9,Backlight,Baklys,Belysning,Baglys,Valo,Licht,OK,OK,OK,OK,OK
+STR_Location,Single line,10,Location,Plassering,Plats,Placering,Sijainti,Standort,OK,OK,OK,OK,OK
+STR_Tolerance,Single line,10,Tolerance,Toleranse,Tolerans,Tolerance,Toleranssi,Toleranz,OK,OK,OK,OK,OK
+STR_Oslo,Single line,11,Oslo,Oslo,Oslo,Oslo,Oslo,Oslo,OK,OK,OK,OK,OK
+STR_Stockholm,Single line,11,Stockholm,Stockholm,Stockholm,Stockholm,Tukholma,Stockholm,OK,OK,OK,OK,OK
+STR_Helsinki,Single line,11,Helsinki,Helsinki,Helsingfors,Helsinki,Helsinki,Helsinki,OK,OK,OK,OK,OK
+STR_Copenhagen,Single line,11,Copenhagen,København,Köpenhamn,København,København,Kopenhagen,DRAFT,DRAFT,DRAFT,DRAFT,DRAFT
+STR_Berlin,Single line,11,Berlin,Berlin,Berlin,Berlin,Berlin,Berlin,OK,OK,OK,OK,OK
+STR_Protect_Line2,"Single line, 2nd line under Max/Min on Temp. Protect page",10,Protect,Beskytte,Skydd,Beskytte,Suoja,Schutz,OK,OK,OK,OK,OK
+STR_Ext_Sensor_Type,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,External Sensor Type,Ekstern sensortype,Extern givartyp,Ekstern følertype,Ulkoanturin tyyppi,Externer Fühlertyp,DRAFT,DRAFT,DRAFT,DRAFT,DRAFT
+STR_Ext_Type,Page title (Top Bar),10,Ext Type,Ekst.type,Ext. typ,Ekst.type,Ulkoanturi,Ext. Typ,DRAFT,DRAFT,DRAFT,DRAFT,DRAFT
+STR_Sensor_Updating,"Menu row, up to 2 lines. Mark a possible break in a long word with |",2 lines x 12,Sensor Updating,Oppdaterer sensor,Uppdaterar givare,Opdaterer føler,Päivitetään anturia,Fühler wird aktualisiert,DRAFT,DRAFT,DRAFT,DRAFT,DRAFT
+WEEK_MON,"Home screen weekday, large font (new table)",3,MON,MAN,MÅN,MAN,MA,MO,OK,OK,OK,OK,OK
+WEEK_TUE,"Home screen weekday, large font (new table)",3,TUE,TIR,TIS,TIR,TI,DI,OK,OK,OK,OK,OK
+WEEK_WED,"Home screen weekday, large font (new table)",3,WED,ONS,ONS,ONS,KE,MI,OK,OK,OK,OK,OK
+WEEK_THU,"Home screen weekday, large font (new table)",3,THU,TOR,TOR,TOR,TO,DO,OK,OK,OK,OK,OK
+WEEK_FRI,"Home screen weekday, large font (new table)",3,FRI,FRE,FRE,FRE,PE,FR,OK,OK,OK,OK,OK
+WEEK_SAT,"Home screen weekday, large font (new table)",3,SAT,LØR,LÖR,LØR,LA,SA,OK,OK,OK,OK,OK
+WEEK_SUN,"Home screen weekday, large font (new table)",3,SUN,SØN,SÖN,SØN,SU,SO,OK,OK,OK,OK,OK

@@ -61,6 +61,7 @@ int		temp_protect_min = 4;
 uint8_t temp_protect_max_switch = 0;
 uint8_t temp_protect_min_switch = 1;
 uint8_t operation_mode;
+uint8_t current_ext_sensor_type = EXT_SENSOR_10K;	// External sensor resistance being edited (2026-11-06)
 uint8_t current_sensor_type = 0;          // Sensor type: 0=Room, 1=Floor (default Room)
 uint8_t power_on_state = 1;
 uint8_t window_fun = 1;
@@ -101,8 +102,7 @@ uint8_t language_temp;
 uint8_t adaptive_start;
 uint8_t set_time_from_boot = 0;	// 1 = Set Time entered from boot RTC-loss redirect (QA 5.3)
 
-char* en_week_texts[7] = {"MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"}; 
-char* no_week_texts[7] = {"MAN", "TIR", "ONS", "TOR", "FRE", "L\xD8R", "S\xD8N"};
+// Weekday texts moved to Language.c: Week_Texts[LANG_MAX][7] (2026-11-06)
 
 // Child Lock PIN code variables
 uint8_t pin_code_input[4] = {0, 0, 0, 0};      // Current PIN input buffer
@@ -140,6 +140,7 @@ const MenuItem_t Control_Adj_Menu_Items[] = {
 	{STR_Input_Temperature_Limit, STATE_CONTROL_ADJ_TEMP_LIMIT, Draw_Control_Adj_TempLimit_Page, NULL},
 	{STR_Protect_Temperature, STATE_CONTROL_ADJ_TEMP_PROTECT, Draw_Control_Adj_TempProtect_Page, NULL},
 	{STR_Power_On_State, STATE_CONTROL_ADJ_POWER_ON_STATE, Draw_Control_Adj_Power_On_State_Page, NULL},
+	{STR_Ext_Sensor_Type, STATE_CONTROL_ADJ_EXT_SENSOR_TYPE, Draw_Control_Adj_Ext_Sensor_Type_Page, NULL},
 };
 const uint8_t Control_Adj_Menu_Item_Count = sizeof(Control_Adj_Menu_Items) / sizeof(Control_Adj_Menu_Items[0]);
 
@@ -334,17 +335,9 @@ void Draw_Static_Icons(void)
 	//Draw weekday
 	//LCD_Fill(136, 106, 160, 120, WHITE);
 	if ((g_parameter.current_prog_type == 0 && (weekday == 5 || weekday == 6)) || (g_parameter.current_prog_type == 1 && weekday == 6)) {
-			if(g_parameter.language == LANG_ENGLISH){
-					Show_Str(86, 16, RED, WHITE, en_week_texts[weekday], 32, 1);
-			}else if(g_parameter.language == LANG_Norwegian){
-					Show_Str(86, 16, RED, WHITE, no_week_texts[weekday], 32, 1);
-			}
+			Show_Str(86, 16, RED, WHITE, (char*)Week_Texts[g_parameter.language][weekday], 32, 1);
 	}else{
-			if(g_parameter.language == LANG_ENGLISH){
-					Show_Str(86, 16, BLUE, WHITE, en_week_texts[weekday], 32, 1);
-			}else if(g_parameter.language == LANG_Norwegian){
-					Show_Str(86, 16, BLUE, WHITE, no_week_texts[weekday], 32, 1);
-			}
+			Show_Str(86, 16, BLUE, WHITE, (char*)Week_Texts[g_parameter.language][weekday], 32, 1);
 	}
 	
 }
@@ -522,10 +515,42 @@ void Clear_Number_Area(void)
 
 
 
+// 2026-11-06: long page titles (e.g. German "Zeit setzen") may run into the Edit Icon area.
+// Show_TopBar_Title() then clears that area and the title covers it; Draw_TopBar /
+// Draw_TopBar_Leave leave the area alone while the same page (UI_state + language) is shown.
+static uint8_t topbar_title_long  = 0;
+static uint8_t topbar_title_state = 0xFF;
+static uint8_t topbar_title_lang  = 0xFF;
+
+static uint8_t TopBar_Title_Covers_Edit(void)
+{
+		return (topbar_title_long && (topbar_title_state == UI_state) && (topbar_title_lang == g_parameter.language));
+}
+
+// Draw a Top Bar page title at (x, 5). If it reaches the Edit Icon (x >= TOPBAR_EDIT_X),
+// the Edit Icon area is cleared first and the Edit Icon is no longer drawn on this page.
+void Show_TopBar_Title(uint16_t x, char *str)
+{
+		uint16_t width = 0;
+		char *p = str;
+		while(*p != 0){
+				if((unsigned char)*p != LANG_SOFT_HYPHEN) width += 8;
+				p++;
+		}
+		if(x + width > TOPBAR_EDIT_X){
+				topbar_title_long = 1;
+				topbar_title_state = UI_state;
+				topbar_title_lang = g_parameter.language;
+				LCD_Fill(TOPBAR_EDIT_X, 0, lcddev.width, 21, WHITE);	// remove Edit Icon completely (no red left)
+		}else{
+				topbar_title_long = 0;
+		}
+		Show_Str(x, 5, BLACK, WHITE, str, 16, 0);
+}
+
 void Draw_TopBar(uint8_t leave_col, uint8_t edit_col)
 {
 			LCD_Fill(0, 0, 21, 21, WHITE);		//Clear Leave Icon
-			LCD_Fill(107, 0, 128, 21, WHITE);	//Clear Edit Icon
 			
 			if(leave_col){
 					GUI_DrawMonoIcon16x16(5, 5, RED, WHITE, Icon16x16_Leave);   // Leave red
@@ -533,12 +558,30 @@ void Draw_TopBar(uint8_t leave_col, uint8_t edit_col)
 					GUI_DrawMonoIcon16x16(5, 5, BLACK, WHITE, Icon16x16_Leave);  // Leave black
 			}
 			
+			if(TopBar_Title_Covers_Edit()) return;	// long title covers the Edit Icon area (2026-11-06)
+			
+			LCD_Fill(107, 0, 128, 21, WHITE);	//Clear Edit Icon
 			if(edit_col){
 					GUI_DrawMonoIcon16x16(107, 5, RED, WHITE, Icon16x16_Edit);  // Edit red
 			}else{
 					GUI_DrawMonoIcon16x16(107, 5, BLACK, WHITE, Icon16x16_Edit);  // Edit black
 			}
 	
+}
+
+// Intermediate menu pages: Top Bar shows Leave Icon only (Edit Icon area cleared)
+void Draw_TopBar_Leave(uint8_t leave_col)
+{
+			LCD_Fill(0, 0, 21, 21, WHITE);		//Clear Leave Icon
+			if(!TopBar_Title_Covers_Edit()){	// keep a long title intact (2026-11-06)
+					LCD_Fill(107, 0, 128, 21, WHITE);	//Clear Edit Icon area (no Edit Icon on intermediate menu)
+			}
+			
+			if(leave_col){
+					GUI_DrawMonoIcon16x16(5, 5, RED, WHITE, Icon16x16_Leave);   // Leave red
+			}else{
+					GUI_DrawMonoIcon16x16(5, 5, BLACK, WHITE, Icon16x16_Leave);  // Leave black
+			}
 }
 
 void Update_TopBar(void)
@@ -562,49 +605,83 @@ void Update_TopBar(void)
 // Long strings like "Operation Mode" are split into two lines automatically
 void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc, char *str, uint8_t size)
 {
-	uint8_t len = 0;
-	uint8_t i;
-	uint8_t split_pos = 11;
+	// 2026-11-06: multi-language version.
+	//  - max_chars per line follows x: (128 - x) / 8  (x=30 -> 12, x=34 -> 11)
+	//  - break at the last space, soft hyphen (0xAD, drawn as '-') or '-' that fits on line 1
+	//  - 0xAD is never drawn when not used as the break (Show_Str skips it)
+	//  - English / Norwegian strings break exactly as before
+	uint8_t len = 0;		// visible chars (0xAD not counted)
+	uint8_t max_chars;
+	uint8_t i, j, vis;
+	uint8_t brk_pos = 0;	// index in str of the break char
+	uint8_t brk_type = 0;	// 1 = space, 2 = soft hyphen, 3 = '-'
 	char buf1[20], buf2[20];
 
-	// Calculate string length
-	while(str[len] != 0) len++;
+	max_chars = (uint8_t)((lcddev.width - x) / 8);
+	if(max_chars > sizeof(buf1) - 2) max_chars = sizeof(buf1) - 2;
 
-	// font_size=0: 8px per char, available = 128-30 = 98px, max 12 chars
+	// Calculate visible string length
+	for(i = 0; str[i] != 0; i++) {
+		if((unsigned char)str[i] != LANG_SOFT_HYPHEN) len++;
+	}
+
 	if(len <= 10) {
 		// Short enough for one line - center vertically in 2-line space
 		Show_Str(x, y + size / 2, fc, bc, str, size, 0);
 		return;
 	}
 
-	// Long string: find space to split (search backward from position 11)
-	for(i = 11; i > 0; i--) {
-		if(str[i] == ' ') {
-			split_pos = i;
-			break;
+	// Find the last break point that fits on line 1
+	vis = 0;
+	for(i = 0; str[i] != 0; i++) {
+		unsigned char c = (unsigned char)str[i];
+		if(vis > 0) {
+			if((c == ' ') && (vis <= max_chars - 1)) {
+				brk_pos = i; brk_type = 1;
+			} else if((c == LANG_SOFT_HYPHEN) && (vis + 1 <= max_chars)) {
+				brk_pos = i; brk_type = 2;
+			} else if((c == '-') && (vis + 1 <= max_chars) && (str[i + 1] != 0)) {
+				brk_pos = i; brk_type = 3;
+			}
+		}
+		if(c != LANG_SOFT_HYPHEN) vis++;
+	}
+
+	if(brk_type == 0) {
+		uint8_t split;
+		// No break point: fits in one line -> single line centered
+		if(len <= max_chars) {
+			Show_Str(x, y + size / 2, fc, bc, str, size, 0);
+			return;
+		}
+		// Hard split (same as before: 11 chars on line 1)
+		split = (max_chars >= 12) ? 11 : max_chars;
+		j = 0;
+		for(i = 0; (str[i] != 0) && (j < split); i++) {
+			if((unsigned char)str[i] != LANG_SOFT_HYPHEN) buf1[j++] = str[i];
+		}
+		buf1[j] = 0;
+	} else {
+		// Line 1 up to the break
+		j = 0;
+		for(i = 0; i < brk_pos; i++) {
+			if((unsigned char)str[i] != LANG_SOFT_HYPHEN) buf1[j++] = str[i];
+		}
+		if(brk_type != 1) buf1[j++] = '-';	// soft hyphen shown as '-', or keep the real '-'
+		buf1[j] = 0;
+		i = brk_pos + 1;
+		if(brk_type == 1) {
+			while(str[i] == ' ') i++;	// Skip spaces before second line
 		}
 	}
 
-	// No space found and string fits in one line → single line centered
-	if(split_pos == 11 && len <= 12) {
-		Show_Str(x, y + size / 2, fc, bc, str, size, 0);
-		return;
-	}
-
-	// Copy first line (split_pos chars)
-	for(i = 0; i < split_pos; i++) buf1[i] = str[i];
-	buf1[split_pos] = 0;
-
-	// Skip spaces before second line
-	i = split_pos;
-	while(str[i] == ' ') i++;
-
 	// Copy second line (clamped to buffer size: prevents stack overflow)
-	{
-		uint8_t j = 0;
-		while((str[i] != 0) && (j < (uint8_t)(sizeof(buf2) - 1))) buf2[j++] = str[i++];
-		buf2[j] = 0;
+	j = 0;
+	while((str[i] != 0) && (j < (uint8_t)(sizeof(buf2) - 1))) {
+		if((unsigned char)str[i] != LANG_SOFT_HYPHEN) buf2[j++] = str[i];
+		i++;
 	}
+	buf2[j] = 0;
 
 	// Display two lines (16px font each, 32px row height)
 	Show_Str(x, y, fc, bc, buf1, size, 0);
@@ -689,7 +766,7 @@ void Draw_Function_Setting_Page(uint8_t selection, uint8_t Leave_col, uint8_t Ed
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 
 	// Draw Top Bar
-	Draw_TopBar(Leave_col, Edit_col);
+	Draw_TopBar_Leave(Leave_col);
 
 	// Draw horizontal separator line below TopBar
 	LCD_Fill(4, 24, lcddev.width - 4, 25, BLACK);
@@ -772,7 +849,7 @@ void Draw_Operation_Mode_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t
 		// Draw "OP Mode" title between Leave and Edit Icons in the TopBar (x=21..107, y=5..21)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
-		Show_Str(30, 5, BLACK, WHITE, (char*)LanguageTable[STR_OP_Mode][g_parameter.language], 16, 0);
+		Show_TopBar_Title(30, (char*)LanguageTable[STR_OP_Mode][g_parameter.language]);
 	
 		// Draw horizontal line below title (y=25, leave 4px margin on both sides)
 		LCD_Fill(4, 25, lcddev.width - 4, 26, BLACK);
@@ -781,10 +858,10 @@ void Draw_Operation_Mode_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t
 		//lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 4){
 				//Show_Str(127, 108, RED, WHITE, "Save", 16, 0);
-				Show_Str(86, 142, RED, WHITE, (char*)LanguageTable[STR_Save][g_parameter.language], 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)LanguageTable[STR_Save][g_parameter.language], 16, 0);
 		}else{
 				//Show_Str(127, 108, BLACK, WHITE, "Save", 16, 0);
-				Show_Str(86, 142, BLACK, WHITE, (char*)LanguageTable[STR_Save][g_parameter.language], 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)LanguageTable[STR_Save][g_parameter.language], 16, 0);
 		}
 }
 
@@ -830,6 +907,72 @@ static uint8_t get_max_days(uint8_t mon, uint8_t year)
     return 31;
 }
 
+#if (MULTI_EXT_SENSOR)
+// 2026-11-11: after saving a new External Sensor Type, show red "Sensor Updating" until the first
+// reading of the new type is done (ADC.c calls Ext_Sensor_Update_Finish), then go to the Active page.
+volatile uint8_t  ext_sensor_updating = 0;
+volatile uint32_t ext_sensor_update_tick = 0;
+
+static void Draw_Ext_Sensor_Updating(void)
+{
+		// Keep TopBar + title + separator (y<24), replace the choices and Save with the red message
+		Draw_TopBar(0, 0);
+		LCD_Fill(0, 24, lcddev.width, lcddev.height, WHITE);
+		lan_str = LanguageTable[STR_Sensor_Updating][g_parameter.language];
+		Show_FuncSetting_Row_Text(16, 64, RED, WHITE, (char*)lan_str, 16);
+}
+
+void Ext_Sensor_Update_Finish(void)
+{
+		if(ext_sensor_updating == 0) return;
+		ext_sensor_updating = 0;
+		LOGD("EXT_UPDATE done, err=%d\r\n", adc_ctrl.ext_sensor_error);
+		if(UI_state != STATE_CONTROL_ADJ_EXT_SENSOR_TYPE) return;
+		// Same as the menu timeout back to the main page
+		delete_alarm(Setting_Menu_Alarm);
+		UI_state = STATE_ACTIVE;
+		Top_Bar_Active = 0;
+		item_selection = 0;
+		leave_icon_color = 0;
+		edit_icon_color = 0;
+		main_display_digi = Display_Room_Temp;
+		display_refresh_request = 1;				// show the new temperature (or the error box) at once
+		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+		Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+		delete_alarm(Active_Alarm);
+		if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+				LOGE("Alarm Fail\r\n");
+		}
+		Draw_Active_Menu();
+}
+
+// 2026-11-11: External Sensor Error + Enter -> External Sensor Type page, so a wrong type
+// (e.g. 100K sensor while set to 10K) can be fixed although the error blocks the main page.
+static uint8_t pin_then_ext_type = 0;		// 1 = after a correct child-lock PIN, go to External Sensor Type page
+
+static void Goto_Ext_Sensor_Type_From_Error(void)
+{
+		delete_alarm(Active_Alarm);
+		delete_alarm(Setting_Menu_Alarm);
+		if(register_alarm(Setting_Menu_Alarm, SETTING_UPDATE_TIME) == eFALSE){		// no key -> back to main page as usual
+				LOGE("Alarm Full!\r\n");
+		}
+		Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+		main_display_digi = Display_Room_Temp;
+		UI_state = STATE_CONTROL_ADJ_EXT_SENSOR_TYPE;
+		Top_Bar_Active = 1;			// same entry as from the Control Adj menu: TopBar, Edit red
+		item_selection = 0;
+		leave_icon_color = 0;
+		edit_icon_color = 1;
+		// Save/Leave returns to Control Adj menu with External Sensor Type (last item) selected: scroll to the end
+		control_adj_menu_scroll = (Control_Adj_Menu_Item_Count > 3) ? (Control_Adj_Menu_Item_Count - 3) : 0;
+		current_ext_sensor_type = g_parameter.ext_sensor_type;
+		LOGD("EXT_ERR -> Ext Sensor Type\r\n");
+		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+		Draw_Control_Adj_Ext_Sensor_Type_Page(item_selection, leave_icon_color, edit_icon_color);
+}
+#endif
+
 void UI_Update(void)
 {
 
@@ -842,6 +985,32 @@ void UI_Update(void)
 	
 	if(adc_ctrl.int_sensor_error || adc_ctrl.ext_sensor_error){
 			if((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP)){
+#if (MULTI_EXT_SENSOR)
+					// External Sensor Error: Enter opens the External Sensor Type page (other keys stay blocked)
+					if(adc_ctrl.ext_sensor_error && (key.key_val == ENTERKEY)){
+							if((UI_state == STATE_SLEEP) && (g_parameter.child_lock == 1)){
+									// Child lock: same PIN check as waking from Sleep, then go to the page
+									child_lock_flag = 1;
+									pin_then_ext_type = 1;
+									UI_state = STATE_CHILD_LOCK_PIN_VERIFY;
+									pin_digit_index = 0;
+									pin_digit_selected = 0;
+									Clear_Pin_Input();
+									Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+									delete_alarm(Setting_Menu_Alarm);
+									if(register_alarm(Setting_Menu_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+											LOGE("Alarm Full!\r\n");
+									}
+									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+									lan_str = LanguageTable[STR_Enter_Pin_Code][g_parameter.language];
+									Show_Str(10, 10, BLACK, WHITE, (char*)lan_str, 16, 0);
+									Draw_Pin_Input_Box(pin_code_input, pin_digit_index);
+									Draw_Pin_Digit_Selector(pin_digit_selected);
+							}else{
+									Goto_Ext_Sensor_Type_From_Error();
+							}
+					}
+#endif
 					key.key_val = NONKEY;
 					key.key_active = 0;
 					if(key.key_press != DOUBLEKEY){
@@ -906,12 +1075,12 @@ void UI_Update(void)
 				}
 				
 				// Draw Function Setting page
+				Top_Bar_Active = 0;
 				leave_icon_color = 0;
-				edit_icon_color = 1;
-				item_selection = 0;
+				edit_icon_color = 0;
+				item_selection = 1;  // Intermediate menu: cursor starts on first option
 				func_setting_scroll = 0;  // Reset scroll
 				Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);		
-				Top_Bar_Active = 1;
 
 			}
 			
@@ -923,6 +1092,9 @@ void UI_Update(void)
 			{
 				if(g_parameter.child_lock == 1){
 						child_lock_flag = 1;
+#if (MULTI_EXT_SENSOR)
+						pin_then_ext_type = 0;		// normal wake-up: back to main page after the PIN
+#endif
 						// Child lock enabled - enter PIN verification
 						UI_state = STATE_CHILD_LOCK_PIN_VERIFY;
 						pin_digit_index = 0;
@@ -1027,40 +1199,33 @@ void UI_Update(void)
 	{
 		
 			if(Top_Bar_Active){
-					if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+					if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 					{
-							Update_TopBar();
+								// Cursor to first option
+								item_selection = 1;  // Start with item selected showing
+								func_setting_scroll = 0;  // Reset scroll
+								Top_Bar_Active = 0;
+								leave_icon_color = 0;
+								edit_icon_color = 0;
+								Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					}
-					else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+					else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 					{
-							if(edit_icon_color)
-							{
-									// Edit Icon is red -> enter Function Setting 
-									item_selection = 1;  // Start with item selected showing
-									func_setting_scroll = 0;  // Reset scroll
-									Top_Bar_Active = 0;
-									leave_icon_color = 0;
-									edit_icon_color = 0;
-									Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-							}
-							else
-							{
-									// Leave Icon is red -> return to Active state
-									UI_state = STATE_ACTIVE;
-									Top_Bar_Active = 0;
-									icon6_red_state = 0;
-									main_display_digi = Display_Room_Temp;
-									LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-									delete_alarm(Setting_Menu_Alarm);
-									Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
-									if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
-											LOGE("Alarm Fail\r\n");
-									}
-									Draw_Active_Menu();
-									//if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
-									//		LOGE("Alarm Full!\r\n");
-									//}
-							}
+								// Leave Icon is red -> return to Active state
+								UI_state = STATE_ACTIVE;
+								Top_Bar_Active = 0;
+								icon6_red_state = 0;
+								main_display_digi = Display_Room_Temp;
+								LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+								delete_alarm(Setting_Menu_Alarm);
+								Backlight_SetDuty(BACKLIGHT_DUTY_ACTIVE);
+								if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+										LOGE("Alarm Fail\r\n");
+								}
+								Draw_Active_Menu();
+								//if(register_alarm(Active_Alarm, ACTIVE_ALIVE_TIME) == eFALSE){
+								//		LOGE("Alarm Full!\r\n");
+								//}
 							//delay_ms(100);  // Debounce
 					}
 			}else{				
@@ -1113,7 +1278,7 @@ void UI_Update(void)
 									Top_Bar_Active = 1;
 									leave_icon_color = 1;
 									edit_icon_color = 0;
-									Draw_TopBar(leave_icon_color, edit_icon_color); 		 // ReDraw Top Bar
+									Draw_TopBar_Leave(leave_icon_color); 		 // ReDraw Top Bar
 									item_selection = 0;  
 									func_setting_scroll = 0;  // Reset scroll when returning to TopBar
 									Draw_Function_Setting_Edit_Row(item_selection, 0);		// Clear item 1 backfround
@@ -1138,10 +1303,10 @@ void UI_Update(void)
 								{
 										// Enter Heating Schedule Menu page
 										UI_state = STATE_HEATING_SCHEDULE_MENU;
-										Top_Bar_Active = 1;
-										item_selection = 0;
+										Top_Bar_Active = 0;  // Intermediate menu: cursor starts on first option
+										item_selection = 1;
 										leave_icon_color = 0;
-										edit_icon_color = 1;
+										edit_icon_color = 0;
 										LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 										Draw_Heating_Schedule_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
 								}
@@ -1149,10 +1314,10 @@ void UI_Update(void)
 								{
 										// Enter Control Adj Menu page
 										UI_state = STATE_CONTROL_ADJ_MENU;
-										Top_Bar_Active =1;
-										item_selection = 0;
+										Top_Bar_Active = 0;  // Intermediate menu: cursor starts on first option
+										item_selection = 1;
 										leave_icon_color = 0;
-										edit_icon_color = 1;
+										edit_icon_color = 0;
 										control_adj_menu_scroll = 0;     // Reset scroll
 										LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 										Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
@@ -1161,10 +1326,10 @@ void UI_Update(void)
 								{
 										//Enter User Setting 
 										UI_state = STATE_USER_SETTING_MENU;
-										Top_Bar_Active = 1;
-										item_selection = 0;
+										Top_Bar_Active = 0;  // Intermediate menu: cursor starts on first option
+										item_selection = 1;
 										leave_icon_color = 0;
-										edit_icon_color = 1;
+										edit_icon_color = 0;
 										user_setting_menu_scroll = 0;  // Reset scroll when entering from Function Setting page
 										LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 										Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
@@ -1291,31 +1456,24 @@ void UI_Update(void)
 	{
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 				{
-						Update_TopBar();
+					Top_Bar_Active = 0;
+					item_selection = 1;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					Draw_Heating_Schedule_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
-				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						Draw_Heating_Schedule_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else  // Leave Icon is red
-					{
-						// Go back to Function Setting in Heating Schedule item
-						UI_state = STATE_FUNC_SETTING;
-						func_setting_scroll = 0;  // Reset scroll
-						Top_Bar_Active = 0;
-						item_selection = 2;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
+					// Go back to Function Setting in Heating Schedule item
+					UI_state = STATE_FUNC_SETTING;
+					func_setting_scroll = 0;  // Reset scroll
+					Top_Bar_Active = 0;
+					item_selection = 2;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					
 				}
 			}
@@ -1347,7 +1505,7 @@ void UI_Update(void)
 						item_selection = 0;
 						leave_icon_color = 1;
 						edit_icon_color = 0;
-						Draw_TopBar(leave_icon_color, edit_icon_color);
+						Draw_TopBar_Leave(leave_icon_color);
 						Draw_Heating_Schedule_Menu_Row(1, item_selection); 	//Redraw RAW 1
 					}
 					
@@ -1371,10 +1529,10 @@ void UI_Update(void)
 						// Set schedule edit source: 0=Workday, 1=Restday
 						schedule_edit_source = (item_selection == 2) ? 0 : 1;
 						UI_state = STATE_SCHEDULE_EDIT;
-						Top_Bar_Active = 1;
+						Top_Bar_Active = 0;  // Intermediate menu: cursor starts on P1
 						leave_icon_color = 0;
-						edit_icon_color = 1;
-						item_selection = 0;
+						edit_icon_color = 0;
+						item_selection = 1;
 						schedule_edit_scroll = 0;     // Reset scroll bar 
 						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 						Draw_Schedule_Edit_Page(item_selection, leave_icon_color, edit_icon_color);  
@@ -1480,32 +1638,25 @@ void UI_Update(void)
 			// Schedule Edit page navigation (P1-P6)
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 				{
-					Update_TopBar();
+					// Enter P1-P6/Finish mode, Leave black, P1 selected
+					Top_Bar_Active = 0;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					item_selection = 1;
+					Draw_Schedule_Edit_Page(item_selection, leave_icon_color, edit_icon_color); 
 				}
-				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						// Enter P1-P6/Finish mode, Edit/Leave both black, P1 Arrow red
-						Top_Bar_Active = 0;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						item_selection = 1;
-						Draw_Schedule_Edit_Page(item_selection, leave_icon_color, edit_icon_color); 
-					}
-					else  // Leave Icon is red
-					{
-						// Go back to Heating Schedule Menu 
-						UI_state = STATE_HEATING_SCHEDULE_MENU;
-						Top_Bar_Active = 0;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						item_selection = (schedule_edit_source == 0) ? 2 : 3;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Heating_Schedule_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
+					// Go back to Heating Schedule Menu 
+					UI_state = STATE_HEATING_SCHEDULE_MENU;
+					Top_Bar_Active = 0;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					item_selection = (schedule_edit_source == 0) ? 2 : 3;
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_Heating_Schedule_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 					//delay_ms(100);
 				}
 			}
@@ -1833,34 +1984,27 @@ void UI_Update(void)
 			
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 				{
-					Update_TopBar();
+					// Leave black, first option selected
+					Top_Bar_Active = 0;
+					item_selection = 1;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					control_adj_menu_scroll = 0;  // Reset scroll
+					Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
-				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						// Edit/Leave both black, Sensor selected
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						control_adj_menu_scroll = 0;  // Reset scroll
-						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else  // Leave Icon is red
-					{
-						// Go back to Function Setting Edit mode with cursor on Control Adj
-						UI_state = STATE_FUNC_SETTING;
-						func_setting_scroll = 0;  // Reset scroll
-						Top_Bar_Active = 0;
-						item_selection = 3;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
+					// Go back to Function Setting Edit mode with cursor on Control Adj
+					UI_state = STATE_FUNC_SETTING;
+					func_setting_scroll = 0;  // Reset scroll
+					Top_Bar_Active = 0;
+					item_selection = 3;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					
 				}
 			}
@@ -1958,6 +2102,9 @@ void UI_Update(void)
 						}
 						else if(UI_state == STATE_CONTROL_ADJ_TEMP_PROTECT)
 						{
+							Top_Bar_Active = 0;  // Intermediate menu: cursor starts on first option
+							item_selection = 1;
+							edit_icon_color = 0;
 							Draw_Control_Adj_TempProtect_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
 						else if(UI_state == STATE_CONTROL_ADJ_POWER_ON_STATE)
@@ -1965,12 +2112,20 @@ void UI_Update(void)
 							power_on_state = g_parameter.power_on_state;
 							Draw_Control_Adj_Power_On_State_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
+						else if(UI_state == STATE_CONTROL_ADJ_EXT_SENSOR_TYPE)
+						{
+							current_ext_sensor_type = g_parameter.ext_sensor_type;
+							Draw_Control_Adj_Ext_Sensor_Type_Page(item_selection, leave_icon_color, edit_icon_color);
+						}
 						else if(UI_state == STATE_CONTROL_TEMP_SWING){
 								temp_swing = g_parameter.temp_swing;
 								Draw_Control_Adj_Temp_Swing_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
 						else if(UI_state == STATE_CONTROL_ADJ_PWM_SETTING){
 								pwm_setting_selection = 0;
+								Top_Bar_Active = 0;  // Intermediate menu: cursor starts on first option
+								item_selection = 1;
+								edit_icon_color = 0;
 								Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 						}
 					}
@@ -1982,32 +2137,25 @@ void UI_Update(void)
 	{
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 				{
-					Update_TopBar();
+					// Enter option selection mode
+					Top_Bar_Active = 0;
+					edit_icon_color = 0;
+					leave_icon_color = 0;
+					item_selection = 1;
+					pwm_setting_selection = 0;  // Default to Astro Time
+					Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
-				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						// Enter option selection mode
-						Top_Bar_Active = 0;
-						edit_icon_color = 0;
-						leave_icon_color = 0;
-						item_selection = 1;
-						pwm_setting_selection = 0;  // Default to Astro Time
-						Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else  // Leave Icon is red
-					{
-						UI_state = STATE_CONTROL_ADJ_MENU;
-						Top_Bar_Active = 0;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_PWM_SETTING);
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
+					UI_state = STATE_CONTROL_ADJ_MENU;
+					Top_Bar_Active = 0;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_PWM_SETTING);
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
 			}
 			else if(item_selection == 1)  // Option selection mode
@@ -2031,10 +2179,11 @@ void UI_Update(void)
 				}else if(key.key_val == ENTERKEY){  // Enter - go directly to selected page
 					if(pwm_setting_selection == 0){
 							UI_state = STATE_CONTROL_ADJ_PWM_ASTRO_TIME;
-							Top_Bar_Active = 1;
-							item_selection = 0;
+							Top_Bar_Active = 0;
+							item_selection = 1;
 							leave_icon_color = 0;
-							edit_icon_color = 1;
+							edit_icon_color = 0;
+							pwm_astro_time_selection = 0;  // Intermediate menu: cursor starts on first option
 							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 							Draw_Control_Adj_PWM_Astro_Time_Page(item_selection, leave_icon_color, edit_icon_color);
 					}else{
@@ -2057,32 +2206,25 @@ void UI_Update(void)
 			// Tolerance sub-pages below)
 			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 			{
-				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 				{
-					Update_TopBar();
+					Top_Bar_Active = 0;
+					item_selection = 1;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					pwm_astro_time_selection = 0;  // Default to Location
+					Draw_Control_Adj_PWM_Astro_Time_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
-				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 				{
-					if(edit_icon_color)  // Edit Icon is red → enter option selection mode
-					{
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						pwm_astro_time_selection = 0;  // Default to Location
-						Draw_Control_Adj_PWM_Astro_Time_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else  // Leave Icon is red → go back (no changes)
-					{
-						UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						pwm_setting_selection = 0;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
+					UI_state = STATE_CONTROL_ADJ_PWM_SETTING;
+					Top_Bar_Active = 0;
+					item_selection = 1;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					pwm_setting_selection = 0;
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_Control_Adj_PWM_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
 			}
 			else if(item_selection == 1){  // Option selection mode: Location / Tolerance
@@ -2104,7 +2246,7 @@ void UI_Update(void)
 							}
 					}else if(key.key_val == ENTERKEY){  // Enter - go to Location or Tolerance page
 							if(pwm_astro_time_selection == 0){
-									temp_location = g_parameter.location;
+									temp_location = Astro_Location_To_Row(g_parameter.location);
 									UI_state = STATE_CONTROL_ADJ_PWM_LOCATION;
 									Top_Bar_Active = 1;
 									item_selection = 0;
@@ -2156,7 +2298,7 @@ void UI_Update(void)
 					}
 				}
 			}
-			else if(item_selection == 1){  // Choose Oslo / Stockholm / Helsinki
+			else if(item_selection == 1){  // Choose Oslo / Stockholm / Copenhagen / Helsinki / Berlin (temp_location = display row)
 					if(key.key_val == DOWNKEY){
 							if(temp_location < ASTRO_LOCATION_MAX - 1){
 									temp_location++;
@@ -2171,7 +2313,7 @@ void UI_Update(void)
 									edit_icon_color = 0;
 									leave_icon_color = 1;
 									item_selection = 0;
-									temp_location = g_parameter.location;
+									temp_location = Astro_Location_To_Row(g_parameter.location);
 									Draw_Control_Adj_PWM_Location_Page(item_selection, leave_icon_color, edit_icon_color);
 							}
 					}else if(key.key_val == ENTERKEY){
@@ -2180,7 +2322,7 @@ void UI_Update(void)
 					}
 			}else if(item_selection == 2){  // Save mode
 					if(key.key_val == ENTERKEY){
-							g_parameter.location = temp_location;
+							g_parameter.location = Astro_Row_To_Location(temp_location);
 							LOGD("Astro Location: %d\r\n", g_parameter.location);
 							if(Flash_Save_Parameter() != FLASH_OK){
 									LOGE("Flash write fail!\r\n");
@@ -2461,6 +2603,96 @@ void UI_Update(void)
 					Draw_Control_Adj_Sensor_Choices(item_selection);
 					
 				}
+			}
+	}
+	else if(UI_state == STATE_CONTROL_ADJ_EXT_SENSOR_TYPE)	// Control Adj -> External Sensor Type: 10K/12K/15K/50K/100K (2026-11-06)
+	{
+			if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
+			{
+				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				{
+					Update_TopBar();
+				}
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				{
+					if(edit_icon_color)  // Edit Icon is red -> enter edit mode
+					{
+						Top_Bar_Active = 0;
+						item_selection = 1;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						Draw_Control_Adj_Ext_Sensor_Type_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+					else  // Leave Icon is red -> back to Control Adj Menu, nothing saved
+					{
+						UI_state = STATE_CONTROL_ADJ_MENU;
+						Top_Bar_Active = 0;
+						leave_icon_color = 0;
+						edit_icon_color = 0;
+						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_EXT_SENSOR_TYPE);
+						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+					}
+				}
+			}
+			else if(item_selection == 1){  // Choose 10K..100K
+					if(key.key_val == DOWNKEY){
+							if(current_ext_sensor_type < EXT_SENSOR_TYPE_MAX - 1){
+									current_ext_sensor_type++;
+									Draw_Control_Adj_Ext_Sensor_Type_Choices(item_selection);
+							}
+					}else if(key.key_val == UPKEY){
+							if(current_ext_sensor_type > 0){
+									current_ext_sensor_type--;
+									Draw_Control_Adj_Ext_Sensor_Type_Choices(item_selection);
+							}else{  // At first choice, go back to TopBar (Leave red)
+									Top_Bar_Active = 1;
+									edit_icon_color = 0;
+									leave_icon_color = 1;
+									item_selection = 0;
+									current_ext_sensor_type = g_parameter.ext_sensor_type;
+									Draw_Control_Adj_Ext_Sensor_Type_Page(item_selection, leave_icon_color, edit_icon_color);
+							}
+					}else if(key.key_val == ENTERKEY){
+							item_selection = 2;  // Save confirm
+							Draw_Control_Adj_Ext_Sensor_Type_Choices(item_selection);
+					}
+			}else if(item_selection == 2){  // Save mode
+					if(key.key_val == ENTERKEY){
+#if (MULTI_EXT_SENSOR)
+							uint8_t type_changed = (g_parameter.ext_sensor_type != current_ext_sensor_type);
+#endif
+							g_parameter.ext_sensor_type = current_ext_sensor_type;
+							LOGD("Ext Sensor Type:%d\r\n", g_parameter.ext_sensor_type);
+							if(Flash_Save_Parameter() != FLASH_OK){
+									LOGE("Flash write fail!\r\n");
+							}
+#if (MULTI_EXT_SENSOR)
+							if(type_changed){
+									// Wait on this page with "Sensor Updating" until ADC.c has the first new reading
+									item_selection = 3;					// updating: no key handled on this page
+									Top_Bar_Active = 0;
+									leave_icon_color = 0;
+									edit_icon_color = 0;
+									delete_alarm(Setting_Menu_Alarm);		// no 10 s menu timeout while updating
+									ext_sensor_update_tick = time_tick;
+									ext_sensor_updating = 1;
+									Draw_Ext_Sensor_Updating();
+							}else
+#endif
+							{
+							UI_state = STATE_CONTROL_ADJ_MENU;
+							Top_Bar_Active = 0;
+							leave_icon_color = 0;
+							edit_icon_color = 0;
+							item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_EXT_SENSOR_TYPE);
+							LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+							Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
+							}
+					}else if(key.key_val == UPKEY || key.key_val == DOWNKEY){  // Cancel save
+							item_selection = 1;
+							Draw_Control_Adj_Ext_Sensor_Type_Choices(item_selection);
+					}
 			}
 	}
 	else if(UI_state == STATE_CONTROL_TEMP_SWING)
@@ -2756,32 +2988,25 @@ void UI_Update(void)
 	{
 		if(Top_Bar_Active == 1)  // TopBar mode: Edit/Leave
 		{
-				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 				{
-					Update_TopBar();
+					// Enter Correct num setting
+					Top_Bar_Active = 0;
+					edit_icon_color = 0;
+					leave_icon_color = 0;
+					item_selection = 1;
+					Draw_Control_Adj_TempProtect_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
-				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						// Enter Correct num setting
-						Top_Bar_Active = 0;
-						edit_icon_color = 0;
-						leave_icon_color = 0;
-						item_selection = 1;
-						Draw_Control_Adj_TempProtect_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else  // Leave Icon is red
-					{
-						// Go back to Control Adj Menu with Leave red
-						UI_state = STATE_CONTROL_ADJ_MENU;
-						Top_Bar_Active = 0;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_PROTECT);
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
-					}
+					// Go back to Control Adj Menu with Leave red
+					UI_state = STATE_CONTROL_ADJ_MENU;
+					Top_Bar_Active = 0;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					item_selection = Find_Control_Adj_Menu_Index(STATE_CONTROL_ADJ_TEMP_PROTECT);
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_Control_Adj_Menu_Page(item_selection, leave_icon_color, edit_icon_color);  
 					
 				}
 		}
@@ -3092,34 +3317,27 @@ else if(item_selection == 3)
 			// Control Adj Menu page navigation
 			if(Top_Bar_Active)  // TopBar mode: Edit/Leave
 			{
-				if((edit_icon_color && key.key_val == UPKEY) || (!edit_icon_color && key.key_val == DOWNKEY))  // Edit+Up or Leave+Down -> toggle Icon colors
+				if(key.key_val == DOWNKEY)  // Leave + Down -> cursor to first option (intermediate menu: no Edit Icon)
 				{
-					Update_TopBar();
+					// Leave black, first option selected
+					Top_Bar_Active = 0;
+					item_selection = 1;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					user_setting_menu_scroll = 0;  // Reset scroll
+					Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
-				else if(key.key_val == ENTERKEY || key.key_val == UPKEY || key.key_val == DOWNKEY)  // Enter, or Edit+Down, or Leave+Up -> commit
+				else if(key.key_val == ENTERKEY || key.key_val == UPKEY)  // Leave + Enter/Up -> back to upper page
 				{
-					if(edit_icon_color)  // Edit Icon is red
-					{
-						// Enter menu selection, Edit/Leave both black, Sensor selected
-						Top_Bar_Active = 0;
-						item_selection = 1;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						control_adj_menu_scroll = 0;  // Reset scroll
-						Draw_User_Setting_Menu_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
-					else  // Leave Icon is red
-					{
-						// Go back to Function Setting Edit mode with cursor on Control Adj
-						UI_state = STATE_FUNC_SETTING;
-						func_setting_scroll = 1;  // item_selection=4 -> User Settings stays at row2 (y=106)
-						Top_Bar_Active = 0;
-						item_selection = 4;
-						leave_icon_color = 0;
-						edit_icon_color = 0;
-						LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-						Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
-					}
+					// Go back to Function Setting Edit mode with cursor on Control Adj
+					UI_state = STATE_FUNC_SETTING;
+					func_setting_scroll = 1;  // item_selection=4 -> User Settings stays at row2 (y=106)
+					Top_Bar_Active = 0;
+					item_selection = 4;
+					leave_icon_color = 0;
+					edit_icon_color = 0;
+					LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+					Draw_Function_Setting_Page(item_selection, leave_icon_color, edit_icon_color);
 					
 				}
 			}
@@ -3859,6 +4077,18 @@ else if(item_selection == 3)
 			if(pin_digit_index >= 4){
 				// All 4 digits entered - verify
 				if(Verify_Pin_Code()){
+#if (MULTI_EXT_SENSOR)
+				  if(pin_then_ext_type){
+					// PIN correct after External Sensor Error + Enter: go to External Sensor Type page
+					pin_then_ext_type = 0;
+					pin_digit_index = 0;
+					pin_digit_selected = 0;
+					Clear_Pin_Input();
+					child_lock_flag = 0;
+					Goto_Ext_Sensor_Type_From_Error();
+				  }else
+#endif
+				  {
 					// PIN correct - return to Active state
 					UI_state = STATE_ACTIVE;
 					pin_digit_index = 0;
@@ -3876,6 +4106,7 @@ else if(item_selection == 3)
 							LOGE("Alarm Fail\r\n");
 					}
 					Draw_Active_Menu();
+				  }
 				}else{
 					// PIN incorrect - clear and stay in verify state
 					pin_digit_index = 0;
@@ -4122,17 +4353,17 @@ else if(item_selection == 3)
 					//delay_ms(100);
 				}
 			}
-			else if((item_selection == 1) || (item_selection == 2))
+			else if((item_selection >= 1) && (item_selection <= LANG_MAX))	// 2026-11-06: LANG_MAX language rows
 			{
 					if(key.key_val == DOWNKEY){		//Down key
-							if(item_selection == 1){
-									item_selection = 2;
+							if(item_selection < LANG_MAX){
+									item_selection++;
 									Draw_User_Setting_Language_Choice(item_selection);
 							}
 							
 					}else if(key.key_val == UPKEY){		//Up key
-							if(item_selection == 2){
-									item_selection = 1;
+							if(item_selection > 1){
+									item_selection--;
 									Draw_User_Setting_Language_Choice(item_selection);
 							}else if(item_selection == 1){	//go back Top_Bar
 									Top_Bar_Active = 1;
@@ -4144,12 +4375,12 @@ else if(item_selection == 3)
 							}
 							
 					}else if(key.key_val == ENTERKEY){		//Enter key
-							language_temp = (item_selection == 1) ? 0: 1;
-							item_selection = 3;
+							language_temp = item_selection - 1;
+							item_selection = LANG_PAGE_SAVE_SEL;
 							Draw_User_Setting_Language_Page(item_selection, leave_icon_color, edit_icon_color);
 							
 					}
-			}else if(item_selection == 3){
+			}else if(item_selection == LANG_PAGE_SAVE_SEL){
 					if(key.key_val == ENTERKEY){
 							g_parameter.language = language_temp;
 							UI_state = STATE_USER_SETTING_MENU;

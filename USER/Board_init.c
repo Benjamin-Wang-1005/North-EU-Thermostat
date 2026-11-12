@@ -202,6 +202,7 @@ void golbal_par_init(void)
 		g_parameter.relay_staty = 0;								//Relay state while poer off
 		g_parameter.room_temp = 15;									//For test
 		g_parameter.sensor_type = 0;								//'0'=Room, '1'=Floor
+		g_parameter.ext_sensor_type = EXT_SENSOR_10K;	//External sensor resistance default 10K
 		g_parameter.setting_number = 18.0f;					//Initial set to 18
 		g_parameter.sleep_backlight_duty = 20;			//Duty 20%
 		g_parameter.temp_correct_external = 0;			

@@ -82,7 +82,7 @@ void Draw_User_Setting_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t e
 	if(user_setting_menu_scroll > max_scroll) user_setting_menu_scroll = max_scroll;
 
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-	Draw_TopBar(leave_col, edit_col);
+	Draw_TopBar_Leave(leave_col);  // Intermediate menu: Leave Icon only
 
 	// Draw horizontal separator line below TopBar
 	LCD_Fill(4, 24, lcddev.width - 4, 25, BLACK);
@@ -175,7 +175,7 @@ void Draw_User_Setting_Child_Lock_Page(uint8_t selection, uint8_t leave_col, uin
 	lan_str = LanguageTable[STR_Child_lock][g_parameter.language];
 	while(((char*)lan_str)[len] != 0) len++;
 	title_x = (lcddev.width - (uint16_t)len * 8) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Separator line right below the TopBar (TopBar ends at y=21)
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -185,9 +185,9 @@ void Draw_User_Setting_Child_Lock_Page(uint8_t selection, uint8_t leave_col, uin
 	// Save button at bottom (not moved)
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3){
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -197,7 +197,7 @@ void Draw_User_Setting_Window_Fun_Content(uint8_t selection, uint8_t leave_col, 
 	lan_str = LanguageTable[STR_Window][g_parameter.language];
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
 	Draw_TopBar(leave_col, edit_col);
-	Show_Str(40, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(40, (char*)lan_str);
 	
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
@@ -281,9 +281,9 @@ void Draw_User_Setting_Window_Time_Content(uint8_t selection)
 	// Save button
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -296,7 +296,7 @@ void Draw_User_Setting_Window_Time_Page(uint8_t selection, uint8_t leave_col, ui
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Window][g_parameter.language];
-	Show_Str(40, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(40, (char*)lan_str);
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_User_Setting_Window_Time_Content(selection);
@@ -349,9 +349,9 @@ void Draw_User_Setting_SetTime_Content(uint8_t selection)
 	// Next button (enter Set Clock sub-page)
 	lan_str = LanguageTable[STR_Next][g_parameter.language];
 	if(selection == 4) {
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -363,7 +363,7 @@ void Draw_User_Setting_SetTime_Page(uint8_t selection, uint8_t leave_col, uint8_
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Set_Date][g_parameter.language];
-	Show_Str(32, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(32, (char*)lan_str);
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_User_Setting_SetTime_Content(selection);
@@ -423,9 +423,9 @@ void Draw_User_Setting_Setclk_Content(uint8_t selection)
 	// Save button
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -437,7 +437,7 @@ void Draw_User_Setting_Setclk_Page(uint8_t selection, uint8_t leave_col, uint8_t
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Set_Time][g_parameter.language];
-	Show_Str(32, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(32, (char*)lan_str);
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_User_Setting_Setclk_Content(selection);
@@ -468,9 +468,9 @@ void Draw_User_Setting_Backlight_Content(uint8_t selection)
 	// Save button
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 2) {
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 void Draw_User_Setting_Backlight_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
@@ -481,7 +481,7 @@ void Draw_User_Setting_Backlight_Page(uint8_t selection, uint8_t leave_col, uint
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Backlight][g_parameter.language];
-	Show_Str(28, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(28, (char*)lan_str);
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_User_Setting_Backlight_Content(selection);
@@ -492,9 +492,9 @@ void Draw_User_Setting_Reset_Contect(uint8_t selection)
 	// Reset button (red when selected)
 	lan_str = LanguageTable[STR_Reset][g_parameter.language];
 	if(selection == 1) {
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 void Draw_User_Setting_Reset_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
@@ -505,7 +505,7 @@ void Draw_User_Setting_Reset_Page(uint8_t selection, uint8_t leave_col, uint8_t 
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Reset][g_parameter.language];
-	Show_Str(44, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title((lcddev.width - strlen((char*)lan_str) * 8) / 2, (char*)lan_str);	// centered (English "Reset" stays at x=44) (2026-11-06)
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	// "Reset to" / "Default?" (two lines, RED)
@@ -630,46 +630,28 @@ uint8_t Verify_Pin_Code(void)
 
 void Draw_User_Setting_Language_Choice(uint8_t selection)
 {
-	uint16_t row_y[] = {44, 70};  // Y positions for English, Norwegian (moved up, consistent spacing)
+	// 2026-11-06: LANG_MAX rows (English / Norsk / Svenska / Dansk / Suomi / Deutsch),
+	// names shown in their own language (Language_Native_Name), 18px per row, no scrolling.
+	// selection: 0 = TopBar, 1..LANG_MAX = cursor row (edit), LANG_PAGE_SAVE_SEL = Save
+	uint16_t row_y;
 	uint8_t i;
-	
-	for(i = 0; i < 2; i++) {
-		// Draw text (always black on white background)
-		LCD_Fill(0, row_y[i] - 2, lcddev.width, row_y[i] + 24, WHITE);
-		
-		if((selection == 0) || (selection == 3)){
-				if(i == 0) {
-					lan_str = LanguageTable[STR_English][g_parameter.language];
-					Show_Str(34, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
-					if(language_temp == 0){
-							GUI_DrawMonoIcon16x16(12, row_y[i] + 4, BLACK, WHITE, ON_Icon_16x16);
-					}
-				} else {
-					lan_str = LanguageTable[STR_Norwegian][g_parameter.language];
-					Show_Str(34, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
-					if(language_temp == 1){
-							GUI_DrawMonoIcon16x16(12, row_y[i] + 4, BLACK, WHITE, ON_Icon_16x16);
-					}
-				}
-		}else{
-				if(i == 0){
-						lan_str = LanguageTable[STR_English][g_parameter.language];
-						if(selection == 1){
-								LCD_Fill(4, row_y[i] - 2, lcddev.width-4, row_y[i]+24, RED);
-								Show_Str(34, row_y[i] + 4, WHITE, RED, (char*)lan_str, 16, 0);
-								GUI_DrawMonoIcon16x16(12, row_y[i] + 4, WHITE, RED, ON_Icon_16x16);
-						}else{
-								Show_Str(34, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
-						}
-				}else{
-						lan_str = LanguageTable[STR_Norwegian][g_parameter.language];
-						if(selection == 2){
-								LCD_Fill(4, row_y[i] - 2, lcddev.width-4, row_y[i]+24, RED);
-								Show_Str(34, row_y[i] + 4, WHITE, RED, (char*)lan_str, 16, 0);
-								GUI_DrawMonoIcon16x16(12, row_y[i] + 4, WHITE, RED, ON_Icon_16x16);
-						}else{
-								Show_Str(34, row_y[i] + 4, BLACK, WHITE, (char*)lan_str, 16, 0);
-						}
+	uint8_t show_saved = ((selection == 0) || (selection == LANG_PAGE_SAVE_SEL));
+
+	for(i = 0; i < LANG_MAX; i++) {
+		row_y = LANG_ROW_Y0 + i * LANG_ROW_H;
+		lan_str = Language_Native_Name[i];
+
+		if(!show_saved && (selection == i + 1)) {
+				// Edit mode, cursor row: red bg, white text and ON icon
+				LCD_Fill(4, row_y - 1, lcddev.width - 4, row_y + LANG_ROW_H - 2, RED);
+				Show_Str(34, row_y + 1, WHITE, RED, (char*)lan_str, 16, 0);
+				GUI_DrawMonoIcon16x16(12, row_y + 1, WHITE, RED, ON_Icon_16x16);
+		} else {
+				LCD_Fill(0, row_y - 1, lcddev.width, row_y + LANG_ROW_H - 2, WHITE);
+				Show_Str(34, row_y + 1, BLACK, WHITE, (char*)lan_str, 16, 0);
+				// TopBar / Save mode: mark the chosen language
+				if(show_saved && (language_temp == i)){
+						GUI_DrawMonoIcon16x16(12, row_y + 1, BLACK, WHITE, ON_Icon_16x16);
 				}
 		}
 	}
@@ -683,16 +665,16 @@ void Draw_User_Setting_Language_Page(uint8_t selection, uint8_t leave_col, uint8
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Language][g_parameter.language];
-	Show_Str(32, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(32, (char*)lan_str);
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_User_Setting_Language_Choice(selection);
 
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
-	if(selection == 3){
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+	if(selection == LANG_PAGE_SAVE_SEL){
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -751,15 +733,15 @@ void Draw_User_Setting_Adaptive_Start_Page(uint8_t selection, uint8_t leave_col,
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Adaptive][g_parameter.language];
-	Show_Str(32, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(32, (char*)lan_str);
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_User_Setting_Adaptive_Start_Choice(selection);
 
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3){
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }

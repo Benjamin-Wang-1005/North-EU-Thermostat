@@ -206,6 +206,7 @@ static void Clamp_Parameter_Ranges(void)
     if (g_parameter.current_prog_type > 2)       g_parameter.current_prog_type = 0;
     if (g_parameter.operation_mode > 2)          g_parameter.operation_mode = 0;
     if (g_parameter.sensor_type > 1)             g_parameter.sensor_type = 0;
+    if (g_parameter.ext_sensor_type >= EXT_SENSOR_TYPE_MAX) g_parameter.ext_sensor_type = EXT_SENSOR_10K;
     if (g_parameter.power_on_state < 1 ||
         g_parameter.power_on_state > 3)          g_parameter.power_on_state = 2;
     if (g_parameter.floor_material > 2)          g_parameter.floor_material = 1;

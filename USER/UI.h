@@ -21,8 +21,24 @@
 #include "rtc_driver.h"
 
 #define		MAX_SET_TEMP														(45)
-#define 	SIMULATION															(1)
+#define 	SIMULATION															(0)
 #define   NO_Power_Board													(0)
+// External (floor) sensor hardware, 2026-11-11:
+//   0 = old board: NTC on top, 470R series + 4.7K pull-down, 10K NTC only (External Sensor Type menu is ignored)
+//   1 = new board: R13 33K pull-up to 3V3, NTC to GND, R14 1K + C15 100nF RC filter to PB1;
+//       10K/12K/15K/50K/100K (all B3950) selected by g_parameter.ext_sensor_type
+#define   MULTI_EXT_SENSOR												(1)
+
+// Bottom-right buttons (Save / Next / Reset) are right-aligned: the text ends at
+// BTN_RIGHT_X and the start x follows the string length of each language.
+// 118 = end of English "Save" at the old fixed x=86, so English stays pixel-identical. (2026-11-06)
+#define   BTN_RIGHT_X														(118)
+#define   TOPBAR_EDIT_X														(107)	// Edit Icon x (16x16 at y=5)
+
+// Language page layout (2026-11-06): LANG_MAX rows, item_selection 1..LANG_MAX = languages
+#define   LANG_ROW_Y0														(28)
+#define   LANG_ROW_H														(18)
+#define   LANG_PAGE_SAVE_SEL												(LANG_MAX + 1)
 
 
 typedef enum{
@@ -80,17 +96,35 @@ typedef struct{
 		float  r_mild;       // Adaptive Start rate-of-rise for mild zone (>= 16C)
 		float  r_cold;       // Adaptive Start rate-of-rise for cold zone (< 16C)
 		int    astro_tolerance_min;   // PWM Astro Time tolerance, -120..+120 minutes, default 0
-		unsigned char  location;      // PWM Astro Time location: 0=Oslo, 1=Stockholm, 2=Helsinki (default 0)
+		unsigned char  location;      // PWM Astro Time location: 0=Oslo, 1=Stockholm, 2=Helsinki, 3=Copenhagen, 4=Berlin (default 0)
+		unsigned char  ext_sensor_type;	// External sensor resistance: EXT_SENSOR_10K..EXT_SENSOR_100K (default 10K). 2026-11-06: uses the struct tail padding after location, sizeof(g_parameter_t) unchanged
 
  }g_parameter_t;
 
 // PWM Astro Time location choices (g_parameter.location)
+// 2026-11-10: Copenhagen/Berlin APPENDED so values saved in Flash (0/1/2) keep their
+// meaning. The Location page shows them in language order (NO/SV/DA/FI/DE capitals)
+// through Astro_Location_To_Row()/Astro_Row_To_Location() in Control_UI.c.
 enum
 {
     ASTRO_LOCATION_OSLO = 0,
     ASTRO_LOCATION_STOCKHOLM,
     ASTRO_LOCATION_HELSINKI,
+    ASTRO_LOCATION_COPENHAGEN,
+    ASTRO_LOCATION_BERLIN,
     ASTRO_LOCATION_MAX
+};
+
+// External sensor resistance choices (g_parameter.ext_sensor_type), 2026-11-06
+// UI only for now - ADC.c still converts with the 10K table for every choice
+enum
+{
+    EXT_SENSOR_10K = 0,
+    EXT_SENSOR_12K,
+    EXT_SENSOR_15K,
+    EXT_SENSOR_50K,
+    EXT_SENSOR_100K,
+    EXT_SENSOR_TYPE_MAX
 };
 
 enum
@@ -118,6 +152,13 @@ extern uint8_t schedule_time_on_off;           //  0=OFF, 1=ON
 extern uint8_t control_adj_menu_scroll;				// 0=show row0-3, 1=show row1-4
 extern uint8_t func_setting_scroll;					// Scroll offset for Function Setting page
 extern uint8_t current_sensor_type;          // 0=Room, 1=Floor (default Room)
+extern uint8_t current_ext_sensor_type;      // External sensor resistance being edited (EXT_SENSOR_xxx)
+#if (MULTI_EXT_SENSOR)
+extern volatile uint8_t  ext_sensor_updating;		// 1 = "Sensor Updating" shown, waiting for the first reading of the new type
+extern volatile uint32_t ext_sensor_update_tick;	// time_tick when the update started (30 s safety timeout)
+#define EXT_SENSOR_UPDATE_TIMEOUT	(30000)			// ms
+void Ext_Sensor_Update_Finish(void);
+#endif
 extern float temp_correct_internal;    			 // Internal sensor correct num
 extern float temp_correct_external;					 // External sensor correct num
 extern int	 temp_limit_max;
@@ -156,7 +197,7 @@ extern uint8_t pwm_duty_cycle;
 extern uint8_t pwm_duration;
 extern uint8_t pwm_setting_selection;
 extern uint8_t pwm_astro_time_selection;	// 0=Location, 1=Tolerance (STATE_CONTROL_ADJ_PWM_ASTRO_TIME option select)
-extern uint8_t temp_location;						// Temp edit buffer for g_parameter.location
+extern uint8_t temp_location;						// Temp edit buffer for the Location page: DISPLAY ROW 0..ASTRO_LOCATION_MAX-1 (not the enum value)
 extern int	 temp_astro_tolerance_min;		// Temp edit buffer for g_parameter.astro_tolerance_min
 extern uint8_t temp_pwm_day_duty;
 extern uint8_t temp_pwm_night_duty;
@@ -169,8 +210,6 @@ extern uint8_t pin_code_confirm[4];    // PIN confirmation buffer
 extern uint8_t pin_digit_index;        // Current digit index (0-3)
 extern uint8_t pin_setup_stage;        // 0=enter PIN, 1=confirm PIN
 extern uint8_t pin_digit_selected;     // Currently selected digit (0-9) for input
-extern char* en_week_texts[7];
-extern char* no_week_texts[7];
 extern const char* lan_str;
 extern uint8_t language_temp;
 extern uint8_t adaptive_start;
@@ -181,6 +220,8 @@ void Draw_Active_Menu(void);
 void Draw_Static_Icons(void);
 void UI_Update(void);
 void Draw_TopBar(uint8_t leave_col, uint8_t edit_col);
+void Draw_TopBar_Leave(uint8_t leave_col);  // Intermediate menu pages: Leave Icon only
+void Show_TopBar_Title(uint16_t x, char *str);	// page title at y=5; long title covers the Edit Icon (2026-11-06)
 void Show_FuncSetting_Row_Text(uint16_t x, uint16_t y, uint16_t fc, uint16_t bc, char *str, uint8_t size);
 void Draw_Heating_Schedule_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Heating_Schedule_Menu_Row(uint8_t row, uint8_t selected);
@@ -202,6 +243,8 @@ void Draw_Control_Adj_Sensor_Page(uint8_t selection, uint8_t leave_col, uint8_t 
 void Draw_Control_Adj_TempCorrect_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_Sensor_Choices(uint8_t selection);
 void Draw_Control_Adj_Sensor_Save(uint8_t selected);
+void Draw_Control_Adj_Ext_Sensor_Type_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
+void Draw_Control_Adj_Ext_Sensor_Type_Choices(uint8_t selection);
 void Draw_Control_Adj_TempCorrect_Contect(uint8_t selection);
 void Display_Adj_Number(float number, uint16_t color, uint8_t show_decimal);
 void Draw_Control_Adj_TempLimit_Page(uint8_t item_selection, uint8_t leave_col, uint8_t edit_col);
@@ -251,6 +294,8 @@ void Draw_Control_Adj_PWM_Astro_Time_Page(uint8_t selection, uint8_t leave_col, 
 void Draw_Control_Adj_PWM_Astro_Time_Content(uint8_t selection);
 void Draw_Control_Adj_PWM_Location_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_PWM_Location_Choices(uint8_t selection);
+uint8_t Astro_Location_To_Row(uint8_t location);
+uint8_t Astro_Row_To_Location(uint8_t row);
 void Draw_Control_Adj_PWM_Tolerance_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col);
 void Draw_Control_Adj_PWM_Tolerance_Content(uint8_t selection);
 

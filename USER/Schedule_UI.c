@@ -72,13 +72,13 @@ void Draw_Heating_Schedule_Menu_Page(uint8_t selection, uint8_t leave_col, uint8
 {
 		uint8_t i;
 	
-		Draw_TopBar(leave_col, edit_col);
+		Draw_TopBar_Leave(leave_col);  // Intermediate menu: Leave Icon only
 	
 		// Draw "Schedule" title between Leave and Edit Icons in the TopBar (x=21..107, y=5..21)
 		POINT_COLOR = BLACK;
 		BACK_COLOR = WHITE;
 		lan_str = LanguageTable[STR_Schedule][g_parameter.language];
-		Show_Str(30, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_TopBar_Title(30, (char*)lan_str);
 	
 		LCD_Fill(4, 24, lcddev.width - 4, 25, BLACK);
 	
@@ -182,7 +182,7 @@ void Draw_Heating_Schedule_Prog_Type_Content(uint8_t selected)
 	{
 		uint16_t save_color = (item_selection == 2) ? RED : BLACK;
 		lan_str = LanguageTable[STR_Save][g_parameter.language];
-		Show_Str(86, 135, save_color, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, save_color, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 void Draw_Heating_Schedule_Prog_Type_Page(uint8_t selected, uint8_t leave_col, uint8_t edit_col)
@@ -193,7 +193,7 @@ void Draw_Heating_Schedule_Prog_Type_Page(uint8_t selected, uint8_t leave_col, u
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Type][g_parameter.language];
-	Show_Str(30, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(30, (char*)lan_str);
 
 	// Draw horizontal separator line below title
 	LCD_Fill(4, 24, lcddev.width - 4, 25, BLACK);
@@ -294,7 +294,7 @@ void Draw_Schedule_Edit_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_
 	uint8_t i;
 
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-	Draw_TopBar(leave_col, edit_col);
+	Draw_TopBar_Leave(leave_col);  // Intermediate menu: Leave Icon only
 
 	// Draw rows based on scroll position
 	// scroll=0: show P1-P4, scroll=1: show P2-P5, scroll=2: show P3-P6/Finish
@@ -369,7 +369,7 @@ void Draw_Schedule_Time_Setting_Page(uint8_t period_num, uint8_t leave_col, uint
 	sprintf(period_text, "P%d %s", period_num, schedule_time_on_off ? "ON" : "OFF");
 	POINT_COLOR = BLACK;
 	BACK_COLOR = WHITE;
-	Show_Str(44, 5, BLACK, WHITE, period_text, 16, 0);
+	Show_TopBar_Title(44, period_text);
 
 	// Draw horizontal separator line (moved up to y=30)
 	LCD_Fill(4, 30, lcddev.width - 4, 31, BLACK);
@@ -401,7 +401,7 @@ void Draw_Schedule_Time_Setting_Page(uint8_t period_num, uint8_t leave_col, uint
 	POINT_COLOR = save_color;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
-	Show_Str(86, 142, save_color, WHITE, (char*)lan_str, 16, 0);
+	Show_Str_Right(BTN_RIGHT_X, 142, save_color, WHITE, (char*)lan_str, 16, 0);
 }
 
 // Clear arrow area (for switching between edit modes)
@@ -566,14 +566,14 @@ void Draw_Schedule_Time_Setting_Save(void)
 
 	save_color = (item_selection == 5) ? RED : BLACK;
 
-	// Clear Save area (x=84~110, y=142~158)
-	LCD_Fill(84, 142, 110, 158, WHITE);
+	// Clear Save area (right-aligned button, up to 10 chars: x=38~118, y=142~158) (2026-11-06)
+	LCD_Fill(BTN_RIGHT_X - 80, 142, BTN_RIGHT_X, 158, WHITE);
 
 	// Draw "Save"
 	POINT_COLOR = save_color;
 	BACK_COLOR = WHITE;
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
-	Show_Str(86, 142, save_color, WHITE, (char*)lan_str, 16, 0);
+	Show_Str_Right(BTN_RIGHT_X, 142, save_color, WHITE, (char*)lan_str, 16, 0);
 }
 
 // Child Lock PIN Code Functions
@@ -621,9 +621,9 @@ void Draw_Leave_Schedule_Confirm_Page(uint8_t selection)
 	// Draw Yes (right): selection=1 -> RED, selection=0 -> BLACK
 	lan_str = LanguageTable[STR_Yes][g_parameter.language];
 	if(selection == 1){
-		Show_Str(box_x + box_w - 28, box_y + box_h - 22, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(box_x + box_w - 4, box_y + box_h - 22, RED, WHITE, (char*)lan_str, 16, 0);	// right-aligned (2026-11-06)
 	}else{
-		Show_Str(box_x + box_w - 28, box_y + box_h - 22, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(box_x + box_w - 4, box_y + box_h - 22, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 

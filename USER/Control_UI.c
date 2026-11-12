@@ -199,7 +199,7 @@ void Draw_Control_Adj_Menu_Page(uint8_t selection, uint8_t leave_col, uint8_t ed
 	if(control_adj_menu_scroll > max_scroll) control_adj_menu_scroll = max_scroll;
 
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-	Draw_TopBar(leave_col, edit_col);
+	Draw_TopBar_Leave(leave_col);  // Intermediate menu: Leave Icon only
 
 	// Draw horizontal separator line below TopBar
 	LCD_Fill(4, 24, lcddev.width - 4, 25, BLACK);
@@ -272,9 +272,9 @@ void Draw_Control_Adj_Sensor_Choices(uint8_t selection)
 	// Draw Save button at bottom
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 2){
-		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	}else{
-		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -295,12 +295,88 @@ void Draw_Control_Adj_Sensor_Page(uint8_t selection, uint8_t leave_col, uint8_t 
 	lan_str = LanguageTable[STR_Sensor][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Draw horizontal separator line right below the TopBar (TopBar ends at y=21)
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 	Draw_Control_Adj_Sensor_Choices(selection);
+}
+
+
+// External sensor resistance texts (index = EXT_SENSOR_xxx), same in every language
+static const char *const Ext_Sensor_Type_Text[EXT_SENSOR_TYPE_MAX] = {"10K", "12K", "15K", "50K", "100K"};
+
+// Draw 10K/12K/15K/50K/100K choices for the External Sensor Type page (2026-11-06)
+// selection: 0=TopBar, 1=Edit, 2=Save; current_ext_sensor_type = chosen item
+// Option-pick page: ON icon at x=12 on the chosen item only, 5 rows of 20px
+void Draw_Control_Adj_Ext_Sensor_Type_Choices(uint8_t selection)
+{
+	uint16_t row_y[EXT_SENSOR_TYPE_MAX] = {28, 49, 70, 91, 112};
+	uint8_t row_height = 20;
+	uint8_t i;
+	uint8_t is_edit = (selection == 1);
+
+	for(i = 0; i < EXT_SENSOR_TYPE_MAX; i++) {
+		uint16_t text_color, bg_color;
+		uint8_t is_selected = (current_ext_sensor_type == i);
+
+		if(is_edit && is_selected) {
+			// Edit mode, selected item: red bg, white text
+			text_color = WHITE;
+			bg_color = RED;
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, RED);
+		} else {
+			// TopBar/Save mode or unselected: white bg, black text
+			text_color = BLACK;
+			bg_color = WHITE;
+			LCD_Fill(4, row_y[i], lcddev.width - 4, row_y[i] + row_height, WHITE);
+		}
+
+		// ON icon on the chosen option only; other rows stay blank
+		if(is_selected) {
+			uint8_t icon_y = row_y[i] + (row_height - 16) / 2;
+			if(bg_color == RED) {
+				GUI_DrawMonoIcon16x16(12, icon_y, WHITE, RED, ON_Icon_16x16);       // edit mode: red bg, white line
+			} else {
+				GUI_DrawMonoIcon16x16(12, icon_y, BLACK, WHITE, ON_Icon_16x16);     // TopBar/Save: white bg, black line
+			}
+		}
+
+		POINT_COLOR = text_color;
+		BACK_COLOR = bg_color;
+		Show_Str(34, row_y[i] + (row_height - 16) / 2, text_color, bg_color, (char*)Ext_Sensor_Type_Text[i], 16, 0);
+	}
+
+	// Save button at bottom
+	lan_str = LanguageTable[STR_Save][g_parameter.language];
+	if(selection == 2){
+		Show_Str_Right(BTN_RIGHT_X, 135, RED, WHITE, (char*)lan_str, 16, 0);
+	}else{
+		Show_Str_Right(BTN_RIGHT_X, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
+	}
+}
+
+// Draw External Sensor Type page (title "Ext Type"), Leave + Edit TopBar
+void Draw_Control_Adj_Ext_Sensor_Type_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
+{
+	uint16_t title_x;
+	uint8_t title_width;
+
+	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
+	Draw_TopBar(leave_col, edit_col);
+
+	POINT_COLOR = BLACK;
+	BACK_COLOR = WHITE;
+	lan_str = LanguageTable[STR_Ext_Type][g_parameter.language];
+	title_width = strlen((char*)lan_str) * 8;
+	title_x = (lcddev.width - title_width) / 2;
+	Show_TopBar_Title(title_x, (char*)lan_str);
+
+	// Draw horizontal separator line right below the TopBar (TopBar ends at y=21)
+	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
+
+	Draw_Control_Adj_Ext_Sensor_Type_Choices(selection);
 }
 
 
@@ -352,9 +428,9 @@ void Draw_Control_Adj_TempCorrect_Contect(uint8_t selection)
 	// Save button (keep original position)
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
-		Show_Str(86, 140, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 140, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 140, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 140, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 // Draw Control Adj Temp. Correct Setting Page
@@ -379,7 +455,7 @@ void Draw_Control_Adj_TempCorrect_Page(uint8_t selection, uint8_t leave_col, uin
 	lan_str = LanguageTable[STR_Sensor_Cal_Short][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Draw horizontal separator line right below TopBar
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -432,9 +508,9 @@ void Draw_Control_Adj_TempLimit_Content(uint8_t selection)
 	// Save button (keep original position)
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
-		Show_Str(86, 140, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 140, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 140, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 140, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -452,7 +528,7 @@ void Draw_Control_Adj_TempLimit_Page(uint8_t selection, uint8_t leave_col, uint8
 	lan_str = LanguageTable[STR_Limit][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Draw horizontal separator line right below TopBar
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -469,11 +545,10 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 	uint16_t title_x;
 	uint8_t title_width;
 	char *line1[2] = {"Max Temp.", "Min Temp."};
-	char *line2 = "Protect";
-	char *line2_n = "Beskytte";
+	char *line2 = (char*)LanguageTable[STR_Protect_Line2][g_parameter.language];	// was "Protect" / "Beskytte" (2026-11-06)
 
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-	Draw_TopBar(leave_col, edit_col);
+	Draw_TopBar_Leave(leave_col);  // Intermediate menu: Leave Icon only
 
 	// Title: Protect centered in TopBar
 	POINT_COLOR = BLACK;
@@ -481,7 +556,7 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 	lan_str = LanguageTable[STR_Protect_Temperature_short][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Separator right below TopBar
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -508,11 +583,7 @@ void Draw_Control_Adj_TempProtect_Page(uint8_t selection, uint8_t leave_col, uin
 		POINT_COLOR = text_color;
 		BACK_COLOR = bg_color;
 		Show_Str(28, row_y[i], text_color, bg_color, line1[i], 16, 0);
-		if(g_parameter.language == LANG_ENGLISH){
-				Show_Str(28, row_y[i] + 16, text_color, bg_color, line2, 16, 0);
-		}else if(g_parameter.language == LANG_Norwegian){
-				Show_Str(28, row_y[i] + 16, text_color, bg_color, line2_n, 16, 0);
-		}
+		Show_Str(28, row_y[i] + 16, text_color, bg_color, line2, 16, 0);
 
 		// ON/OFF icon at right side (16x16)
 		onoff = (i == 0) ? g_parameter.temp_protect_max_switch : g_parameter.temp_protect_min_switch;
@@ -571,9 +642,9 @@ void Draw_Control_Adj_TempProtect_Max_Content(uint8_t selection)
 
 	// Save button (selection == 3) — keep original position
 	if(selection == 3) {
-		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -591,7 +662,7 @@ void Draw_Control_Adj_TempProtect_Max_Page(uint8_t selection, uint8_t leave_col,
 	lan_str = LanguageTable[STR_Max_Temperature_Protect][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Draw horizontal separator line right below TopBar
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -643,9 +714,9 @@ void Draw_Control_Adj_TempProtect_Min_Content(uint8_t selection)
 
 	// Save button (selection == 3) — keep original position
 	if(selection == 3) {
-		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -663,7 +734,7 @@ void Draw_Control_Adj_TempProtect_Min_Page(uint8_t selection, uint8_t leave_col,
 	lan_str = LanguageTable[STR_Min_Temperature_Protect][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Draw horizontal separator line right below TopBar
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -729,9 +800,9 @@ void Draw_Control_Adj_Power_On_State_Arrow(uint8_t selection)
 	// Save button (always visible) — keep original position
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 2) {
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 void Draw_Control_Adj_Power_On_State_Page(uint8_t selection, uint8_t leave_col, uint8_t edit_col)
@@ -748,7 +819,7 @@ void Draw_Control_Adj_Power_On_State_Page(uint8_t selection, uint8_t leave_col, 
 	lan_str = LanguageTable[STR_State][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Draw horizontal separator line right below TopBar
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -808,9 +879,9 @@ void Draw_Control_Adj_Power_Limit_Content(uint8_t selection)
 	// ===== Save button (keep original position) =====
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
-		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -828,7 +899,7 @@ void Draw_Control_Adj_Power_Limit_Page(uint8_t selection, uint8_t leave_col, uin
 	lan_str = LanguageTable[STR_Limit][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 
 	// Draw horizontal separator line right below TopBar
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -851,7 +922,7 @@ void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection)
 		LCD_Fill(63, 102, 66, 105, BLACK);
 		GUI_DrawBigDigit(68, 50, BLACK, WHITE, '0' + dec_part, 0);
 		GUI_DrawMonoIcon24x24(100, 54, BLACK, WHITE, Celsius_Icon_24x24);
-		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 1) {
 		// Edit mode: show arrows + number + Save
 		LCD_Fill(5, 40, lcddev.width - 5, 126, WHITE);
@@ -861,12 +932,12 @@ void Draw_Control_Adj_Temp_Swing_Content(uint8_t selection)
 		LCD_Fill(63, 102, 66, 105, BLACK);
 		GUI_DrawBigDigit(68, 50, BLACK, WHITE, '0' + dec_part, 0);
 		GUI_DrawMonoIcon24x24(100, 54, BLACK, WHITE, Celsius_Icon_24x24);
-		Show_Str(86, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, BLACK, WHITE, (char*)lan_str, 16, 0);
 	} else if(selection == 2) {
 		// Save mode: clear arrows, Save red
 		LCD_Fill(6, 82, 22, 98, WHITE);
 		LCD_Fill(106, 82, 122, 98, WHITE);
-		Show_Str(86, 135, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 135, RED, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -882,7 +953,7 @@ void Draw_Control_Adj_Temp_Swing_Page(uint8_t selection, uint8_t leave_col, uint
 	lan_str = LanguageTable[STR_Temp_Swing][g_parameter.language];
 	title_width = strlen((char*)lan_str) * 8;
 	title_x = (lcddev.width - title_width) / 2;
-	Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+	Show_TopBar_Title(title_x, (char*)lan_str);
 	LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 	Draw_Control_Adj_Temp_Swing_Content(selection);
 }
@@ -944,9 +1015,9 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Content(uint8_t selection)
 		// Save button (bottom right) — keep original position
 		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 3)
-				Show_Str(94, 142, RED, WHITE, (char*)lan_str, 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 		else
-				Show_Str(94, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 }
 
 // Draw full PWM Duty Cycle page (TopBar + title + content)
@@ -964,7 +1035,7 @@ void Draw_Control_Adj_PWM_Duty_Cycle_Page(uint8_t selection, uint8_t leave_col, 
 		lan_str = LanguageTable[STR_PWM_Duty][g_parameter.language];
 		title_width = strlen((char*)lan_str) * 8;
 		title_x = (lcddev.width - title_width) / 2;
-		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_TopBar_Title(title_x, (char*)lan_str);
 		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
 
 		Draw_Control_Adj_PWM_Duty_Cycle_Content(selection);
@@ -1024,9 +1095,9 @@ void Draw_Operation_Mode_PWM_Setting_Content(uint8_t selection)
 	// Save button
 	lan_str = LanguageTable[STR_Save][g_parameter.language];
 	if(selection == 3) {
-		Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 	} else {
-		Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 	}
 }
 
@@ -1095,7 +1166,7 @@ void Draw_Control_Adj_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uin
 		uint8_t title_width;
 
 		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-		Draw_TopBar(leave_col, edit_col);
+		Draw_TopBar_Leave(leave_col);  // Intermediate menu: Leave Icon only
 
 		// Draw title centered in TopBar
 		POINT_COLOR = BLACK;
@@ -1103,7 +1174,7 @@ void Draw_Control_Adj_PWM_Setting_Page(uint8_t selection, uint8_t leave_col, uin
 		lan_str = LanguageTable[STR_PWM][g_parameter.language];
 		title_width = strlen((char*)lan_str) * 8;
 		title_x = (lcddev.width - title_width) / 2;
-		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_TopBar_Title(title_x, (char*)lan_str);
 
 		// Draw horizontal separator line right below TopBar
 		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -1118,7 +1189,7 @@ void Draw_Control_Adj_PWM_Astro_Time_Page(uint8_t selection, uint8_t leave_col, 
 		uint8_t title_width;
 
 		LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);
-		Draw_TopBar(leave_col, edit_col);
+		Draw_TopBar_Leave(leave_col);  // Intermediate menu: Leave Icon only
 
 		// Draw title centered in TopBar
 		POINT_COLOR = BLACK;
@@ -1126,7 +1197,7 @@ void Draw_Control_Adj_PWM_Astro_Time_Page(uint8_t selection, uint8_t leave_col, 
 		lan_str = LanguageTable[STR_Astro_Setting][g_parameter.language];
 		title_width = strlen((char*)lan_str) * 8;
 		title_x = (lcddev.width - title_width) / 2;
-		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_TopBar_Title(title_x, (char*)lan_str);
 
 		// Draw horizontal separator line right below TopBar
 		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -1177,14 +1248,52 @@ void Draw_Control_Adj_PWM_Astro_Time_Content(uint8_t selection)
 		}
 }
 
-// Draw Control Adj PWM Location Page content — 3 choices: Oslo / Stockholm / Helsinki
-// Modeled after Draw_Control_Adj_Sensor_Choices (arrow always red on the current selection,
-// row highlighted red only while actively cycling, Save confirm at bottom)
-// selection: 0=TopBar (read-only echo), 1=choosing (uses temp_location), 2=Save confirm
+// Astro Location display order (2026-11-10): capitals in language order
+// Norsk / Svenska / Dansk / Suomi / Deutsch. temp_location holds the ROW index;
+// g_parameter.location keeps the enum value (Flash compatible).
+static const uint8_t astro_location_order[ASTRO_LOCATION_MAX] = {
+		ASTRO_LOCATION_OSLO,
+		ASTRO_LOCATION_STOCKHOLM,
+		ASTRO_LOCATION_COPENHAGEN,
+		ASTRO_LOCATION_HELSINKI,
+		ASTRO_LOCATION_BERLIN,
+};
+
+static const uint16_t astro_location_str[ASTRO_LOCATION_MAX] = {
+		[ASTRO_LOCATION_OSLO]       = STR_Oslo,
+		[ASTRO_LOCATION_STOCKHOLM]  = STR_Stockholm,
+		[ASTRO_LOCATION_HELSINKI]   = STR_Helsinki,
+		[ASTRO_LOCATION_COPENHAGEN] = STR_Copenhagen,
+		[ASTRO_LOCATION_BERLIN]     = STR_Berlin,
+};
+
+// g_parameter.location (enum) -> display row; invalid value (e.g. erased Flash 0xFF) -> Oslo row
+uint8_t Astro_Location_To_Row(uint8_t location)
+{
+		uint8_t row;
+		for(row = 0; row < ASTRO_LOCATION_MAX; row++) {
+				if(astro_location_order[row] == location) {
+						return row;
+				}
+		}
+		return 0;
+}
+
+// display row -> g_parameter.location (enum)
+uint8_t Astro_Row_To_Location(uint8_t row)
+{
+		return (row < ASTRO_LOCATION_MAX) ? astro_location_order[row] : ASTRO_LOCATION_OSLO;
+}
+
+// Draw Control Adj PWM Location Page content — 5 choices (2026-11-10):
+// Oslo / Stockholm / Copenhagen / Helsinki / Berlin
+// Option-pick page: ON icon at x=12 on the chosen row only; 5 rows of 20px
+// (same layout as the External Sensor Type page), Save confirm at bottom
+// selection: 0=TopBar (read-only echo), 1=choosing (uses temp_location = row), 2=Save confirm
 void Draw_Control_Adj_PWM_Location_Choices(uint8_t selection)
 {
-		uint16_t row_y[ASTRO_LOCATION_MAX] = {34, 62, 90};
-		uint8_t row_height = 24;
+		uint16_t row_y[ASTRO_LOCATION_MAX] = {28, 49, 70, 91, 112};
+		uint8_t row_height = 20;
 		uint8_t i;
 		uint8_t is_edit = (selection == 1);
 
@@ -1217,22 +1326,16 @@ void Draw_Control_Adj_PWM_Location_Choices(uint8_t selection)
 				// Text
 				POINT_COLOR = text_color;
 				BACK_COLOR = bg_color;
-				if(i == ASTRO_LOCATION_OSLO) {
-						lan_str = LanguageTable[STR_Oslo][g_parameter.language];
-				} else if(i == ASTRO_LOCATION_STOCKHOLM) {
-						lan_str = LanguageTable[STR_Stockholm][g_parameter.language];
-				} else {
-						lan_str = LanguageTable[STR_Helsinki][g_parameter.language];
-				}
+				lan_str = LanguageTable[astro_location_str[astro_location_order[i]]][g_parameter.language];
 				Show_Str(34, row_y[i] + (row_height - 16) / 2, text_color, bg_color, (char*)lan_str, 16, 0);
 		}
 
 		// Save button at bottom
 		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 2){
-				Show_Str(86, 125, RED, WHITE, (char*)lan_str, 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 125, RED, WHITE, (char*)lan_str, 16, 0);
 		}else{
-				Show_Str(86, 125, BLACK, WHITE, (char*)lan_str, 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 125, BLACK, WHITE, (char*)lan_str, 16, 0);
 		}
 }
 
@@ -1251,7 +1354,7 @@ void Draw_Control_Adj_PWM_Location_Page(uint8_t selection, uint8_t leave_col, ui
 		lan_str = LanguageTable[STR_Location][g_parameter.language];
 		title_width = strlen((char*)lan_str) * 8;
 		title_x = (lcddev.width - title_width) / 2;
-		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_TopBar_Title(title_x, (char*)lan_str);
 
 		// Draw horizontal separator line right below TopBar
 		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);
@@ -1281,7 +1384,7 @@ void Draw_Control_Adj_PWM_Tolerance_Content(uint8_t selection)
 		const uint8_t sign_w = 20;
 		const uint16_t digit_y = 56;
 		const uint16_t up_arrow_y = 36;
-		const uint16_t down_arrow_y = 122;
+		const uint16_t down_arrow_y = 126;
 		uint16_t total_w, start_x, digits_x;
 
 		LCD_Fill(0, 34, lcddev.width, 138, WHITE);
@@ -1331,9 +1434,9 @@ void Draw_Control_Adj_PWM_Tolerance_Content(uint8_t selection)
 		// Save button
 		lan_str = LanguageTable[STR_Save][g_parameter.language];
 		if(selection == 2){
-				Show_Str(86, 142, RED, WHITE, (char*)lan_str, 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 142, RED, WHITE, (char*)lan_str, 16, 0);
 		}else{
-				Show_Str(86, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
+				Show_Str_Right(BTN_RIGHT_X, 142, BLACK, WHITE, (char*)lan_str, 16, 0);
 		}
 }
 
@@ -1352,7 +1455,7 @@ void Draw_Control_Adj_PWM_Tolerance_Page(uint8_t selection, uint8_t leave_col, u
 		lan_str = LanguageTable[STR_Tolerance][g_parameter.language];
 		title_width = strlen((char*)lan_str) * 8;
 		title_x = (lcddev.width - title_width) / 2;
-		Show_Str(title_x, 5, BLACK, WHITE, (char*)lan_str, 16, 0);
+		Show_TopBar_Title(title_x, (char*)lan_str);
 
 		// Draw horizontal separator line right below TopBar
 		LCD_Fill(4, 22, lcddev.width - 4, 23, BLACK);

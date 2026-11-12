@@ -82,6 +82,8 @@ enum{
 
 		STATE_FACTORY_TEST,
 
+		STATE_CONTROL_ADJ_EXT_SENSOR_TYPE,	// Control Adj Menu -> External Sensor Type (2026-11-06, added last so existing state numbers stay the same)
+
 };
 
 #include <stdint.h>

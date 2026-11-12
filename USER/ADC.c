@@ -84,9 +84,20 @@ static const uint32_t INT_NTC_table[] =
 
 #define  _R2												(10000)
 
+#if (MULTI_EXT_SENSOR)
+// New board (2026-11-11): 3V3 - R13 33K 1% - NTC_VCC - NTC - GND, R14 1K + C15 100nF filter to PB1.
+// R14 carries no DC current, so only R13 and the NTC take part in the divider.
+#define  EXTERNAL_R_PULLUP       33000.0f
+
+// All supported sensors are B3950, so R_xK(T) = R_10K(T) * (xK / 10K): divide the measured
+// resistance by this scale and look it up in the 10K EXT_NTC_table (index = EXT_SENSOR_xxx)
+static const float Ext_Sensor_R25_Scale[EXT_SENSOR_TYPE_MAX] = {1.0f, 1.2f, 1.5f, 5.0f, 10.0f};
+#else
+// Old board: NTC on top, 470R series + 4.7K pull-down, 10K NTC only
 #define  EXTERNAL_R_SERIES       470.0f
 
 #define  EXTERNAL_R_PULLDOWN     4700.0f
+#endif
 
 #define  ADC_VREF                3.3f
 
@@ -543,7 +554,21 @@ static float adc_raw_to_temp(uint16_t raw, uint8_t channel_num)
         resistance = (adc_ctrl.vcc_voltage - voltage) * _R2 / voltage;
         return ntc_lookup(resistance, INT_NTC_table);
     }
+#if (MULTI_EXT_SENSOR)
+    {
+        uint8_t type = g_parameter.ext_sensor_type;
+        if (type >= EXT_SENSOR_TYPE_MAX) type = EXT_SENSOR_10K;
+        if (raw >= 4095)
+        {
+            return -999.0f;                     // Open sensor: NTC_VCC pulled up to 3V3
+        }
+        // Ratiometric: R13 and the ADC share 3V3, so supply drift cancels out (no vcc_voltage needed)
+        resistance = EXTERNAL_R_PULLUP * (float)raw / (ADC_RESOLUTION - (float)raw);
+        resistance /= Ext_Sensor_R25_Scale[type];   // Convert to the 10K-equivalent resistance
+    }
+#else
     resistance = (adc_ctrl.vcc_voltage * EXTERNAL_R_PULLDOWN / voltage) - (EXTERNAL_R_SERIES + EXTERNAL_R_PULLDOWN);
+#endif
     return ntc_lookup(resistance, EXT_NTC_table);
 }
 
@@ -641,6 +666,26 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
             }
 
             filtered_avg = (uint16_t)(sum / (ADC_AVG_BUFFER_SIZE - 2));
+#if (MULTI_EXT_SENSOR)
+            // External Sensor Type changed: readings of the old type use another scale, drop them
+            if (channel_num == 9)
+            {
+                static uint8_t prev_ext_type = 0xFF;
+                if (prev_ext_type != g_parameter.ext_sensor_type)
+                {
+                    if (prev_ext_type != 0xFF)
+                    {
+                        adc_ctrl.ext_ntc_count = 0;
+                        adc_ctrl.ext_ntc_valid = 0;
+                        adc_ctrl.ext_valid_run = 0;
+                        adc_ctrl.ext_sensor_error = 0;		// 2026-11-11: old error came from the old type; judge the new type on its first reading
+                        display_refresh_request = 1;
+                    }
+                    prev_ext_type = g_parameter.ext_sensor_type;
+                    LOGD("EXT_TYPE=%d\r\n", prev_ext_type);
+                }
+            }
+#endif
             temperature = adc_raw_to_temp(filtered_avg, channel_num);
 
             if (temperature <= -100.0f)
@@ -661,6 +706,9 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
 										}else if(channel_num == 9){
 #if(!NO_Power_Board)
 												adc_ctrl.ext_sensor_error = 1;
+#endif
+#if (MULTI_EXT_SENSOR)
+												Ext_Sensor_Update_Finish();		// new type still out of range: back to Active, error box drawn below
 #endif
 										}
 											// Draw error screen immediately: sync with the 100% backlight alert (QA 5.2)
@@ -695,6 +743,7 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
                         ((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP)))
                     {
                         display_refresh_request = 1;
+                        Clear_Number_Area();			// 2026-11-11: erase the whole red error box (Draw_Active_Menu only redraws the digits)
                         Draw_Active_Menu();				// Replace the sensor error box with the normal main page
                     }
                 }
@@ -728,6 +777,12 @@ float adc_process_channel(adc_channel_data_t *ch, uint8_t channel_num)
 										//LOGD("Average_EXT_Temp, %.2f\r\n", Average_EXT_Temp);
 										
 								}
+#if (MULTI_EXT_SENSOR)
+                if ((channel_num == 9) && (adc_ctrl.ext_sensor_error == 0))
+                {
+                    Ext_Sensor_Update_Finish();		// first valid reading of the new type: back to Active (drawn by the call below)
+                }
+#endif
                 ADC_Update_Display_Temperature(channel_num);
             }
             result = temperature;
@@ -874,6 +929,15 @@ void Thermostat_Update(void)
 
     meas_capture_update();
 
+#if (MULTI_EXT_SENSOR)
+    // 2026-11-11: never stay on "Sensor Updating" if no CH9 result arrives (e.g. VCC invalid)
+    if (ext_sensor_updating && ((time_tick - ext_sensor_update_tick) > EXT_SENSOR_UPDATE_TIMEOUT))
+    {
+        LOGD("EXT_UPDATE timeout\r\n");
+        Ext_Sensor_Update_Finish();
+    }
+#endif
+
     // Process any completed conversions as soon as possible
     if (adc_ctrl.ch8.complete)
     {
@@ -983,6 +1047,13 @@ void Thermostat_Update(void)
     }
 }
 
+// 1 = the current UI state shows the main screen (where the sensor error box belongs)
+static uint8_t ADC_Main_Screen_Shown(void)
+{
+		return (uint8_t)((UI_state == STATE_ACTIVE) || (UI_state == STATE_SLEEP) ||
+		                 (UI_state == STATE_SETTING) || (UI_state == STATE_WINDOW_OPEN_DETECTED));
+}
+
 void ADC_Update_Display_Temperature(uint8_t channel){
 
     float sum;
@@ -1057,22 +1128,30 @@ void ADC_Update_Display_Temperature(uint8_t channel){
 				window_fun_ext_updated = 1;
     }
 		if(adc_ctrl.int_sensor_error == 1){
-				Clear_Number_Area();
-				LCD_Fill(5, 66, 123, 98, RED);
-				lan_str = LanguageTable[STR_Internal][g_parameter.language];
-				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
-				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
-				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				// 2026-11-11: draw the error box only on pages that show the main screen, so it does not
+				// paint over a menu page (e.g. External Sensor Type page opened from the error screen)
+				if(ADC_Main_Screen_Shown()){
+						Clear_Number_Area();
+						LCD_Fill(5, 66, 123, 98, RED);
+						lan_str = LanguageTable[STR_Internal][g_parameter.language];
+						Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
+						lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
+						Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				}
 				return;
 		}
 		
 		if(adc_ctrl.ext_sensor_error == 1){
-				Clear_Number_Area();
-				LCD_Fill(5, 66, 123, 98, RED);
-				lan_str = LanguageTable[STR_External][g_parameter.language];
-				Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
-				lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
-				Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				// 2026-11-11: draw the error box only on pages that show the main screen, so it does not
+				// paint over a menu page (e.g. External Sensor Type page opened from the error screen)
+				if(ADC_Main_Screen_Shown()){
+						Clear_Number_Area();
+						LCD_Fill(5, 66, 123, 98, RED);
+						lan_str = LanguageTable[STR_External][g_parameter.language];
+						Show_Str(21, 66, WHITE, RED, (char*)lan_str, 16, 0);
+						lan_str = LanguageTable[STR_Sensor_Error][g_parameter.language];
+						Show_Str(21, 82, WHITE, RED, (char*)lan_str, 16, 0);
+				}
 				return;
 		}
 

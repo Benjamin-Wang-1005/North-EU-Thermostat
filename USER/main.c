@@ -75,7 +75,9 @@ int main(void)
 	// Set rotation to 0 degrees
 	LCD_direction(2);
 	LCD_Fill(0, 0, lcddev.width, lcddev.height, WHITE);			// Clear screen with white background
-	LOGD("-----------------  Program Start --------------------------\n\r");
+	LOGD("------------------------------------------------------------------\n\r");
+	LOGD("-                  ZONOVA Technology ZO-NTH-001                  -\n\r");
+	LOGD("------------------------------------------------------------------\n\r");
 	
 	my_RTC_Init();			 //Read RTC Time
 	
@@ -185,7 +187,7 @@ int main(void)
 						Draw_User_Setting_SetTime_Page(item_selection, leave_icon_color, edit_icon_color);
 				}
 	 }else{
-				LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, en_week_texts[weekday]);	
+				LOGD("%d/%d/%d  %d:%d  W:%s\r\n", rtc_time.Year, rtc_time.Mon, rtc_time.Date, rtc_time.Hour, rtc_time.Min, (char*)Week_Texts[LANG_ENGLISH][weekday]);	
 	 }
 	 
 		
