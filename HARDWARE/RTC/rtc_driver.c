@@ -482,3 +482,71 @@ uint8_t RTC_SetTime(rtc_time_t *time)
 
     return RTC_OK;
 }
+
+//---------------------------------------------------------------------------------------------------------
+// Function: RTC_SetTimeAligned
+// Description: PCBA test - set RTC like RTC_SetTime(), but keep the error to the host under 0.5 s.
+//      The STM32F1 RTC divider cannot be reset, so the next second tick comes 0~1 s after the counter
+//      is written. If less than 0.5 s is left before that tick, write one second less, so the tick
+//      itself lands on the requested second.
+// Date: 2026/11/12
+//---------------------------------------------------------------------------------------------------------
+uint8_t RTC_SetTimeAligned(rtc_time_t *time)
+{
+    uint32_t div;
+    uint8_t ret;
+
+    div = RTC_GetDivider();                     // LSE ticks left before the next second (32767 ~ 0)
+    ret = RTC_SetTime(time);
+    if ((ret == RTC_OK) && (div < 16384))       // Less than 0.5 s to the next tick
+    {
+        PWR_BackupAccessCmd(ENABLE);
+        RTC_WaitForLastTask();
+        RTC_SetCounter(RTC_GetCounter() - 1);
+        RTC_WaitForLastTask();
+    }
+    return ret;
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: RTC_ReadTimeMs
+// Description: PCBA test - same as RTC_ReadTime() (DST applied) plus milliseconds from the RTC divider.
+//      Counter and divider are read until the counter is stable, so the pair is consistent.
+// Date: 2026/11/12
+//---------------------------------------------------------------------------------------------------------
+uint8_t RTC_ReadTimeMs(rtc_time_t *time, uint16_t *ms)
+{
+    uint32_t c1;
+    uint32_t c2;
+    uint32_t div;
+    rtc_time_t std_time;
+
+    if ((time == NULL) || (ms == NULL))
+    {
+        return RTC_ERROR;
+    }
+
+    do
+    {
+        c1 = RTC_GetCounter();
+        div = RTC_GetDivider();
+        c2 = RTC_GetCounter();
+    } while (c1 != c2);
+
+    RTC_Counter_To_Calendar(c1, &std_time);
+    if (DST_Is_Active(std_time.Year, std_time.Mon, std_time.Date, std_time.Hour))
+    {
+        RTC_Counter_To_Calendar(c1 + 3600, time);
+    }
+    else
+    {
+        *time = std_time;
+    }
+
+    if (div > 32767)
+    {
+        div = 32767;
+    }
+    *ms = (uint16_t)(((32767UL - div) * 1000UL) / 32768UL);
+    return RTC_OK;
+}

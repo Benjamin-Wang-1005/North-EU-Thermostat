@@ -73,6 +73,7 @@
 #define RELAY_TEST_MASK									0x10
 #define VCC_TEST_MASK										0x20
 #define FW_TEST_MASK										0x40
+#define KEY_MON_MASK										0x80		// PCBA test: report key presses without blocking (2026/11/12)
 
 #define LONG_PRESS_THRESHOLD						(250)
 typedef enum 

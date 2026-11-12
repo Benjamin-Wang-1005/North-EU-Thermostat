@@ -55,6 +55,8 @@ void RTC_Start(void);
 uint8_t RTC_IsConfigured(void);
 void RTC_GetDefaultTime(rtc_time_t *time);
 uint8_t RTC_Is_DST_Active_Today(void);
+uint8_t RTC_SetTimeAligned(rtc_time_t *time);
+uint8_t RTC_ReadTimeMs(rtc_time_t *time, uint16_t *ms);
 
 // Helper functions
 uint8_t RTC_BCDToByte(uint8_t bcd);

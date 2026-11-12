@@ -405,6 +405,132 @@ void get_FW_cmd(void)
 		uint16_t fw_ver = FW_VER;
 		TCMD("DATA:FW:0x%04X\n", fw_ver);
 }
+
+//---------------------------------------------------------------------------------------------------------
+// Function: rtc_cmd(char *param)
+// Description: PCBA test - RTC:SET:YYYYMMDDhhmmss, set RTC from the host time
+// Date: 2026/11/12
+//----------------------------------------------------------------------------------------------------------
+void rtc_cmd(char *param)
+{
+		rtc_time_t t;
+		uint16_t year;
+		uint8_t i;
+		char *p;
+
+		if(strncmp(param, "SET:", 4) != 0){
+				TCMD("RES:RTC:ERR\n");
+				return;
+		}
+		p = param + 4;
+		for(i = 0; i < 14; i++){
+				if((p[i] < '0') || (p[i] > '9')){
+						TCMD("RES:RTC:ERR\n");
+						return;
+				}
+		}
+		if(p[14] != '\0'){
+				TCMD("RES:RTC:ERR\n");
+				return;
+		}
+		year = (p[0] - '0') * 1000 + (p[1] - '0') * 100 + (p[2] - '0') * 10 + (p[3] - '0');
+		if((year < 2000) || (year > 2099)){
+				TCMD("RES:RTC:ERR\n");
+				return;
+		}
+		t.Year = year - 2000;									// rtc_time_t keeps the year as offset from 2000
+		t.Mon  = (p[4] - '0') * 10 + (p[5] - '0');
+		t.Date = (p[6] - '0') * 10 + (p[7] - '0');
+		t.Hour = (p[8] - '0') * 10 + (p[9] - '0');
+		t.Min  = (p[10] - '0') * 10 + (p[11] - '0');
+		t.Sec  = (p[12] - '0') * 10 + (p[13] - '0');
+
+		if(RTC_SetTimeAligned(&t) != RTC_OK){
+				TCMD("RES:RTC:ERR\n");
+				return;
+		}
+		RTC_ReadTime(&rtc_time);								// Main screen shows the new time after EXIT
+		LOGD("RTC set: %s\n", p);
+		TCMD("RES:RTC:OK\n");
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: get_rtc_cmd
+// Description: PCBA test - GET:RTC, reply DATA:RTC:YYYY-MM-DD hh:mm:ss.mmm
+// Date: 2026/11/12
+//----------------------------------------------------------------------------------------------------------
+void get_rtc_cmd(void)
+{
+		rtc_time_t t;
+		uint16_t ms;
+
+		if(RTC_ReadTimeMs(&t, &ms) != RTC_OK){
+				TCMD("DATA:RTC:ERR\n");
+				return;
+		}
+		TCMD("DATA:RTC:%04u-%02u-%02u %02u:%02u:%02u.%03u\n",
+				(unsigned int)(t.Year + 2000), (unsigned int)t.Mon, (unsigned int)t.Date,
+				(unsigned int)t.Hour, (unsigned int)t.Min, (unsigned int)t.Sec, (unsigned int)ms);
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: get_ntc_cmd
+// Description: PCBA test - GET:NTC, live internal NTC temperature (not the MEAS locked result)
+// Date: 2026/11/12
+//----------------------------------------------------------------------------------------------------------
+void get_ntc_cmd(void)
+{
+		char buffer[10];
+
+		if((adc_ctrl.int_ntc_valid == 0) || adc_ctrl.int_sensor_error || (Average_INT_Temp <= -100.0f)){
+				TCMD("DATA:NTC:ERR\n");
+				return;
+		}
+		snprintf(buffer, sizeof(buffer), "%.1f", Average_INT_Temp);
+		TCMD("DATA:NTC:%s\n", buffer);
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: key_mon_cmd(char *param)
+// Description: PCBA test - KEYMON:START / KEYMON:STOP. Unlike KEY_TEST it does not block:
+//              key presses are reported from g_cmd_handler() while KEY_MON_MASK is set.
+// Date: 2026/11/12
+//----------------------------------------------------------------------------------------------------------
+void key_mon_cmd(char *param)
+{
+		if(strcmp(param, "START") == 0){
+				key.key_val = NONKEY;
+				key.key_active = 0;
+				Factory_testing |= KEY_MON_MASK;
+				TCMD("RES:KEYMON:OK\n");
+		}else if(strcmp(param, "STOP") == 0){
+				Factory_testing &= ~KEY_MON_MASK;
+				key.key_val = NONKEY;
+				key.key_active = 0;
+				TCMD("RES:KEYMON:OK\n");
+		}
+}
+
+//---------------------------------------------------------------------------------------------------------
+// Function: key_mon_report
+// Description: PCBA test - send EVENT:KEY:UP/DOWN/ENTER for each key press while KEY_MON_MASK is set
+// Date: 2026/11/12
+//----------------------------------------------------------------------------------------------------------
+static void key_mon_report(void)
+{
+		if(((Factory_testing & KEY_MON_MASK) == 0) || (key.key_val == NONKEY)){
+				return;
+		}
+		if(key.key_val == UPKEY){
+				TCMD("EVENT:KEY:UP\n");
+		}else if(key.key_val == DOWNKEY){
+				TCMD("EVENT:KEY:DOWN\n");
+		}else if(key.key_val == ENTERKEY){
+				TCMD("EVENT:KEY:ENTER\n");
+		}
+		key.key_val = NONKEY;
+		key.key_active = 0;
+}
 //---------------------------------------------------------------------------------------------------------
 // Function: processCmd
 // Description: Process received command from UART
@@ -496,6 +622,16 @@ static void processCmd(char* cmd_str)
 						meas_test_cmd(param);
 				}
 		}
+		else if (strcmp(cmd_name, "RTC") == 0) {
+				if(Factory_testing & FACTORT_TEST_MASK){
+						rtc_cmd(param);
+				}
+		}
+		else if (strcmp(cmd_name, "KEYMON") == 0) {
+				if(Factory_testing & FACTORT_TEST_MASK){
+						key_mon_cmd(param);
+				}
+		}
     else if (strcmp(cmd_name, "GET") == 0) {
         // Handle GET:TEMP or GET:VCC
         if (strcasecmp(param, "TEMP") == 0) {
@@ -509,6 +645,12 @@ static void processCmd(char* cmd_str)
 				}
 				else if (strcasecmp(param, "FW") == 0) {
 						get_FW_cmd();
+				}
+				else if (strcasecmp(param, "RTC") == 0) {
+						get_rtc_cmd();
+				}
+				else if (strcasecmp(param, "NTC") == 0) {
+						get_ntc_cmd();
 				}
         else {
             //send_response("GET", "INVALID");
@@ -546,6 +688,8 @@ void g_cmd_handler(void)
 {
 		char line[UART_FIFO_QTY];
 		uint8_t i;
+
+		key_mon_report();									// PCBA test: key events while KEYMON is on (2026/11/12)
 
 		if(cmd_queue.q_tail != cmd_queue.q_head){
 				for(i = 0; i < UART_FIFO_QTY; i++){
